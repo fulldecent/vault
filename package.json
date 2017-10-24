@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "The Compound Vault contract is where Compound stores customer deposits.",
   "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/truffle/build/cli.bundled.js test"
+  },
   "repository": "git@github.com:compound-finance/vault.git",
   "author": "Mason Fischer <mason@compound.finanace>",
   "license": "© Copyright 2017 Compound",

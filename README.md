@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/compound-finance/vault.svg?style=svg&circle-token=d58f8a4064fc9f3b462d8629cc5187f8a7dcb673)](https://circleci.com/gh/compound-finance/vault)
+
 The Compound Vault ([RFC
 001](https://docs.google.com/document/d/1qZSVKbHnCVKOw11gDUQxZm8TEEahtN_XluvapkcWARY/edit))
 ==============
