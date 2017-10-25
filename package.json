@@ -10,10 +10,15 @@
   "author": "Mason Fischer <mason@compound.finanace>",
   "license": "© Copyright 2017 Compound",
   "dependencies": {
+    "truffle": "^4.0.0-beta.2"
+  },
+  "devDependencies": {
+    "bignumber.js": "^4.1.0",
     "bluebird": "^3.5.1",
     "dotenv": "^4.0.0",
     "lodash": "^4.17.4",
     "truffle": "^4.0.0-beta.2",
-    "truffle-wallet-provider": "0.0.5"
+    "truffle-wallet-provider": "0.0.5",
+    "moment": "^2.19.1"
   }
 }
