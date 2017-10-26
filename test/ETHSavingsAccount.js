@@ -46,22 +46,23 @@ contract('ETHSavingsAccount', function(accounts) {
 
   describe('#getBalanceWithInterest', () => {
     it.only("should calculate cumulative interest", async () => {
-      // %0.05 interest paid out annually
-      const precision = 10000;
-      const principal = new BigNumber(100);
+      // %0.05 interest paid out monthly for 10 years
+      const precision = 10;
+      const multiplyer = Math.pow(10, precision);
+      const principal = new BigNumber(5000);
       const interestRate = new BigNumber(0.05);
       const payoutsPerTimePeriod = new BigNumber(12);
-      const time = new BigNumber(1);
+      const time = new BigNumber(10);
       account = await ETHSavingsAccount.new(interestRate * 100, payoutsPerTimePeriod)
-      await account.deposit({from: web3.eth.accounts[1], value: principal});
-      const balance = await account.getBalanceWithInterest.call(web3.eth.accounts[1], tokenTypes.ETH, time, precision);
+      await account.deposit({from: web3.eth.accounts[1], value: principal.times(multiplyer)});
+      const balance = await account.getBalanceWithInterest.call(web3.eth.accounts[1], tokenTypes.ETH, time);
       const expectedValue = utils.compoundedInterest({
-        principal: principal.dividedBy(100),
+        principal: principal,
         interestRate,
         payoutsPerTimePeriod,
         time,
-      }).times(100).toFixed(0);
-      assert.equal(balance.valueOf(), expectedValue);
+      }).toFixed(6);
+      assert.equal((balance.valueOf()/multiplyer).toFixed(6), expectedValue);
     });
   });
 });

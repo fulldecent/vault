@@ -22,10 +22,17 @@ contract ETHSavingsAccount {
     return balances[address_][uint(tokenType)];
   }
 
-  function getBalanceWithInterest(address address_, uint tokenType, uint time, uint precision) public view returns (uint256) {
-    uint balance = balances[address_][uint(tokenType)];
+  function getBalanceWithInterest(address address_, uint tokenType, uint time) public view returns (uint256) {
+    uint principal = balances[address_][uint(tokenType)];
     uint payouts = time * payoutsPerPeriod;
 
-    return balance * ((precision + uint(interestRate * (precision/100)/payoutsPerPeriod)) ** payouts) / (precision ** payouts);
+    uint amortization = principal;
+
+    for(uint i = 0; i < payouts; i++){
+      amortization = amortization + ((amortization * interestRate) / 100 / payoutsPerPeriod);
+    }
+
+    return amortization;
+    // return principal * ((precision + uint(interestRate * (precision/100)/payoutsPerPeriod)) ** payouts) / (precision ** payouts);
   }
 }
