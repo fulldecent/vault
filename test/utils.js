@@ -37,12 +37,12 @@ module.exports = {
       principal,
       interestRate,
       payoutsPerTimePeriod,
-      time,
+      duration,
     }
   ) =>
     principal.times(
       one.plus(interestRate.dividedBy(payoutsPerTimePeriod)).
-        toPower(payoutsPerTimePeriod.times(time)
+        toPower(payoutsPerTimePeriod.times(duration)
       )
     )
 }
