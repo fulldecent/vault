@@ -11,7 +11,9 @@
   "license": "© Copyright 2017 Compound",
   "dependencies": {
     "bluebird": "^3.5.1",
+    "dotenv": "^4.0.0",
     "lodash": "^4.17.4",
-    "truffle": "^4.0.0-beta.2"
+    "truffle": "^4.0.0-beta.2",
+    "truffle-wallet-provider": "0.0.5"
   }
 }

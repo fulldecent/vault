@@ -2,8 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/node:7.10
-      - image: harshjv/testrpc
+      - image: circleci/node:8.8.1
     working_directory: ~/repo
     steps:
       - checkout
@@ -11,9 +10,100 @@ jobs:
           keys:
           - v1-dependencies-{{ checksum "package.json" }}
           - v1-dependencies-
-      - run: yarn install --check-files
+      - run: npm install
       - save_cache:
           paths:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
-      - run: yarn test
+      - run: ls -al
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - node_modules
+  test:
+    docker:
+      - image: circleci/node:8.8.1
+      - image: harshjv/testrpc
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: npm test
+  deploy-to-mainnet:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mainnet
+  deploy-to-ropsten:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network ropsten
+  deploy-to-rinkeby:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
+  deploy-to-kovan:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network kovan
+  deploy-to-mission:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mission
+workflows:
+  version: 2
+  build-test-and-deploy:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - deploy-to-rinkeby:
+          requires:
+            - test
+      - deploy-to-kovan:
+          requires:
+            - test
+      - deploy-to-mission:
+          requires:
+            - test
+      - deploy-to-ropsten:
+          requires:
+            - test
+      - wait-for-approval:
+          type: approval
+          filters:
+            branches:
+              only: master
+      - deploy-to-mainnet:
+          requires:
+            - wait-for-approval
+            - test
+          filters:
+            branches:
+              only: master
