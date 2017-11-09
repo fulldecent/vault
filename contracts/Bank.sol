@@ -1,6 +1,6 @@
 pragma solidity ^0.4.4;
 
-contract ETHSavingsAccount {
+contract Bank {
   enum Tokens { ETH }
   uint interestRate;
   uint payoutsPerPeriod;
@@ -8,7 +8,7 @@ contract ETHSavingsAccount {
   mapping(address => mapping(uint256 => uint256)) lastEntryTimestamps;
   event LedgerEntry(address address_, uint debit, uint credit);
 
-  function ETHSavingsAccount (uint interestRate_, uint payoutsPerPeriod_) public{
+  function Bank (uint interestRate_, uint payoutsPerPeriod_) public{
     interestRate = interestRate_;
     payoutsPerPeriod = payoutsPerPeriod_;
   }
