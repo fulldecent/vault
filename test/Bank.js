@@ -23,6 +23,13 @@ contract('Bank', function(accounts) {
       assert.equal(balance.valueOf(), 100);
     });
 
+    it("should set the lastEntryTimestamp", async () => {
+      await bank.deposit({from: web3.eth.accounts[1], value: 100});
+      const lastEntryTimestamp = await bank.getLastEntryTimestamp.call(web3.eth.accounts[1], tokenTypes.ETH);
+      assert.closeTo(lastEntryTimestamp.toNumber(), moment().unix(), 3);
+    });
+
+
     it("should create debit and credit ledger entries", async () => {
       await bank.deposit({from: web3.eth.accounts[1], value: 100});
       await utils.assertEvents(bank, [
@@ -41,6 +48,50 @@ contract('Bank', function(accounts) {
         }
       }
       ]);
+    });
+  });
+
+  describe('#withdrawl', () => {
+    describe('if you have enough funds', () => {
+      it("should decrease the user's balance", async () => {
+        await bank.deposit({from: web3.eth.accounts[1], value: 100});
+        await bank.withdraw(50, {from: web3.eth.accounts[1]});
+        const balance = await bank.getBalance.call(web3.eth.accounts[1], tokenTypes.ETH);
+        assert.equal(balance.valueOf(), 50);
+      });
+
+      it("should create debit and credit ledger entries", async () => {
+        await bank.deposit({from: web3.eth.accounts[1], value: 100});
+        await bank.withdraw(50, {from: web3.eth.accounts[1]});
+        await utils.assertEvents(bank, [
+        {
+          event: "LedgerEntry",
+          args: {
+            address_: bank.address,
+            debit: web3.toBigNumber('50')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            address_: web3.eth.accounts[1],
+            credit: web3.toBigNumber('50')
+          }
+        }
+        ]);
+      });
+    });
+
+    describe("if you don't have enough funds", () => {
+      it("throws an error", async () => {
+        await bank.deposit({from: web3.eth.accounts[1], value: 100});
+        try {
+          await bank.withdraw(101, {from: web3.eth.accounts[1]});
+        } catch (error) {
+          assert.match(error, /VM Exception[a-zA-Z0-9 ]+: invalid opcode/);
+        }
+      });
+
     });
   });
 
