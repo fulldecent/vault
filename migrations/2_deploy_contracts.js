@@ -1,5 +1,5 @@
-var ETHSavingsAccount = artifacts.require("./ETHSavingsAccount.sol");
+var Bank = artifacts.require("./Bank.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(ETHSavingsAccount);
+  deployer.deploy(Bank);
 };
