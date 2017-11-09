@@ -48,7 +48,7 @@ contract Bank {
     return amortization;
   }
 
-  function newLoan(uint amountRequested, AssetType assetType) public returns (uint amountLoaned){
+  function newLoan(uint amountRequested, AssetType assetType) returns (uint amountLoaned){
     // Compound currently only allows loans in ETH
     assert(assetType == AssetType.ETH);
 
@@ -64,5 +64,9 @@ contract Bank {
     msg.sender.transfer(amountLoaned);
   }
 
+<<<<<<< HEAD
   function() public payable { }
+=======
+  function() payable { }
+>>>>>>> Add basic `newLoan` function
 }
