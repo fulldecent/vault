@@ -1,51 +1,20 @@
 pragma solidity ^0.4.4;
 
-contract Bank {
+contract Bank is Oracle, Ledger {
   struct Loan {
     uint balance;
     uint amount;
     AssetType assetType;
     address address_;
   }
-  enum AssetType { ETH }
-  uint savingsInterestRate;
-  uint payoutsPerYear;
+
   Loan[] loans;
-  mapping(address => mapping(uint256 => uint256)) balances;
-  mapping(address => mapping(uint256 => uint256)) lastEntryTimestamps;
-  event LedgerEntry(address address_, uint debit, uint credit);
 
   function Bank (
-    uint savingsInterestRate_,
-    uint payoutsPerYear_
-  ) public{
-    savingsInterestRate = savingsInterestRate_;
-    payoutsPerYear = payoutsPerYear_;
-  }
-
-  function deposit() public payable {
-    LedgerEntry(msg.sender, msg.value, 0);
-    LedgerEntry(address(this), 0, msg.value);
-    balances[msg.sender][uint(AssetType.ETH)] = balances[msg.sender][uint(AssetType.ETH)] + msg.value;
-    lastEntryTimestamps[msg.sender][uint(AssetType.ETH)] = now;
-  }
-
-  function getBalance(address address_, int tokenType) public view returns (uint256) {
-    return balances[address_][uint(tokenType)];
-  }
-
-  function getBalanceWithInterest(address address_, uint tokenType, uint timeStamp) public returns (uint256) {
-    uint principal = balances[address_][uint(tokenType)];
-    uint lastEntryTimestamp = lastEntryTimestamps[msg.sender][uint(AssetType.ETH)];
-    uint duration = (timeStamp - lastEntryTimestamp) / (1 years);
-    uint payouts = duration * payoutsPerYear;
-    uint amortization = principal;
-
-    for(uint _i = 0; _i < payouts; _i++){
-      amortization = amortization + ((amortization * savingsInterestRate) / 100 / payoutsPerYear);
-    }
-
-    return amortization;
+    uint64 savingsInterestRate_,
+    uint64 payoutsPerYear_
+  ) public {
+    Ledger ledger = new Ledger(savingsInterestRate_, payoutsPerYear_);
   }
 
   function newLoan(uint amountRequested, AssetType assetType) returns (uint amountLoaned){
@@ -62,6 +31,23 @@ contract Bank {
     loans.push(loan);
     amountLoaned = amountRequested;
     msg.sender.transfer(amountLoaned);
+  }
+
+  /**
+    * @notice `getValueEquivalent` returns the value of the account based on
+      Oracle prices of assets. Note: this includes the Eth value itself.
+    * @param acct The account to view value balance
+    * @return value The value of the acct in Eth equivalancy
+    */
+  function getValueEquivalent(address acct) public view returns (uint256) {
+    address[] assets = getSupportAssets(); // from Oracle
+    uint256 balance = getBalanceWithInterest(acct); // From Ledger
+
+    for uint i = 0; i < assets.length; i++ {
+      // TODO: Interest on tokens
+      address asset = assets[i];
+      balance += getAssetValue(asset);
+    }
   }
 
   function() payable { }
