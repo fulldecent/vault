@@ -19,7 +19,7 @@ contract('Bank', function(accounts) {
   describe('#deposit', () => {
     it("should increase the user's balance", async () => {
       await bank.deposit({from: web3.eth.accounts[1], value: 100});
-      const balance = await bank.getBalance.call(web3.eth.accounts[1], tokenTypes.ETH);
+      const balance = await bank.getAccountBalanceRaw.call(web3.eth.accounts[1], tokenTypes.ETH);
       assert.equal(balance.valueOf(), 100);
     });
 
