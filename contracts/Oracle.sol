@@ -1,4 +1,4 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.17;
 
 /**
   * @title The Compound Oracle
@@ -26,7 +26,7 @@ contract Oracle {
 	modifier onlyOwner {
 		require(msg.sender == owner);
 		_;
-    }
+	}
 
 	/**
 	  * `getAssetValue` returns the Oracle's view of the current
