@@ -1,7 +1,7 @@
 pragma solidity ^0.4.4;
 
 contract Ledger {
-    enum AssetType { ETH }
+    enum LedgerAssetType { ETH }
 
     struct Balance {
         uint256 amount;
@@ -17,10 +17,10 @@ contract Ledger {
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
-      * @param savingsInterestRate The interest rate
-      * @param payoutsPerYear The number of payouts to make
+      * @param savingsInterestRate_ The interest rate
+      * @param payoutsPerYear_ The number of payouts to make
       */
-    function Ledger(uint64 savingsInterestRate_, uint64 payoutsPerYear_) {
+    function Ledger(uint64 savingsInterestRate_, uint64 payoutsPerYear_) public {
         savingsInterestRate = savingsInterestRate_;
         payoutsPerYear = payoutsPerYear_;
     }
@@ -44,7 +44,7 @@ contract Ledger {
       * @param timestamp The timestamp at which to check the value.
       */
     function getBalanceWithInterest(address acct, address asset, uint256 timestamp) public view returns (uint256) {
-        Balance balance = balances[acct][address(asset)];
+        Balance memory balance = balances[acct][address(asset)];
 
         uint256 principal = balance.amount;
         uint256 lastEntryTimestamp = balance.timestamp;
@@ -70,7 +70,7 @@ contract Ledger {
         LedgerEntry(address(this), 0, value);
 
         // TODO: Verify this updates the given balance.
-        Balance balance = balances[depositor][address(AssetType.ETH)];
+        Balance storage balance = balances[depositor][address(LedgerAssetType.ETH)];
 
         balance.amount += value;
         balance.timestamp = now;
