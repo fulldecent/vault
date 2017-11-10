@@ -115,4 +115,25 @@ contract Ledger is Owned {
         balance.amount += amount;
         balance.timestamp = now;
     }
+
+    /**
+      * @notice `withdraw` withdraws a given amount from an account's balance.
+      * @param asset Asset type to withdraw
+      * @param amount amount to withdraw
+      */
+    function withdraw(address asset, uint256 amount) public {
+        // TODO: Upgrade to balance with interest
+        uint256 balance = getAccountBalanceRaw(msg.sender, asset);
+
+        assert(amount <= balance);
+
+        LedgerEntry(msg.sender, asset, 0, amount);
+        LedgerEntry(address(this), asset, amount, 0);
+
+        balances[msg.sender][asset].amount -= amount;
+
+        if (!Token(asset).transfer(msg.sender, amount)) {
+            revert();
+        }
+    }
 }

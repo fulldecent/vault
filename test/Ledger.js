@@ -150,4 +150,58 @@ contract('Ledger', function(accounts) {
       });
     });
   });
+
+  describe('#withdrawl', () => {
+    describe('if you have enough funds', () => {
+      it("should decrease the account's balance", async () => {
+        await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+
+        await ledger.withdraw(etherToken.address, 40, {from: web3.eth.accounts[1]});
+        const balance = await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address);
+        assert.equal(balance.valueOf(), 60);
+
+        // verify balances in W-Eth
+        assert.equal((await etherToken.balanceOf(ledger.address)).valueOf(), 60);
+        assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 40);
+      });
+
+      it("should create debit and credit ledger entries", async () => {
+        await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+
+        await ledger.withdraw(etherToken.address, 40, {from: web3.eth.accounts[1]});
+
+        await utils.assertEvents(ledger, [
+        {
+          event: "LedgerEntry",
+          args: {
+            acct: ledger.address,
+            asset: etherToken.address,
+            debit: web3.toBigNumber('40')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            acct: web3.eth.accounts[1],
+            asset: etherToken.address,
+            credit: web3.toBigNumber('40')
+          }
+        }
+        ]);
+      });
+    });
+
+    describe("if you don't have sufficient funds", () => {
+      it("throws an error", async () => {
+        await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+
+        try {
+          await ledger.withdraw(etherToken.address, 101, {from: web3.eth.accounts[1]});
+          assert.fail('should have thrown');
+        } catch (error) {
+          assert.equal(error.message, "VM Exception while processing transaction: invalid opcode")
+        }
+      });
+    });
+  });
 });
