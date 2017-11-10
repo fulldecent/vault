@@ -27,4 +27,9 @@ contract Loaner {
 		amountLoaned = amountRequested;
 		msg.sender.transfer(amountLoaned);
 	}
+
+	/**
+      * @notice Do not pay directly into Loaner, please use `deposit`.
+      */
+    function() payable public {}
 }

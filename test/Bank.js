@@ -1,5 +1,5 @@
 const BigNumber = require('bignumber.js');
-const Bank = artifacts.require("./Bank.sol");
+const Ledger = artifacts.require("./Ledger.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
@@ -7,52 +7,40 @@ const tokenTypes = {
   ETH: 0,
 }
 
-contract('Bank', function(accounts) {
-  var bank;
+contract('Ledger', function(accounts) {
+  var ledger;
 
   beforeEach(function() {
-    return Bank.new().then((instance) => {
-      bank = instance;
+    return Ledger.new().then((instance) => {
+      ledger = instance;
     });
   });
 
   describe('#deposit', () => {
     it("should increase the user's balance", async () => {
-      await bank.deposit({from: web3.eth.accounts[1], value: 100});
-      const balance = await bank.getAccountBalanceRaw.call(web3.eth.accounts[1], tokenTypes.ETH);
+      await ledger.deposit({from: web3.eth.accounts[1], value: 100});
+      const balance = await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], tokenTypes.ETH);
       assert.equal(balance.valueOf(), 100);
     });
 
     it("should create debit and credit ledger entries", async () => {
-      await bank.deposit({from: web3.eth.accounts[1], value: 100});
-      await utils.assertEvents(bank, [
+      await ledger.deposit({from: web3.eth.accounts[1], value: 100});
+      await utils.assertEvents(ledger, [
       {
         event: "LedgerEntry",
         args: {
-          address_: web3.eth.accounts[1],
+          acct: web3.eth.accounts[1],
           debit: web3.toBigNumber('100')
         }
       },
       {
         event: "LedgerEntry",
         args: {
-          address_: bank.address,
+          acct: ledger.address,
           credit: web3.toBigNumber('100')
         }
       }
       ]);
-    });
-  });
-
-  describe('#newLoan', () => {
-    describe('when the loan is valid', () => {
-      it("pays out the amount requested", async () => {
-        // fund the bank
-        await bank.sendTransaction({value: web3.toWei(1, "ether")})
-
-        const amountLoaned = await bank.newLoan.call(web3.toWei(1, "ether"), tokenTypes.ETH);
-        assert.equal(amountLoaned.valueOf(), web3.toWei(1, "ether"));
-      });
     });
   });
 
@@ -66,9 +54,9 @@ contract('Bank', function(accounts) {
       const payoutsPerTimePeriod = new BigNumber(12);
       const duration = 10;
       const timeStamp = new BigNumber(moment().add(duration, 'years').unix());
-      bank = await Bank.new(interestRate * 100, payoutsPerTimePeriod)
-      await bank.deposit({value: principal.times(multiplyer)});
-      const balance = await bank.getBalanceWithInterest.call(web3.eth.accounts[0], tokenTypes.ETH, timeStamp);
+      ledger = await Ledger.new(interestRate * 100, payoutsPerTimePeriod)
+      await ledger.deposit({value: principal.times(multiplyer)});
+      const balance = await ledger.getBalanceWithInterest.call(web3.eth.accounts[0], tokenTypes.ETH, timeStamp);
       const expectedValue = utils.compoundedInterest({
         principal: principal,
         interestRate,

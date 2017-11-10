@@ -39,6 +39,6 @@ contract Bank is Oracle, Ledger, Loaner {
       * @notice Do not pay directly into Bank, please use `deposit`.
       */
     function() payable public {
-        // revert();
+        revert();
     }
 }

@@ -13,7 +13,7 @@ contract Ledger {
 
     mapping(address => mapping(address => Balance)) balances;
 
-    event LedgerEntry(address address_, uint debit, uint credit);
+    event LedgerEntry(address acct, uint debit, uint credit);
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
