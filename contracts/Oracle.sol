@@ -1,38 +1,55 @@
 pragma solidity ^0.4.4;
 
-/*
-The Compound Oracle specifies the value of a set of assets
-as determined by Compound. These asset values are used to make
-fair terms for loan contracts in Compound.
-*/
+/**
+  * @title The Compound Oracle
+  * @author Compound
+  * @notice The Compound Oracle specifies the value of a set of assets
+  * as determined by Compound. These asset values are used to make
+  * fair terms for loan contracts in Compound.
+  */
 contract Oracle {
 	address owner;
-	mapping(address => mapping(uint256 => uint256)) values;
+	mapping(address => uint64) values;
 
-	event valueUpdate(address assetType, uint64 valueInWei);
+	event AssetValueUpdate(address indexed asset, uint64 valueInWei);
 
-	function Oracle() {
-		self.owner = msg.sender;
+	/**
+	  * @notice Constructs a new Oracle object
+	  */
+	function Oracle() public {
+		owner = msg.sender;
 	}
 
-	/*
-	`getAssetValue` returns the Oracle's view of the current
-	value of a given asset, or zero if unknown.
+	/**
+	  * @dev `onlyOwner` functions may only be called by the creator of this contract.
+	  */
+	modifier onlyOwner {
+		require(msg.sender == owner);
+		_;
+    }
 
-	Inputs:
-		* assetType (address): The address of the asset to query
-	Output:
-		* value (uint64): The value in wei of the asset, or zero.
-	*/
-	function getAssetValue(assetType address) public view {
-		return values[assetType];
+	/**
+	  * `getAssetValue` returns the Oracle's view of the current
+	  * value of a given asset, or zero if unknown.
+
+	  * @param asset The address of the asset to query
+	  * @return value (uint64): The value in wei of the asset, or zero.
+	  */
+	function getAssetValue(address asset) public view returns(uint64) {
+		return values[asset];
 	}
 
-	function setAssetValue(address assetType, uint64 valueInWei) onlyOwner {
+	/**
+	  * `setAssetValue` sets the value of an asset in Compound.
+	  *
+	  * @param asset The address of the asset to set
+	  * @param valueInWei The value in wei of the asset per unit
+	  */
+	function setAssetValue(address asset, uint64 valueInWei) public onlyOwner {
 		// Emit log event
-		valueUpdate(assetType, valueInWei);
+		AssetValueUpdate(asset, valueInWei);
 
 		// Update asset type value
-		self.values[assetType] = valueInWei;
+		values[asset] = valueInWei;
 	}
 }
