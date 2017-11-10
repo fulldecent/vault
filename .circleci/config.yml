@@ -95,15 +95,15 @@ workflows:
       - deploy-to-ropsten:
           requires:
             - test
-      - wait-for-approval:
-          type: approval
-          filters:
-            branches:
-              only: master
-      - deploy-to-mainnet:
-          requires:
-            - wait-for-approval
-            - test
-          filters:
-            branches:
-              only: master
+      # - wait-for-approval:
+      #     type: approval
+      #     filters:
+      #       branches:
+      #         only: master
+      # - deploy-to-mainnet:
+      #     requires:
+      #       - wait-for-approval
+      #       - test
+      #     filters:
+      #       branches:
+      #         only: master
