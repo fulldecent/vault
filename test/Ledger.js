@@ -4,12 +4,6 @@ const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
-async function deposit(ledger, token, acct, amount) {
-  await token.deposit({from: acct, value: amount});
-  await token.approve(ledger.address, amount, {from: acct});
-  await ledger.deposit(token.address, acct, amount);
-}
-
 contract('Ledger', function(accounts) {
   var ledger;
   var etherToken;
@@ -47,7 +41,7 @@ contract('Ledger', function(accounts) {
     });
 
     it("should create debit and credit ledger entries", async () => {
-      await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+      await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
 
       await utils.assertEvents(ledger, [
       {
@@ -137,7 +131,7 @@ contract('Ledger', function(accounts) {
         const timestamp = new BigNumber(moment().add(duration, 'years').unix());
 
         await ledger.setInterestRate(etherToken.address, interestRate * 100, payoutsPerTimePeriod);
-        await deposit(ledger, etherToken, web3.eth.accounts[1], principal.times(multiplyer));
+        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], principal.times(multiplyer));
 
         const balance = await ledger.getBalanceWithInterest(web3.eth.accounts[1], etherToken.address, timestamp);
         const expectedValue = utils.compoundedInterest({
@@ -154,7 +148,7 @@ contract('Ledger', function(accounts) {
   describe('#withdrawl', () => {
     describe('if you have enough funds', () => {
       it("should decrease the account's balance", async () => {
-        await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
 
         await ledger.withdraw(etherToken.address, 40, {from: web3.eth.accounts[1]});
         const balance = await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address);
@@ -166,7 +160,7 @@ contract('Ledger', function(accounts) {
       });
 
       it("should create debit and credit ledger entries", async () => {
-        await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
 
         await ledger.withdraw(etherToken.address, 40, {from: web3.eth.accounts[1]});
 
@@ -193,7 +187,7 @@ contract('Ledger', function(accounts) {
 
     describe("if you don't have sufficient funds", () => {
       it("throws an error", async () => {
-        await deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
 
         try {
           await ledger.withdraw(etherToken.address, 101, {from: web3.eth.accounts[1]});

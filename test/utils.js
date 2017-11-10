@@ -21,6 +21,12 @@ module.exports = {
     });
   },
 
+  deposit: async function(ledger, token, acct, amount) {
+    await token.deposit({from: acct, value: amount});
+    await token.approve(ledger.address, amount, {from: acct});
+    await ledger.deposit(token.address, acct, amount);
+  },
+
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php
 // A = P (1 + r/n) ^ (nt)
 //

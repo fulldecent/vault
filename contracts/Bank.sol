@@ -19,13 +19,15 @@ contract Bank is Oracle, Ledger, Loaner {
       */
     function getValueEquivalent(address acct) public view returns (uint256) {
         address[] memory assets = getSupportedAssets(); // from Oracle
-        uint256 balance = getBalanceWithInterest(acct, address(0), now); // From Ledger
+        uint256 balance = 0;
 
-        for (uint i = 0; i < assets.length; i++) {
-            // TODO: Interest on tokens
+        for (uint64 i = 0; i < assets.length; i++) {
             address asset = assets[i];
-            balance += getAssetValue(asset);
+
+            balance += getAssetValue(asset) * getBalanceWithInterest(acct, asset, now); // From Ledger
         }
+
+        return balance;
     }
 
     /**
