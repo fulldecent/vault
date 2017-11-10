@@ -1,35 +1,48 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.18;
 
-contract Loaner {
-	enum AssetType { ETH }
+import "./base/Token.sol";
+import "./base/Owned.sol";
 
+contract Loaner is Owned {
 	struct Loan {
         uint balance;
         uint amount;
-        AssetType assetType;
-        address address_;
+        address asset;
+        address acct;
     }
 
+    // TODO: Store as map and list?
+    // TODO: Functions to retreive loans
     Loan[] loans;
 
-    function newLoan(uint amountRequested, AssetType assetType) public returns (uint amountLoaned){
+    function newLoan(address asset, uint amountRequested) public returns (uint256) {
 		// Compound currently only allows loans in ETH
-		assert(assetType == AssetType.ETH);
+		// TODO: Check asset type is supported for loans
+		// TODO: Check sufficient asset value
 
 	    Loan memory loan = Loan({
-	    	assetType: assetType,
+	    	asset: asset,
+	    	acct: msg.sender,
 	    	amount: amountRequested,
-	    	balance: amountRequested,
-	    	address_: msg.sender
+	    	balance: amountRequested
 	    });
 
 		loans.push(loan);
-		amountLoaned = amountRequested;
-		msg.sender.transfer(amountLoaned);
+
+		uint256 amountLoaned = amountRequested;
+
+		// TODO: If not revert
+		if (!Token(asset).transfer(msg.sender, amountLoaned)) {
+			revert();
+		}
+
+		return amountLoaned;
 	}
 
 	/**
-      * @notice Do not pay directly into Loaner, please use `deposit`.
+      * @notice Do not pay directly into Loaner.
       */
-    function() payable public {}
+    function() payable public {
+    	revert();
+    }
 }

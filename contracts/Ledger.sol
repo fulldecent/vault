@@ -1,6 +1,9 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.18;
 
-contract Ledger {
+import "./base/Token.sol";
+import "./base/Owned.sol";
+
+contract Ledger is Owned {
     enum LedgerAssetType { ETH }
 
     struct Balance {
@@ -8,26 +11,51 @@ contract Ledger {
         uint256 timestamp;
     }
 
-    uint64 savingsInterestRate;
-    uint64 payoutsPerYear;
+    struct Rate {
+        uint64 interestRate;
+        uint64 payoutsPerYear;
+    }
 
     mapping(address => mapping(address => Balance)) balances;
+    mapping(address => Rate) rates;
 
-    event LedgerEntry(address acct, uint debit, uint credit);
+    event InterestRateChange(address asset, uint64 interestRate, uint64 payoutsPerYear);
+    event FailedTransfer(address asset, address from, uint256 amount);
+    event LedgerEntry(address acct, address asset, uint256 debit, uint256 credit);
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
-      * @param savingsInterestRate_ The interest rate
-      * @param payoutsPerYear_ The number of payouts to make
       */
-    function Ledger(uint64 savingsInterestRate_, uint64 payoutsPerYear_) public {
-        savingsInterestRate = savingsInterestRate_;
-        payoutsPerYear = payoutsPerYear_;
+    function Ledger() public {}
+
+    /**
+      * @notice `setInterestRate` sets the interest rate for a given asset
+      * @param interestRate The interest rate per internval
+      * @param payoutsPerYear The number of payouts per year
+      */
+    function setInterestRate(address asset, uint64 interestRate, uint64 payoutsPerYear) public onlyOwner {
+        InterestRateChange(asset, interestRate, payoutsPerYear);
+
+        rates[asset] = Rate({
+            interestRate: interestRate,
+            payoutsPerYear: payoutsPerYear
+        });
+    }
+
+    /**
+      * @notice `getInterestRate` returns the interest rate for given asset
+      * @param asset The asset to get the interest rate for
+      * @return rate The given interest rate
+      */
+    function getInterestRate(address asset) public view returns (uint64, uint64) {
+        Rate memory rate = rates[asset];
+
+        return (rate.interestRate, rate.payoutsPerYear);
     }
 
 	/**
       * @notice `getAccountBalanceRaw` returns the balance (without interest) for
-      * the given acct in the given asset (e.g. Weth or OMG)
+      * the given acct in the given asset (e.g. W-Eth or OMG)
       * @param acct The account to get the balance of
       * @param asset The address of the asset
       * @return balance The balance (without interest) of the asset in given acct
@@ -38,22 +66,24 @@ contract Ledger {
 
     /**
       * @notice `getBalanceWithInterest` returns the balance (with interest) for
-      * the given acct in the given asset (e.g. Weth or OMG)
+      * the given acct in the given asset (e.g. W-Eth or OMG)
       * @param acct The account to get the balance of
       * @param asset The asset to check the balance of
       * @param timestamp The timestamp at which to check the value.
       */
     function getBalanceWithInterest(address acct, address asset, uint256 timestamp) public view returns (uint256) {
-        Balance memory balance = balances[acct][address(asset)];
+        Balance memory balance = balances[acct][asset];
+
+        Rate storage rate = rates[asset];
 
         uint256 principal = balance.amount;
         uint256 lastEntryTimestamp = balance.timestamp;
         uint256 duration = (timestamp - lastEntryTimestamp) / (1 years);
-        uint256 payouts = duration * payoutsPerYear;
+        uint256 payouts = duration * rate.payoutsPerYear;
         uint256 amortization = principal;
 
         for (uint64 _i = 0; _i < payouts; _i++) {
-            amortization = amortization + ((amortization * savingsInterestRate) / 100 / payoutsPerYear);
+            amortization = amortization + ((amortization * rate.interestRate) / 100 / rate.payoutsPerYear);
         }
 
         return amortization;
@@ -61,18 +91,28 @@ contract Ledger {
 
     /**
       * @notice `deposit` deposits a given asset in the bank vault.
+      * @param asset Asset to deposit
+      * @param from The account to pull asset from
+      * @param amount The amount of asset to deposit
       */
-    function deposit() public payable {
-        address depositor = msg.sender;
-        uint256 value = msg.value;
+    function deposit(address asset, address from, uint256 amount) public {
+        // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
 
-        LedgerEntry(depositor, value, 0);
-        LedgerEntry(address(this), 0, value);
+        if (!Token(asset).transferFrom(from, address(this), amount)){
+            // Does revert() revert logs?
+            FailedTransfer(asset, from, amount);
+            return revert();
+        }
+
+        LedgerEntry(from, asset, amount, 0);
+        LedgerEntry(address(this), asset, 0, amount);
+
+        // TODO: Calculate current balance
 
         // TODO: Verify this updates the given balance.
-        Balance storage balance = balances[depositor][address(LedgerAssetType.ETH)];
+        Balance storage balance = balances[from][asset];
 
-        balance.amount += value;
+        balance.amount += amount;
         balance.timestamp = now;
     }
 }

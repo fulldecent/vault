@@ -1,4 +1,4 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.18;
 
 import "./Oracle.sol";
 import "./Ledger.sol";
@@ -8,15 +8,8 @@ contract Bank is Oracle, Ledger, Loaner {
 
     /**
       * @notice `Bank` is the core Compound Bank contract
-      * @param savingsInterestRate_ The interest rate
-      * @param payoutsPerYear_ The number of payouts to make
       */
-    function Bank (
-        uint64 savingsInterestRate_,
-        uint64 payoutsPerYear_
-    ) public Ledger(savingsInterestRate_, payoutsPerYear_) {
-        // Empty
-    }
+    function Bank () public {}
 
     /**
       * @notice `getValueEquivalent` returns the value of the account based on
