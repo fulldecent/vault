@@ -1,6 +1,7 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.17;
+import "./Owned.sol";
 
-contract Bank {
+contract Bank is Owned {
   struct Loan {
     uint balance;
     uint amount;

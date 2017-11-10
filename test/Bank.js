@@ -16,6 +16,11 @@ contract('Bank', function(accounts) {
     });
   });
 
+  it("sets the owner", async () => {
+    const owner = await bank.getOwner.call();
+    assert.equal(owner, web3.eth.accounts[0]);
+  });
+
   describe('#deposit', () => {
     it("should increase the user's balance", async () => {
       await bank.deposit({from: web3.eth.accounts[1], value: 100});
