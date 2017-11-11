@@ -1,5 +1,7 @@
 pragma solidity ^0.4.18;
 
+import "./base/Owned.sol";
+
 /**
   * @title The Compound Oracle
   * @author Compound
@@ -7,8 +9,7 @@ pragma solidity ^0.4.18;
   * as determined by Compound. These asset values are used to make
   * fair terms for loan contracts in Compound.
   */
-contract Oracle {
-	address owner;
+contract Oracle is Owned {
 	mapping(address => uint64) values;
 	address[] assets;
 
@@ -18,17 +19,7 @@ contract Oracle {
 	/**
 	  * @notice Constructs a new Oracle object
 	  */
-	function Oracle() public {
-		owner = msg.sender;
-	}
-
-	/**
-	  * @dev `onlyOwner` functions may only be called by the creator of this contract.
-	  */
-	modifier onlyOwner {
-		require(msg.sender == owner);
-		_;
-	}
+	function Oracle() public {}
 
 	/**
 	  * @dev `getSupportedAssets` returns assets which have Oracle values

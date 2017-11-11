@@ -121,7 +121,7 @@ contract Ledger is Owned {
       * @param asset Asset type to withdraw
       * @param amount amount to withdraw
       */
-    function withdraw(address asset, uint256 amount) public {
+    function withdraw(address asset, address from, uint256 amount) public {
         // TODO: Upgrade to balance with interest
         uint256 balance = getAccountBalanceRaw(msg.sender, asset);
 
@@ -132,7 +132,7 @@ contract Ledger is Owned {
 
         balances[msg.sender][asset].amount -= amount;
 
-        if (!Token(asset).transfer(msg.sender, amount)) {
+        if (!Token(asset).transfer(from, amount)) {
             revert();
         }
     }
