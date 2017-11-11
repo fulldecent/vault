@@ -98,7 +98,7 @@ contract Ledger is Owned {
     function deposit(address asset, address from, uint256 amount) public {
         // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
 
-        if (!Token(asset).transferFrom(from, address(this), amount)){
+        if (!Token(asset).transferFrom(from, address(this), amount)) {
             // Does revert() revert logs?
             FailedTransfer(asset, from, amount);
             return revert();
