@@ -97,6 +97,16 @@ contract Wallet is Owned {
         Withdrawal(msg.sender, asset, amount);
     }
 
+    // TODO: Test
+    function balanceEth() public view returns (uint256) {
+      return balance(address(etherToken));
+    }
+
+    // TODO: Test
+    function balance(address asset) public view returns (uint256) {
+      return bank.getAccountBalanceRaw(address(this), asset);
+    }
+
     /**
       * @notice Deposit Eth into Compound Bank contract.
       * @dev We allow arbitrary deposits in from `etherToken`
