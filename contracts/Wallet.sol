@@ -8,7 +8,7 @@ import "./tokens/EtherToken.sol";
   * @title The Compound Smart Wallet
   * @author Compound
   * @notice The Compound Smart Wallet allows customers to easily access
-  * the Compound core contracts.
+  *         the Compound core contracts.
   */
 contract Wallet is Owned {
     Bank bank;

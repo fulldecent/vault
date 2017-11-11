@@ -3,6 +3,12 @@ pragma solidity ^0.4.18;
 import "./base/Token.sol";
 import "./base/Owned.sol";
 
+/**
+  * @title The Compound Loaner
+  * @author Compound
+  * @notice The Compound Loaner grants users the right to take out loans
+  * 		against collateral of assets.
+  */
 contract Loaner is Owned {
 	struct Loan {
         uint balance;

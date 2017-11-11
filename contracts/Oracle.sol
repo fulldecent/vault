@@ -6,8 +6,8 @@ import "./base/Owned.sol";
   * @title The Compound Oracle
   * @author Compound
   * @notice The Compound Oracle specifies the value of a set of assets
-  * as determined by Compound. These asset values are used to make
-  * fair terms for loan contracts in Compound.
+  * 		as determined by Compound. These asset values are used to make
+  * 		fair terms for loan contracts in Compound.
   */
 contract Oracle is Owned {
 	mapping(address => uint64) values;

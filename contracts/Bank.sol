@@ -4,6 +4,12 @@ import "./Oracle.sol";
 import "./Ledger.sol";
 import "./Loaner.sol";
 
+/**
+  * @title The Compound Bank Contract
+  * @author Compound
+  * @notice The Compound Bank Contract in the core contract governing
+  *         all accounts in Compound.
+  */
 contract Bank is Oracle, Ledger, Loaner {
 
     /**

@@ -3,9 +3,13 @@ pragma solidity ^0.4.18;
 import "./base/Token.sol";
 import "./base/Owned.sol";
 
+/**
+  * @title The Compound Ledger
+  * @author Compound
+  * @notice Ledger keeps track of all balances of all asset types in Compound,
+  *         as well as calculating Compound interest.
+  */
 contract Ledger is Owned {
-    enum LedgerAssetType { ETH }
-
     struct Balance {
         uint256 amount;
         uint256 timestamp;
