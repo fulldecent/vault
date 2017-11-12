@@ -6,13 +6,13 @@ const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
-contract('Wallet', function(accounts) {
+contract('WalletFactory', function(accounts) {
   var walletFactory;
   var bank;
   var etherToken;
 
   beforeEach(async () => {
-    const [bank, etherToken] = await Promise.all([Bank.new(), EtherToken.new()]);
+    [bank, etherToken] = await Promise.all([Bank.new(), EtherToken.new()]);
 
     walletFactory = await WalletFactory.new(bank.address, etherToken.address);
   });

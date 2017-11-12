@@ -57,7 +57,7 @@ contract Wallet is Owned {
         Token(asset).approve(address(bank), amount);
 
         // Deposit asset in Compound Bank contract
-        bank.deposit(asset, address(this), amount);
+        bank.deposit(asset, amount, address(this));
 
         // Log this deposit
         Deposit(msg.sender, asset, amount);
@@ -70,7 +70,7 @@ contract Wallet is Owned {
       */
     function withdrawEth(uint256 amount, address to) public onlyOwner {
         // Withdraw from Compound Bank contract to EtherToken
-        bank.withdraw(address(etherToken), address(this), amount);
+        bank.withdraw(address(etherToken), amount, address(this));
 
         // Now we have EtherTokens, let's withdraw them to Eth
         etherToken.withdraw(amount);
@@ -91,18 +91,24 @@ contract Wallet is Owned {
       */
     function withdrawAsset(address asset, uint256 amount, address to) public onlyOwner {
         // Withdraw the asset
-        bank.withdraw(asset, to, amount);
+        bank.withdraw(asset, amount, to);
 
         // Log event
         Withdrawal(msg.sender, asset, amount);
     }
 
-    // TODO: Test
+    /**
+      * @notice Returns the balance of Eth in this wallet via Bank Contract
+      * @return Eth balance from Bank Contract
+      */
     function balanceEth() public view returns (uint256) {
       return balance(address(etherToken));
     }
 
-    // TODO: Test
+    /**
+      * @notice Returns the balance of given asset in this wallet via Bank Contract
+      * @return Asset balance from Bank Contract
+      */
     function balance(address asset) public view returns (uint256) {
       return bank.getAccountBalanceRaw(address(this), asset);
     }
