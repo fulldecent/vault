@@ -87,6 +87,9 @@ contract('Wallet', function(accounts) {
       assert.equal((await pigToken.balanceOf(bank.address)).valueOf(), 55);
       assert.equal((await pigToken.balanceOf(web3.eth.accounts[1])).valueOf(), 45);
     });
+
+    it('should leave a Deposit event');
+    it('should accept deposits from third party');
   });
 
   describe('#withdrawEth', () => {
@@ -116,6 +119,9 @@ contract('Wallet', function(accounts) {
       assert.equal((await etherToken.balanceOf(bank.address)).valueOf(), 33);
       assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 0);
     });
+
+    it('should log Withdrawal event');
+    it('should fail on third party calls');
   });
 
   describe('#withdrawAsset', () => {
@@ -137,6 +143,9 @@ contract('Wallet', function(accounts) {
       assert.equal((await pigToken.balanceOf(web3.eth.accounts[1])).valueOf(), 45);
       assert.equal((await pigToken.balanceOf(web3.eth.accounts[2])).valueOf(), 33);
     });
+
+    it('should log Withdrawal event');
+    it('should fail on third party calls');
   });
 
   describe('#balanceEth', () => {
@@ -153,6 +162,8 @@ contract('Wallet', function(accounts) {
 
       assert.equal((await wallet.balanceEth.call()).valueOf(), 30);
     });
+
+    it('should allow third party calls');
   });
 
   describe('#balance', () => {
@@ -172,5 +183,7 @@ contract('Wallet', function(accounts) {
 
       assert.equal((await wallet.balance.call(pigToken.address)).valueOf(), 30);
     });
+
+    it('should allow third party calls');
   });
 });
