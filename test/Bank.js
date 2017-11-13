@@ -25,5 +25,10 @@ contract('Bank', function(accounts) {
 
       assert.equal(eqValue.valueOf(), 200);
     });
-  })
+  });
+
+  it("sets the owner", async () => {
+    const owner = await bank.getOwner.call();
+    assert.equal(owner, web3.eth.accounts[0]);
+  });
 });
