@@ -15,23 +15,22 @@ contract('Ledger', function(accounts) {
   describe('#deposit', () => {
     it("should increase the user's balance", async () => {
       // first deposit assets into W-Eth contract
-      await etherToken.deposit({from: web3.eth.accounts[1], value: 100});
-      await etherToken.approve(ledger.address, 100, {from: web3.eth.accounts[1]});
+      await utils.createAndApproveEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
       // verify initial state
-      assert.equal((await etherToken.balanceOf(ledger.address)).valueOf(), 0);
-      assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 100);
+
+      assert.equal(await utils.tokenBalance(etherToken, ledger.address), 0);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 100);
 
       // commit deposit in ledger
       await ledger.deposit(etherToken.address, 100, web3.eth.accounts[1]);
 
       // verify balance in ledger
-      const balance = await ledger.getAccountBalanceRaw(web3.eth.accounts[1], etherToken.address);
-      assert.equal(balance.valueOf(), 100);
+      assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 100);
 
       // verify balances in W-Eth
-      assert.equal((await etherToken.balanceOf(ledger.address)).valueOf(), 100);
-      assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 0);
+      assert.equal(await utils.tokenBalance(etherToken, ledger.address), 100);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
     it("should create debit and credit ledger entries", async () => {
@@ -58,8 +57,7 @@ contract('Ledger', function(accounts) {
     });
 
     it("should only work if properly authorized", async () => {
-      await etherToken.deposit({from: web3.eth.accounts[1], value: 100});
-      await etherToken.approve(ledger.address, 99, {from: web3.eth.accounts[1]});
+      await utils.createAndApproveEth(ledger, etherToken, 100, web3.eth.accounts[1], 99);
 
       try {
         await ledger.deposit(etherToken.address, 100, web3.eth.accounts[1]);
@@ -144,21 +142,20 @@ contract('Ledger', function(accounts) {
       it("should decrease the account's balance", async () => {
         await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
-        assert.equal((await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address)).valueOf(), 100);
+        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 100);
 
         await ledger.withdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-        const balance = await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address);
-        assert.equal(balance.valueOf(), 60);
+        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
-        assert.equal((await etherToken.balanceOf(ledger.address)).valueOf(), 60);
-        assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 40);
+        assert.equal(await utils.tokenBalance(etherToken, ledger.address), 60);
+        assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
       });
 
       it("should create debit and credit ledger entries", async () => {
         await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
-        assert.equal((await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address)).valueOf(), 100);
+        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 100);
 
         await ledger.withdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 

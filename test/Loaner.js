@@ -27,8 +27,8 @@ contract('Loaner', function(accounts) {
         await loaner.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
 
         // verify balances in W-Eth
-      	assert.equal((await etherToken.balanceOf.call(loaner.address)).valueOf(), 80);
-      	assert.equal((await etherToken.balanceOf.call(web3.eth.accounts[1])).valueOf(), 20);
+        assert.equal(await utils.tokenBalance(etherToken, loaner.address), 80);
+        assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 20);
       });
     });
   });

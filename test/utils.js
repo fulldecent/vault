@@ -3,6 +3,11 @@ var Promise = require("bluebird");
 var BigNumber = require('bignumber.js');
 var one = new BigNumber(1);
 
+async function createAndApproveEth(ledger, etherToken, amount, account, approvalAmount) {
+  await etherToken.deposit({from: account, value: amount});
+  await etherToken.approve(ledger.address, approvalAmount || amount, {from: account});
+};
+
 module.exports = {
   // https://ethereum.stackexchange.com/a/21661
   //
@@ -21,10 +26,33 @@ module.exports = {
     });
   },
 
+  assertDifference: async function(assert, difference, checkFn, execFn) {
+    const start = await checkFn();
+
+    await execFn();
+
+    const end = await checkFn();
+
+    return assert.equal(end.minus(start), difference);
+  },
+
+  createAndApproveEth: createAndApproveEth,
+
   depositEth: async function(ledger, etherToken, amount, account) {
-    await etherToken.deposit({from: account, value: amount});
-    await etherToken.approve(ledger.address, amount, {from: account});
+    await createAndApproveEth(ledger, etherToken, amount, account);
     await ledger.deposit(etherToken.address, amount, account);
+  },
+
+  ledgerAccountBalance: async function(ledger, account, token) {
+    return (await ledger.getAccountBalanceRaw.call(account, token)).valueOf();
+  },
+
+  tokenBalance: async function(token, account) {
+    return (await token.balanceOf(account)).valueOf();
+  },
+
+  ethBalance: async function(account) {
+    return web3.toBigNumber((await web3.eth.getBalance(account)).valueOf());
   },
 
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php
