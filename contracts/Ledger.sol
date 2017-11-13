@@ -1,5 +1,6 @@
 pragma solidity ^0.4.18;
 
+import "./base/InterestHelper.sol";
 import "./base/Token.sol";
 import "./base/Owned.sol";
 
@@ -9,7 +10,7 @@ import "./base/Owned.sol";
   * @notice Ledger keeps track of all balances of all asset types in Compound,
   *         as well as calculating Compound interest.
   */
-contract Ledger is Owned {
+contract Ledger is Owned, InterestHelper {
     struct Balance {
         uint256 amount;
         uint256 timestamp;
@@ -75,21 +76,12 @@ contract Ledger is Owned {
       * @param timestamp The timestamp at which to check the value.
       */
     function getBalanceWithInterest(address account, address asset, uint256 timestamp) public view returns (uint256) {
-        Balance memory balance = balances[account][asset];
-
-        Rate storage rate = rates[asset];
-
-        uint256 principal = balance.amount;
-        uint256 lastEntryTimestamp = balance.timestamp;
-        uint256 duration = (timestamp - lastEntryTimestamp) / (1 years);
-        uint256 payouts = duration * rate.payoutsPerYear;
-        uint256 amortization = principal;
-
-        for (uint64 _i = 0; _i < payouts; _i++) {
-            amortization = amortization + ((amortization * rate.interestRate) / 100 / rate.payoutsPerYear);
-        }
-
-        return amortization;
+        return balanceWithInterest(
+            balances[account][asset].amount,
+            balances[account][asset].timestamp,
+            timestamp,
+            rates[asset].interestRate,
+            rates[asset].payoutsPerYear);
     }
 
     /**
