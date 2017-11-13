@@ -39,28 +39,26 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#depositEth / fallback', () => {
-    it('fallback should deposit assets in bank', async () => {
+    it('#fallback should deposit assets in bank', async () => {
       await wallet.sendTransaction({value: 55});
 
       // verify balance in ledger
-      const balance = await bank.getAccountBalanceRaw(wallet.address, etherToken.address);
-      assert.equal(balance.valueOf(), 55);
+      assert.equal(await utils.ledgerAccountBalance(bank, wallet.address, etherToken.address), 55);
 
       // verify balances in W-Eth
-      assert.equal((await etherToken.balanceOf(bank.address)).valueOf(), 55);
-      assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 0);
+      assert.equal(await utils.tokenBalance(etherToken, bank.address), 55);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
-    it('depositEth should deposit assets in bank', async () => {
+    it('#depositEth should deposit assets in bank', async () => {
       await wallet.depositEth({value: 55});
 
       // verify balance in ledger
-      const balance = await bank.getAccountBalanceRaw(wallet.address, etherToken.address);
-      assert.equal(balance.valueOf(), 55);
+      assert.equal(await utils.ledgerAccountBalance(bank, wallet.address, etherToken.address), 55);
 
       // verify balances in W-Eth
-      assert.equal((await etherToken.balanceOf(bank.address)).valueOf(), 55);
-      assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 0);
+      assert.equal(await utils.tokenBalance(etherToken, bank.address), 55);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
   });
 
@@ -73,19 +71,18 @@ contract('Wallet', function(accounts) {
       pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
 
       // Verify initial state
-      assert.equal((await pigToken.balanceOf(bank.address)).valueOf(), 0);
-      assert.equal((await pigToken.balanceOf(web3.eth.accounts[1])).valueOf(), 100);
+      assert.equal(await utils.tokenBalance(pigToken, bank.address), 0);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 100);
 
       // Deposit those tokens
       await wallet.depositAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
 
       // verify balance in ledger
-      const balance = await bank.getAccountBalanceRaw(wallet.address, pigToken.address);
-      assert.equal(balance.valueOf(), 55);
+      assert.equal(await utils.ledgerAccountBalance(bank, wallet.address, pigToken.address), 55);
 
       // verify balances in PigToken
-      assert.equal((await pigToken.balanceOf(bank.address)).valueOf(), 55);
-      assert.equal((await pigToken.balanceOf(web3.eth.accounts[1])).valueOf(), 45);
+      assert.equal(await utils.tokenBalance(pigToken, bank.address), 55);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
     });
 
     it('should leave a Deposit event');
@@ -98,26 +95,22 @@ contract('Wallet', function(accounts) {
       await wallet.sendTransaction({value: 55});
 
       // verify balance in ledger
-      const balanceStart = await bank.getAccountBalanceRaw(wallet.address, etherToken.address);
-      assert.equal(balanceStart.valueOf(), 55);
+      assert.equal(await utils.ledgerAccountBalance(bank, wallet.address, etherToken.address), 55);
 
-      // verify account eth
-      const ethBalanceStart = web3.toBigNumber((await web3.eth.getBalance(web3.eth.accounts[2])).valueOf());
-
-      // withdraw eth
-      await wallet.withdrawEth(22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
-
-      // verify account eth
-      const ethBalanceEnd = web3.toBigNumber((await web3.eth.getBalance(web3.eth.accounts[2])).valueOf());
-      assert.equal(ethBalanceEnd.minus(ethBalanceStart).toNumber(), 22);
+      await utils.assertDifference(assert, 22, async () => {
+        // get eth balance
+        return await utils.ethBalance(web3.eth.accounts[2]);
+      }, async () => {
+        // withdraw eth
+        return await wallet.withdrawEth(22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+      });
 
       // verify balance in ledger
-      const balance = await bank.getAccountBalanceRaw(wallet.address, etherToken.address);
-      assert.equal(balance.valueOf(), 33);
+      assert.equal(await utils.ledgerAccountBalance(bank, wallet.address, etherToken.address), 33);
 
       // verify balances in W-Eth
-      assert.equal((await etherToken.balanceOf(bank.address)).valueOf(), 33);
-      assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 0);
+      assert.equal(await utils.tokenBalance(etherToken, bank.address), 33);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
     it('should log Withdrawal event');
@@ -139,9 +132,9 @@ contract('Wallet', function(accounts) {
       await wallet.withdrawAsset(pigToken.address, 33, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
 
       // verify balances in PigToken
-      assert.equal((await pigToken.balanceOf(bank.address)).valueOf(), 22);
-      assert.equal((await pigToken.balanceOf(web3.eth.accounts[1])).valueOf(), 45);
-      assert.equal((await pigToken.balanceOf(web3.eth.accounts[2])).valueOf(), 33);
+      assert.equal(await utils.tokenBalance(pigToken, bank.address), 22);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[2]), 33);
     });
 
     it('should log Withdrawal event');

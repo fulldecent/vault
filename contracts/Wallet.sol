@@ -119,7 +119,14 @@ contract Wallet is Owned {
       */
     function() public payable {
         if (msg.sender == address(etherToken)) {
-            // Don't do anything if coming from EtherToken unwrap
+            /* This contract unwraps EtherTokens during withdrawals.
+             *
+             * When we unwrap a token, EtherToken sends this contract
+             * the value of the tokens in Ether. We should not treat this
+             * as a new deposit (!!), and as such, we choose to not call
+             * `depositEth` for Ether transfers from EtherToken.
+             */
+
             return;
         } else {
             depositEth();

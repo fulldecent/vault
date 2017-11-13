@@ -1,6 +1,5 @@
 pragma solidity ^0.4.18;
 
-import "./base/Owned.sol";
 import "./Wallet.sol";
 
 /**
@@ -9,7 +8,7 @@ import "./Wallet.sol";
   * @notice Helps Compound users create a Compound Smart Wallet
   * 		after registration.
   */
-contract WalletFactory is Owned {
+contract WalletFactory {
     // Note: These variables are immuatable. Create a new factory to change them.
     address bankAddress;
     address etherTokenAddress;
