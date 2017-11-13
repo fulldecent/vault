@@ -10,10 +10,8 @@ const tokenAddrs = {
 contract('Oracle', function(accounts) {
   var oracle;
 
-  beforeEach(function() {
-    return Oracle.new(null, {from: accounts[0]}).then((instance) => {
-      oracle = instance;
-    });
+  beforeEach(async () => {
+    oracle = await Oracle.new(null, {from: accounts[0]});
   });
 
   describe('#setAssetValue', () => {

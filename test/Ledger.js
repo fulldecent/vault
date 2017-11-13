@@ -8,14 +8,8 @@ contract('Ledger', function(accounts) {
   var ledger;
   var etherToken;
 
-  beforeEach(function() {
-    return Ledger.new().then((instance) => {
-      ledger = instance;
-
-      return EtherToken.new().then((instance) => {
-        etherToken = instance;
-      });
-    });
+  beforeEach(async () => {
+    [ledger, etherToken] = await Promise.all([Ledger.new(), EtherToken.new()]);
   });
 
   describe('#deposit', () => {
@@ -29,7 +23,7 @@ contract('Ledger', function(accounts) {
       assert.equal((await etherToken.balanceOf(web3.eth.accounts[1])).valueOf(), 100);
 
       // commit deposit in ledger
-      await ledger.deposit(etherToken.address, web3.eth.accounts[1], 100);
+      await ledger.deposit(etherToken.address, 100, web3.eth.accounts[1]);
 
       // verify balance in ledger
       const balance = await ledger.getAccountBalanceRaw(web3.eth.accounts[1], etherToken.address);
@@ -41,13 +35,13 @@ contract('Ledger', function(accounts) {
     });
 
     it("should create debit and credit ledger entries", async () => {
-      await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+      await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
       await utils.assertEvents(ledger, [
       {
         event: "LedgerEntry",
         args: {
-          acct: web3.eth.accounts[1],
+          account: web3.eth.accounts[1],
           asset: etherToken.address,
           debit: web3.toBigNumber('100')
         }
@@ -55,7 +49,7 @@ contract('Ledger', function(accounts) {
       {
         event: "LedgerEntry",
         args: {
-          acct: ledger.address,
+          account: ledger.address,
           asset: etherToken.address,
           credit: web3.toBigNumber('100')
         }
@@ -68,7 +62,7 @@ contract('Ledger', function(accounts) {
       await etherToken.approve(ledger.address, 99, {from: web3.eth.accounts[1]});
 
       try {
-        await ledger.deposit(etherToken.address, web3.eth.accounts[1], 100);
+        await ledger.deposit(etherToken.address, 100, web3.eth.accounts[1]);
         assert.fail('should have thrown');
       } catch(error) {
         assert.equal(error.message, "VM Exception while processing transaction: revert")
@@ -77,7 +71,7 @@ contract('Ledger', function(accounts) {
 
     it("should fail for unknown assets", async () => {
       try {
-        await ledger.deposit(0, web3.eth.accounts[1], 100);
+        await ledger.deposit(0, 100, web3.eth.accounts[1]);
         assert.fail('should have thrown');
       } catch(error) {
         assert.equal(error.message, "VM Exception while processing transaction: revert")
@@ -131,7 +125,7 @@ contract('Ledger', function(accounts) {
         const timestamp = new BigNumber(moment().add(duration, 'years').unix());
 
         await ledger.setInterestRate(etherToken.address, interestRate * 100, payoutsPerTimePeriod);
-        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], principal.times(multiplyer));
+        await utils.depositEth(ledger, etherToken, principal.times(multiplyer), web3.eth.accounts[1]);
 
         const balance = await ledger.getBalanceWithInterest(web3.eth.accounts[1], etherToken.address, timestamp);
         const expectedValue = utils.compoundedInterest({
@@ -148,9 +142,11 @@ contract('Ledger', function(accounts) {
   describe('#withdrawl', () => {
     describe('if you have enough funds', () => {
       it("should decrease the account's balance", async () => {
-        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+        await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
-        await ledger.withdraw(etherToken.address, 40, {from: web3.eth.accounts[1]});
+        assert.equal((await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address)).valueOf(), 100);
+
+        await ledger.withdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
         const balance = await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address);
         assert.equal(balance.valueOf(), 60);
 
@@ -160,15 +156,17 @@ contract('Ledger', function(accounts) {
       });
 
       it("should create debit and credit ledger entries", async () => {
-        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+        await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
-        await ledger.withdraw(etherToken.address, 40, {from: web3.eth.accounts[1]});
+        assert.equal((await ledger.getAccountBalanceRaw.call(web3.eth.accounts[1], etherToken.address)).valueOf(), 100);
+
+        await ledger.withdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
         await utils.assertEvents(ledger, [
         {
           event: "LedgerEntry",
           args: {
-            acct: ledger.address,
+            account: ledger.address,
             asset: etherToken.address,
             debit: web3.toBigNumber('40')
           }
@@ -176,7 +174,7 @@ contract('Ledger', function(accounts) {
         {
           event: "LedgerEntry",
           args: {
-            acct: web3.eth.accounts[1],
+            account: web3.eth.accounts[1],
             asset: etherToken.address,
             credit: web3.toBigNumber('40')
           }
@@ -187,10 +185,10 @@ contract('Ledger', function(accounts) {
 
     describe("if you don't have sufficient funds", () => {
       it("throws an error", async () => {
-        await utils.deposit(ledger, etherToken, web3.eth.accounts[1], 100);
+        await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
         try {
-          await ledger.withdraw(etherToken.address, 101, {from: web3.eth.accounts[1]});
+          await ledger.withdraw(etherToken.address, 101, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
           assert.fail('should have thrown');
         } catch (error) {
           assert.equal(error.message, "VM Exception while processing transaction: invalid opcode")

@@ -21,10 +21,10 @@ module.exports = {
     });
   },
 
-  deposit: async function(ledger, token, acct, amount) {
-    await token.deposit({from: acct, value: amount});
-    await token.approve(ledger.address, amount, {from: acct});
-    await ledger.deposit(token.address, acct, amount);
+  depositEth: async function(ledger, etherToken, amount, account) {
+    await etherToken.deposit({from: account, value: amount});
+    await etherToken.approve(ledger.address, amount, {from: account});
+    await ledger.deposit(etherToken.address, amount, account);
   },
 
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php
