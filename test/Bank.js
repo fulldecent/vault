@@ -8,20 +8,14 @@ contract('Bank', function(accounts) {
   var bank;
   var etherToken;
 
-  beforeEach(function() {
-    return Bank.new().then((instance) => {
-      bank = instance;
-
-      return EtherToken.new().then((instance) => {
-        etherToken = instance;
-      });
-    });
+  beforeEach(async () => {
+    [bank, etherToken] = await Promise.all([Bank.new(), EtherToken.new()]);
   });
 
   describe('#getValueEquivalent', () => {
     it('should get value of assets', async () => {
       // deposit Ether tokens for acct 1
-      await utils.deposit(bank, etherToken, web3.eth.accounts[1], 100);
+      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
 
       // set Eracle value (each Eth is now worth two Eth!)
       await bank.setAssetValue(etherToken.address, 2);

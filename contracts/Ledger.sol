@@ -3,9 +3,13 @@ pragma solidity ^0.4.18;
 import "./base/Token.sol";
 import "./base/Owned.sol";
 
+/**
+  * @title The Compound Ledger
+  * @author Compound
+  * @notice Ledger keeps track of all balances of all asset types in Compound,
+  *         as well as calculating Compound interest.
+  */
 contract Ledger is Owned {
-    enum LedgerAssetType { ETH }
-
     struct Balance {
         uint256 amount;
         uint256 timestamp;
@@ -20,8 +24,7 @@ contract Ledger is Owned {
     mapping(address => Rate) rates;
 
     event InterestRateChange(address asset, uint64 interestRate, uint64 payoutsPerYear);
-    event FailedTransfer(address asset, address from, uint256 amount);
-    event LedgerEntry(address acct, address asset, uint256 debit, uint256 credit);
+    event LedgerEntry(address account, address asset, uint256 debit, uint256 credit);
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
@@ -55,24 +58,24 @@ contract Ledger is Owned {
 
 	/**
       * @notice `getAccountBalanceRaw` returns the balance (without interest) for
-      * the given acct in the given asset (e.g. W-Eth or OMG)
-      * @param acct The account to get the balance of
+      * the given account in the given asset (e.g. W-Eth or OMG)
+      * @param account The account to get the balance of
       * @param asset The address of the asset
-      * @return balance The balance (without interest) of the asset in given acct
+      * @return balance The balance (without interest) of the asset in given account
       */
-    function getAccountBalanceRaw(address acct, address asset) public view returns (uint256) {
-        return balances[acct][asset].amount;
+    function getAccountBalanceRaw(address account, address asset) public view returns (uint256) {
+        return balances[account][asset].amount;
     }
 
     /**
       * @notice `getBalanceWithInterest` returns the balance (with interest) for
-      * the given acct in the given asset (e.g. W-Eth or OMG)
-      * @param acct The account to get the balance of
+      * the given account in the given asset (e.g. W-Eth or OMG)
+      * @param account The account to get the balance of
       * @param asset The asset to check the balance of
       * @param timestamp The timestamp at which to check the value.
       */
-    function getBalanceWithInterest(address acct, address asset, uint256 timestamp) public view returns (uint256) {
-        Balance memory balance = balances[acct][asset];
+    function getBalanceWithInterest(address account, address asset, uint256 timestamp) public view returns (uint256) {
+        Balance memory balance = balances[account][asset];
 
         Rate storage rate = rates[asset];
 
@@ -95,12 +98,11 @@ contract Ledger is Owned {
       * @param from The account to pull asset from
       * @param amount The amount of asset to deposit
       */
-    function deposit(address asset, address from, uint256 amount) public {
+    function deposit(address asset, uint256 amount, address from) public {
         // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
 
-        if (!Token(asset).transferFrom(from, address(this), amount)){
-            // Does revert() revert logs?
-            FailedTransfer(asset, from, amount);
+        // Transfer ourselves the asset from `from`
+        if (!Token(asset).transferFrom(from, address(this), amount)) {
             return revert();
         }
 
@@ -109,11 +111,9 @@ contract Ledger is Owned {
 
         // TODO: Calculate current balance
 
-        // TODO: Verify this updates the given balance.
-        Balance storage balance = balances[from][asset];
-
-        balance.amount += amount;
-        balance.timestamp = now;
+        // Add balance for the same `from` address
+        balances[from][asset].amount += amount;
+        balances[from][asset].timestamp = now;
     }
 
     /**
@@ -121,7 +121,7 @@ contract Ledger is Owned {
       * @param asset Asset type to withdraw
       * @param amount amount to withdraw
       */
-    function withdraw(address asset, uint256 amount) public {
+    function withdraw(address asset, uint256 amount, address to) public {
         // TODO: Upgrade to balance with interest
         uint256 balance = getAccountBalanceRaw(msg.sender, asset);
 
@@ -130,9 +130,11 @@ contract Ledger is Owned {
         LedgerEntry(msg.sender, asset, 0, amount);
         LedgerEntry(address(this), asset, amount, 0);
 
+        // Subtract amount from that sender's balance
         balances[msg.sender][asset].amount -= amount;
 
-        if (!Token(asset).transfer(msg.sender, amount)) {
+        // Transfer asset out to `to` address
+        if (!Token(asset).transfer(to, amount)) {
             revert();
         }
     }

@@ -8,14 +8,8 @@ contract('Loaner', function(accounts) {
   var loaner;
   var etherToken;
 
-  beforeEach(function() {
-    return Loaner.new().then((instance) => {
-      loaner = instance;
-
-      return EtherToken.new().then((instance) => {
-        etherToken = instance;
-      });
-    });
+  beforeEach(async () => {
+    [loaner, etherToken] = await Promise.all([Loaner.new(), EtherToken.new()]);
   });
 
   describe('#newLoan', () => {
