@@ -21,6 +21,12 @@ module.exports = {
     });
   },
 
+  depositEth: async function(ledger, etherToken, amount, account) {
+    await etherToken.deposit({from: account, value: amount});
+    await etherToken.approve(ledger.address, amount, {from: account});
+    await ledger.deposit(etherToken.address, amount, account);
+  },
+
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php
 // A = P (1 + r/n) ^ (nt)
 //

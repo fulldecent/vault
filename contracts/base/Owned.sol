@@ -1,12 +1,7 @@
-pragma solidity ^0.4.17;
+pragma solidity ^0.4.18;
 
 contract Owned {
-  /**
-   * @title Owned Helper
-   * @author Compound
-   * @notice The owned contract provides a helper function which only allows the creator of the contract to call the function it's applied to.
-   */
-  function Owned() internal { owner = msg.sender; }
+    function Owned() internal { owner = msg.sender; }
     address owner;
 
     // This contract only defines a modifier but does not use
@@ -16,10 +11,6 @@ contract Owned {
     // This means that if the owner calls this function, the
     // function is executed and otherwise, an exception is
     // thrown.
-
-    /**
-      * @dev `onlyOwner` functions may only be called by the creator of this contract.
-    */
     modifier onlyOwner {
         require(msg.sender == owner);
         _;
