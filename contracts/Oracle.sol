@@ -1,6 +1,7 @@
 pragma solidity ^0.4.18;
 
 import "./base/Owned.sol";
+import "./base/ArrayHelper.sol";
 
 /**
   * @title The Compound Oracle
@@ -9,7 +10,7 @@ import "./base/Owned.sol";
   * 		as determined by Compound. These asset values are used to make
   * 		fair terms for loan contracts in Compound.
   */
-contract Oracle is Owned {
+contract Oracle is Owned, ArrayHelper {
 	mapping(address => uint64) values;
 	address[] assets;
 
@@ -47,7 +48,7 @@ contract Oracle is Owned {
 	  * @param valueInWei The value in wei of the asset per unit
 	  */
 	function setAssetValue(address asset, uint64 valueInWei) public onlyOwner {
-		if (!arrayContains(assets, asset)) {
+		if (!arrayContainsAddress(assets, asset)) {
 			assets.push(asset);
 			NewAsset(asset);
 		}
@@ -57,22 +58,6 @@ contract Oracle is Owned {
 
 		// Update asset type value
 		values[asset] = valueInWei;
-	}
-
-	/**
-	  * @dev Determines whether or not array contains the given value, here defined as adddresses.
-	  * @param arr Array to check
-	  * @param val Value to look for in `arr`
-	  * @return found Whether or not the value `val` was found in `arr`
-	  */
-	function arrayContains(address[] arr, address val) private pure returns (bool) {
-		for (uint64 i = 0; i < arr.length; i++) {
-			if (arr[i] == val) {
-				return true;
-			}
-		}
-
-		return false;
 	}
 
 }
