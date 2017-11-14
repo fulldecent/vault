@@ -36,6 +36,15 @@ module.exports = {
     return assert.equal(end.minus(start), difference);
   },
 
+  assertFailure: async function(msg, execFn) {
+    try {
+      await execFn()
+      assert.fail('should have thrown');
+    } catch (error) {
+      assert.equal(error.message, msg);
+    }
+  },
+
   createAndApproveEth: createAndApproveEth,
 
   depositEth: async function(ledger, etherToken, amount, account) {

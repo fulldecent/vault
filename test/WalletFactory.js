@@ -20,10 +20,10 @@ contract('WalletFactory', function(accounts) {
   describe("#newWallet", () => {
     it("should create a new wallet", async () => {
       // Find out where wallet will be created
-      const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1])).valueOf();
+      const walletAddress = (await walletFactory.newWallet.call({from: web3.eth.accounts[1]})).valueOf();
 
       // Actually create the wallet
-      await walletFactory.newWallet(web3.eth.accounts[1]);
+      await walletFactory.newWallet({from: web3.eth.accounts[1]});
 
       // Make a Wallet variable pointed at the address from above
       const wallet = Wallet.at(walletAddress);
@@ -39,6 +39,45 @@ contract('WalletFactory', function(accounts) {
 
       // Verify balance
       assert.equal((await wallet.balanceEth.call()).valueOf(), 33);
+    });
+
+    it("should be owned by message sender", async () => {
+      // Find out where wallet will be created
+      const walletAddress = (await walletFactory.newWallet.call({from: web3.eth.accounts[1]})).valueOf();
+
+      // Actually create the wallet
+      await walletFactory.newWallet({from: web3.eth.accounts[1]});
+
+      // Make a Wallet variable pointed at the address from above
+      const wallet = Wallet.at(walletAddress);
+
+      // Deposit eth into wallet
+      await wallet.depositEth({from: web3.eth.accounts[1], value: 55});
+
+      // Withdraw non-owner
+      utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+        await wallet.withdrawEth(22, web3.eth.accounts[1], {from: web3.eth.accounts[2]});
+      });
+
+      // Withdraw owner
+      await wallet.withdrawEth(22, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+    });
+
+    it("should emit new wallet event", async () => {
+      // Find out where wallet will be created
+      const walletAddress = (await walletFactory.newWallet.call({from: web3.eth.accounts[1]})).valueOf();
+
+      // Actually create the wallet
+      await walletFactory.newWallet({from: web3.eth.accounts[1]});
+
+      await utils.assertEvents(walletFactory, [
+      {
+        event: "NewWallet",
+        args: {
+          owner: web3.eth.accounts[1],
+          newWalletAddress: walletAddress
+        }
+      }]);
     });
   });
 });
