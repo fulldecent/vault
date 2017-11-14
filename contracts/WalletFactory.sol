@@ -9,9 +9,14 @@ import "./Wallet.sol";
   * 		after registration.
   */
 contract WalletFactory {
-    // Note: These variables are immuatable. Create a new factory to change them.
+    /*
+     * Note: These state variables are immuatable.
+     * We must create a new factory to change either address.
+     */
     address bankAddress;
     address etherTokenAddress;
+
+    event NewWallet(address owner, address newWalletAddress);
 
 	/**
       * @notice Creates a new Wallet Factory.
@@ -25,10 +30,14 @@ contract WalletFactory {
 
     /**
       * @notice Creates a new Compound Smart Wallet with given owner
-      * @param owner Address of owner of new Compound Smart Wallet
+      * @return wallet The new wallet which was created
       */
-    function newWallet(address owner) public returns (Wallet) {
-        return new Wallet(owner, bankAddress, etherTokenAddress);
+    function newWallet() public returns (Wallet) {
+        Wallet wallet = new Wallet(msg.sender, bankAddress, etherTokenAddress);
+
+        NewWallet(msg.sender, address(wallet));
+
+        return wallet;
     }
 
 }
