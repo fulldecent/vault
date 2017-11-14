@@ -9,9 +9,37 @@ contract('Bank', function(accounts) {
   var etherToken;
 
   beforeEach(async () => {
-    [bank, etherToken] = await Promise.all([Bank.new(), EtherToken.new()]);
+    [bank, etherToken] = await Promise.all([Bank.new(2), EtherToken.new()]);
+    await bank.setAssetValue(etherToken.address, 1);
   });
 
+  describe('#newLoan', () => {
+    describe('when the loan is valid', () => {
+      it("pays out the amount requested", async () => {
+        await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
+        // Check return value
+        const amountLoaned = await bank.newLoan.call(etherToken.address, 20, {from: web3.eth.accounts[1]});
+        assert.equal(amountLoaned.valueOf(), 20);
+
+        // Call actual function
+        await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+
+        // verify balances in W-Eth
+        assert.equal(await utils.tokenBalance(etherToken, bank.address), 80);
+        assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 20);
+      });
+    });
+
+    describe("when the user doesn't have enough collateral deposited", () => {
+      it("fails", async () => {
+        await utils.createAndTransferWeth(bank.address, etherToken, 100, web3.eth.accounts[0]);
+
+        await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+          await bank.newLoan(etherToken.address, 201, {from: web3.eth.accounts[1]});
+        });
+      });
+    });
+  });
   describe('#getValueEquivalent', () => {
     it('should get value of assets', async () => {
       // deposit Ether tokens for acct 1
