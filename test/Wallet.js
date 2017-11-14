@@ -16,7 +16,7 @@ async function withdrawEth(wallet, amount, account, to) {
 
 async function depositAsset(wallet, token, amount, account) {
   // Approve wallet for amount tokens
-  token.approve(wallet.address, amount, {from: account});
+  await token.approve(wallet.address, amount, {from: account});
 
   // Deposit those tokens
   await wallet.depositAsset(token.address, amount, {from: account});
@@ -65,10 +65,10 @@ contract('Wallet', function(accounts) {
   describe('#depositAsset', () => {
     it('should deposit assets in bank', async () => {
       // Allocate 100 pig tokens to account 1
-      pigToken.allocate(web3.eth.accounts[1], 100);
+      await pigToken.allocate(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
-      pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
+      await pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
 
       // Verify initial state
       assert.equal(await utils.tokenBalance(pigToken, bank.address), 0);
@@ -120,10 +120,10 @@ contract('Wallet', function(accounts) {
   describe('#withdrawAsset', () => {
     it('should withdraw assets from bank', async () => {
       // Allocate 100 pig tokens to account 1
-      pigToken.allocate(web3.eth.accounts[1], 100);
+      await pigToken.allocate(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
-      pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
+      await pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
 
       // Deposit those tokens
       await wallet.depositAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
@@ -162,7 +162,7 @@ contract('Wallet', function(accounts) {
   describe('#balance', () => {
     it('should have correct asset balance', async () => {
       // Allocate 100 pig tokens to account 1
-      pigToken.allocate(web3.eth.accounts[1], 100);
+      await pigToken.allocate(web3.eth.accounts[1], 100);
 
       await depositAsset(wallet, pigToken, 22, web3.eth.accounts[1]);
 
