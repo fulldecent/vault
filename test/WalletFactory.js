@@ -20,10 +20,10 @@ contract('WalletFactory', function(accounts) {
   describe("#newWallet", () => {
     it("should create a new wallet", async () => {
       // Find out where wallet will be created
-      const walletAddress = (await walletFactory.newWallet.call({from: web3.eth.accounts[1]})).valueOf();
+      const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
 
       // Actually create the wallet
-      await walletFactory.newWallet({from: web3.eth.accounts[1]});
+      await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[0]});
 
       // Make a Wallet variable pointed at the address from above
       const wallet = Wallet.at(walletAddress);
@@ -41,12 +41,18 @@ contract('WalletFactory', function(accounts) {
       assert.equal((await wallet.balanceEth.call()).valueOf(), 33);
     });
 
-    it("should be owned by message sender", async () => {
+    it("should only work if by wallet factory owner", async () => {
+      utils.assertFailure(async () => {
+        await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+      });
+    });
+
+    it("should be owned by set owner", async () => {
       // Find out where wallet will be created
-      const walletAddress = (await walletFactory.newWallet.call({from: web3.eth.accounts[1]})).valueOf();
+      const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
 
       // Actually create the wallet
-      await walletFactory.newWallet({from: web3.eth.accounts[1]});
+      await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[0]});
 
       // Make a Wallet variable pointed at the address from above
       const wallet = Wallet.at(walletAddress);
@@ -65,16 +71,16 @@ contract('WalletFactory', function(accounts) {
 
     it("should emit new wallet event", async () => {
       // Find out where wallet will be created
-      const walletAddress = (await walletFactory.newWallet.call({from: web3.eth.accounts[1]})).valueOf();
+      const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
 
       // Actually create the wallet
-      await walletFactory.newWallet({from: web3.eth.accounts[1]});
+      await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[0]});
 
       await utils.assertEvents(walletFactory, [
       {
         event: "NewWallet",
         args: {
-          owner: web3.eth.accounts[1],
+          walletOwner: web3.eth.accounts[1],
           newWalletAddress: walletAddress
         }
       }]);

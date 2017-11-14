@@ -1,5 +1,6 @@
 pragma solidity ^0.4.18;
 
+import "./base/Owned.sol";
 import "./Wallet.sol";
 
 /**
@@ -8,7 +9,7 @@ import "./Wallet.sol";
   * @notice Helps Compound users create a Compound Smart Wallet
   * 		after registration.
   */
-contract WalletFactory {
+contract WalletFactory is Owned {
     /*
      * Note: These state variables are immuatable.
      * We must create a new factory to change either address.
@@ -16,7 +17,7 @@ contract WalletFactory {
     address bankAddress;
     address etherTokenAddress;
 
-    event NewWallet(address owner, address newWalletAddress);
+    event NewWallet(address walletOwner, address newWalletAddress);
 
 	/**
       * @notice Creates a new Wallet Factory.
@@ -32,10 +33,10 @@ contract WalletFactory {
       * @notice Creates a new Compound Smart Wallet with given owner
       * @return wallet The new wallet which was created
       */
-    function newWallet() public returns (Wallet) {
-        Wallet wallet = new Wallet(msg.sender, bankAddress, etherTokenAddress);
+    function newWallet(address walletOwner) public onlyOwner returns (Wallet) {
+        Wallet wallet = new Wallet(walletOwner, bankAddress, etherTokenAddress);
 
-        NewWallet(msg.sender, address(wallet));
+        NewWallet(walletOwner, address(wallet));
 
         return wallet;
     }
