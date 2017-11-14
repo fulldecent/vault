@@ -15,7 +15,7 @@ contract('Ledger', function(accounts) {
   describe('#deposit', () => {
     it("should increase the user's balance", async () => {
       // first deposit assets into W-Eth contract
-      await utils.createAndApproveEth(ledger, etherToken, 100, web3.eth.accounts[1]);
+      await utils.createAndApproveWeth(ledger, etherToken, 100, web3.eth.accounts[1]);
 
       // verify initial state
 
@@ -57,7 +57,7 @@ contract('Ledger', function(accounts) {
     });
 
     it("should only work if properly authorized", async () => {
-      await utils.createAndApproveEth(ledger, etherToken, 100, web3.eth.accounts[1], 99);
+      await utils.createAndApproveWeth(ledger, etherToken, 100, web3.eth.accounts[1], 99);
 
       try {
         await ledger.deposit(etherToken.address, 100, web3.eth.accounts[1]);

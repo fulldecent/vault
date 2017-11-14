@@ -3,7 +3,7 @@ var Promise = require("bluebird");
 var BigNumber = require('bignumber.js');
 var one = new BigNumber(1);
 
-async function createAndApproveEth(ledger, etherToken, amount, account, approvalAmount) {
+async function createAndApproveWeth(ledger, etherToken, amount, account, approvalAmount) {
   await etherToken.deposit({from: account, value: amount});
   await etherToken.approve(ledger.address, approvalAmount || amount, {from: account});
 };
@@ -41,14 +41,18 @@ module.exports = {
       await execFn()
       assert.fail('should have thrown');
     } catch (error) {
-      assert.equal(error.message, msg);
+      await assert.equal(error.message, msg);
     }
   },
 
-  createAndApproveEth: createAndApproveEth,
+  createAndApproveWeth: createAndApproveWeth,
 
+  createAndTransferWeth: async function(transferrable, etherToken, amount, account) {
+    await etherToken.deposit({from: account, value: amount});
+    await etherToken.transfer(transferrable, 100, {from: account});
+  },
   depositEth: async function(ledger, etherToken, amount, account) {
-    await createAndApproveEth(ledger, etherToken, amount, account);
+    await createAndApproveWeth(ledger, etherToken, amount, account);
     await ledger.deposit(etherToken.address, amount, account);
   },
 
