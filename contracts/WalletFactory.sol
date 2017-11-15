@@ -17,7 +17,7 @@ contract WalletFactory is Owned {
     address bankAddress;
     address etherTokenAddress;
 
-    event NewWallet(address walletOwner, address newWalletAddress);
+    event NewWallet(address walletOwner, address newWalletAddress, address walletFactoryAddress);
 
 	/**
       * @notice Creates a new Wallet Factory.
@@ -36,7 +36,7 @@ contract WalletFactory is Owned {
     function newWallet(address walletOwner) public onlyOwner returns (Wallet) {
         Wallet wallet = new Wallet(walletOwner, bankAddress, etherTokenAddress);
 
-        NewWallet(walletOwner, address(wallet));
+        NewWallet(walletOwner, address(wallet), address(self));
 
         return wallet;
     }
