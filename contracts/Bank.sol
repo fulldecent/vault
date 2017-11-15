@@ -51,7 +51,8 @@ contract Bank is Oracle, Ledger {
     }
 
     /**
-      * @notice `newLoan` creates a new loan and sends the customer their       * loaned assests.
+      * @notice `newLoan` creates a new loan and sends the customer their
+      * loaned assests.
       * @param asset The address of the asset being loaned
       * @param amountRequested The amount requested of the asset
       * @return value The amount loaned
@@ -59,7 +60,6 @@ contract Bank is Oracle, Ledger {
     function newLoan(address asset, uint amountRequested) public returns (uint256) {
       // Compound currently only allows loans in ETH
       // TODO: Check asset type is supported for loans
-      // TODO: Check sufficient asset value
       require(validCollateralRatio(amountRequested));
       Loan memory loan = Loan({
           asset: asset,
@@ -72,7 +72,6 @@ contract Bank is Oracle, Ledger {
 
       uint256 amountLoaned = amountRequested;
 
-      // TODO: If not revert
       if (!Token(asset).transfer(msg.sender, amountLoaned)) {
           revert();
       }
@@ -85,7 +84,7 @@ contract Bank is Oracle, Ledger {
       * @param minimumCollateralRatio_ the minimum collateral ratio to be set
           t is valid and false otherwise
       */
-    function setMinimumCollateralRatio(uint minimumCollateralRatio_) public {
+    function setMinimumCollateralRatio(uint minimumCollateralRatio_) public onlyOwner {
       minimumCollateralRatio = minimumCollateralRatio_;
     }
 
