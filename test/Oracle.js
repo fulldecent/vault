@@ -1,11 +1,7 @@
 const Oracle = artifacts.require("./Oracle.sol");
 const utils = require('./utils');
 const moment = require('moment');
-
-const tokenAddrs = {
-  OMG: "0x0000000000000000000000000000000000000001",
-  BAT: "0x0000000000000000000000000000000000000002"
-}
+const tokenAddrs = utils.tokenAddrs;
 
 contract('Oracle', function(accounts) {
   var oracle;

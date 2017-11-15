@@ -8,6 +8,15 @@ async function createAndApproveWeth(ledger, etherToken, amount, account, approva
   await etherToken.approve(ledger.address, approvalAmount || amount, {from: account});
 };
 
+async function assertFailure(msg, execFn) {
+  try {
+    await execFn()
+    assert.fail('should have thrown');
+  } catch (error) {
+    await assert.equal(error.message, msg);
+  }
+}
+
 module.exports = {
   // https://ethereum.stackexchange.com/a/21661
   //
@@ -36,16 +45,12 @@ module.exports = {
     return assert.equal(end.minus(start), difference);
   },
 
-  assertFailure: async function(msg, execFn) {
-    try {
-      await execFn()
-      assert.fail('should have thrown');
-    } catch (error) {
-      await assert.equal(error.message, msg);
-    }
+  assertOnlyOwner: async function(f, web3) {
+    await assertFailure("VM Exception while processing transaction: revert", async () => {
+      await  f({from: web3.eth.accounts[1]});
+    })
+    await  f({from: web3.eth.accounts[0]});
   },
-
-  createAndApproveWeth: createAndApproveWeth,
 
   createAndTransferWeth: async function(transferrable, etherToken, amount, account) {
     await etherToken.deposit({from: account, value: amount});
@@ -91,5 +96,11 @@ module.exports = {
       one.plus(interestRate.dividedBy(payoutsPerTimePeriod)).
         toPower(payoutsPerTimePeriod.times(duration)
       )
-    )
+    ),
+  tokenAddrs: {
+    OMG: "0x0000000000000000000000000000000000000001",
+    BAT: "0x0000000000000000000000000000000000000002"
+  },
+  assertFailure,
+  createAndApproveWeth,
 }

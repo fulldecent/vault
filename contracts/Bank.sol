@@ -11,6 +11,7 @@ import "./Ledger.sol";
   */
 contract Bank is Oracle, Ledger {
   uint minimumCollateralRatio;
+	address[] loanableAssets;
 
 	struct Loan {
         uint balance;
@@ -29,6 +30,14 @@ contract Bank is Oracle, Ledger {
       */
     function Bank (uint minimumCollateralRatio_) public {
         minimumCollateralRatio = minimumCollateralRatio_;
+    }
+
+    /**
+      * @notice `addLoanableAsset` adds an asset to the list of loanable assets
+      * @param asset The address of the assets to add
+      */
+    function addLoanableAsset(address asset) public onlyOwner {
+      loanableAssets.push(asset);
     }
 
     /**
@@ -61,6 +70,7 @@ contract Bank is Oracle, Ledger {
       // Compound currently only allows loans in ETH
       // TODO: Check asset type is supported for loans
       require(validCollateralRatio(amountRequested));
+      require(loanableAsset(asset));
       Loan memory loan = Loan({
           asset: asset,
           acct: msg.sender,
@@ -97,6 +107,16 @@ contract Bank is Oracle, Ledger {
     function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
         return (getValueEquivalent(msg.sender) * minimumCollateralRatio) > requestedAmount;
     }
+
+    /**
+      * @notice `loanableAsset` determines if the asset is loanable
+      * @param asset the assets to query
+      * @return boolean true if the asset is loanable, false if not
+      */
+    function loanableAsset(address asset) view internal returns (bool) {
+      return arrayContainsAddress(loanableAssets, asset);
+    }
+
 
     /**
       * @notice Do not pay directly into Bank, please use `deposit`.
