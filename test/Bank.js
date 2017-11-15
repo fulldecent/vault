@@ -11,6 +11,19 @@ contract('Bank', function(accounts) {
   beforeEach(async () => {
     [bank, etherToken] = await Promise.all([Bank.new(2), EtherToken.new()]);
     await bank.setAssetValue(etherToken.address, 1);
+    await bank.addLoanableAsset(etherToken.address);
+  });
+
+  describe.only('#setMinimumCollateralRatio', () => {
+    it('only can be called by the contract owner', async () => {
+      await utils.assertOnlyOwner(bank.setMinimumCollateralRatio.bind(null, 1), web3);
+    });
+  });
+
+  describe('#addLoanableAsset', () => {
+    it('only can be called by the contract owner', async () => {
+      await utils.assertOnlyOwner(bank.addLoanableAsset.bind(null, 1), web3);
+    });
   });
 
   describe('#newLoan', () => {
@@ -32,20 +45,31 @@ contract('Bank', function(accounts) {
 
     describe("when the user doesn't have enough collateral deposited", () => {
       it("fails", async () => {
-        await utils.createAndTransferWeth(bank.address, etherToken, 100, web3.eth.accounts[0]);
+        await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[0]);
 
         await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-          await bank.newLoan(etherToken.address, 201, {from: web3.eth.accounts[1]});
+          await bank.newLoan(etherToken.address, 201, {from: web3.eth.accounts[0]});
         });
       });
     });
   });
+
+  describe("when the user tries to take a loan out of an unsupported asset", () => {
+    it("fails", async () => {
+      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[0]);
+
+      await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+        await bank.newLoan(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
+      });
+    });
+  });
+
   describe('#getValueEquivalent', () => {
     it('should get value of assets', async () => {
       // deposit Ether tokens for acct 1
       await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
 
-      // set Eracle value (each Eth is now worth two Eth!)
+      // set Oracle value (each Eth is now worth two Eth!)
       await bank.setAssetValue(etherToken.address, 2);
 
       // get value of acct 1

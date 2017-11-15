@@ -1,4 +1,6 @@
 require('dotenv').config();
+const Web3 = require("web3");
+const web3 = new Web3();
 const _ = require("lodash");
 const WalletProvider = require("truffle-wallet-provider");
 const Wallet = require('ethereumjs-wallet');
@@ -21,7 +23,7 @@ const infuraNetworks = _.fromPairs(_.compact(networks.map((network) => {
         port: 8545,
         network_id: "*",
         gas: 4612388,
-        gasPrice: 30000000000,
+        gasPrice: web3.toWei(12, "gwei"),
         provider,
       }
     ];
