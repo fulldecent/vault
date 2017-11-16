@@ -36,7 +36,7 @@ contract WalletFactory is Owned {
     function newWallet(address walletOwner) public onlyOwner returns (Wallet) {
         Wallet wallet = new Wallet(walletOwner, bankAddress, etherTokenAddress);
 
-        NewWallet(walletOwner, address(wallet), address(self));
+        NewWallet(walletOwner, address(wallet), address(this));
 
         return wallet;
     }
