@@ -11,18 +11,15 @@ import "./Ledger.sol";
   */
 contract Vault is Oracle, Ledger {
   uint minimumCollateralRatio;
-	address[] loanableAssets;
+  address[] loanableAssets;
 
-	struct Loan {
+  struct Loan {
         uint balance;
         uint amount;
         address asset;
         address acct;
     }
-
-    // TODO: Store as map and list?
-    // TODO: Functions to retreive loans
-    Loan[] loans;
+    mapping(address => Loan[]) loans;
 
 
     /**
@@ -68,7 +65,6 @@ contract Vault is Oracle, Ledger {
       */
     function newLoan(address asset, uint amountRequested) public returns (uint256) {
       // Compound currently only allows loans in ETH
-      // TODO: Check asset type is supported for loans
       require(validCollateralRatio(amountRequested));
       require(loanableAsset(asset));
       Loan memory loan = Loan({
@@ -78,7 +74,8 @@ contract Vault is Oracle, Ledger {
           balance: amountRequested
       });
 
-      loans.push(loan);
+
+      loans[msg.sender].push(loan);
 
       uint256 amountLoaned = amountRequested;
 
@@ -87,6 +84,28 @@ contract Vault is Oracle, Ledger {
       }
 
       return amountLoaned;
+    }
+
+    /**
+      * @notice `getLoan` returns a Loan
+      * @param lesseeAddress The lessee's address
+      * @param loanId The loan id as a zero based array
+      * @return loan The loan represented as a tuple
+      */
+    function getLoan(address lesseeAddress, uint loanId) public returns (
+        uint balance,
+        uint amount,
+        address asset,
+        address acct
+    ) {
+      Loan storage loan = loans[lesseeAddress][loanId];
+
+      return (
+        loan.balance,
+        loan.amount,
+        loan.asset,
+        loan.acct
+      );
     }
 
     /**
