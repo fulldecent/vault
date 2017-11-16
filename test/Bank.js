@@ -14,7 +14,7 @@ contract('Bank', function(accounts) {
     await bank.addLoanableAsset(etherToken.address);
   });
 
-  describe.only('#setMinimumCollateralRatio', () => {
+  describe('#setMinimumCollateralRatio', () => {
     it('only can be called by the contract owner', async () => {
       await utils.assertOnlyOwner(bank.setMinimumCollateralRatio.bind(null, 1), web3);
     });
@@ -23,6 +23,19 @@ contract('Bank', function(accounts) {
   describe('#addLoanableAsset', () => {
     it('only can be called by the contract owner', async () => {
       await utils.assertOnlyOwner(bank.addLoanableAsset.bind(null, 1), web3);
+    });
+  });
+
+  describe('#getLoan', () => {
+    it("returns a loan", async () => {
+      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
+      await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+
+      const loan = await bank.getLoan.call(web3.eth.accounts[1], 0);
+      assert.equal(loan[0], 20);
+      assert.equal(loan[1], 20);
+      assert.equal(loan[2], etherToken.address);
+      assert.equal(loan[3], web3.eth.accounts[1]);
     });
   });
 
