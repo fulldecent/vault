@@ -94,8 +94,7 @@ module.exports = {
   ) =>
     principal.times(
       one.plus(interestRate.dividedBy(payoutsPerTimePeriod)).
-        toPower(payoutsPerTimePeriod.times(duration)
-      )
+        toPower(Math.floor(duration * payoutsPerTimePeriod))
     ),
   tokenAddrs: {
     OMG: "0x0000000000000000000000000000000000000001",
