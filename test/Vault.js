@@ -26,16 +26,47 @@ contract('Vault', function(accounts) {
     });
   });
 
-  describe('#getLoan', () => {
+  describe('#getLoanByLessee', () => {
     it("returns a loan", async () => {
       await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
       await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
 
-      const loan = await bank.getLoan.call(web3.eth.accounts[1], 0);
-      assert.equal(loan[0], 20);
-      assert.equal(loan[1], 20);
-      assert.equal(loan[2], etherToken.address);
-      assert.equal(loan[3], web3.eth.accounts[1]);
+      const loan = await bank.getLoanByLessee.call(web3.eth.accounts[1], 0);
+      utils.assertMatchingArray(loan, [
+        20,
+        20,
+        etherToken.address,
+        web3.eth.accounts[1],
+      ]);
+    });
+  });
+
+  describe('#getLoan', () => {
+    it("returns a loan", async () => {
+      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
+      await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await bank.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
+
+      const loan = await bank.getLoan.call(1);
+
+      utils.assertMatchingArray(loan, [
+        40,
+        40,
+        etherToken.address,
+        web3.eth.accounts[1],
+      ]);
+    });
+  });
+
+  describe('#getLength', () => {
+    it("returns the loan length", async () => {
+      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
+      await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await bank.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
+
+      const loanLength = await bank.getLoansLength.call(web3.eth.accounts[1], 0);
+
+      assert.equal(loanLength, 2);
     });
   });
 

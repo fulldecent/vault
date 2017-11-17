@@ -45,6 +45,11 @@ module.exports = {
     return assert.equal(end.minus(start), difference);
   },
 
+  assertMatchingArray: function(firstArray, secondArray) {
+    firstArray.forEach((value, index) =>
+      assert.equal(value, secondArray[index])
+    )
+  },
   assertOnlyOwner: async function(f, web3) {
     await assertFailure("VM Exception while processing transaction: revert", async () => {
       await  f({from: web3.eth.accounts[1]});

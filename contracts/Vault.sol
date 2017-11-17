@@ -19,7 +19,8 @@ contract Vault is Oracle, Ledger {
         address asset;
         address acct;
     }
-    mapping(address => Loan[]) loans;
+    Loan[] loans;
+    mapping(address => uint256[]) loanIds;
 
 
     /**
@@ -74,8 +75,8 @@ contract Vault is Oracle, Ledger {
           balance: amountRequested
       });
 
-
-      loans[msg.sender].push(loan);
+      loans.push(loan);
+      loanIds[msg.sender].push(loans.length - 1);
 
       uint256 amountLoaned = amountRequested;
 
@@ -87,18 +88,33 @@ contract Vault is Oracle, Ledger {
     }
 
     /**
-      * @notice `getLoan` returns a Loan
+      * @notice `getLoanByLessee` returns a Loan by Lessee
       * @param lesseeAddress The lessee's address
-      * @param loanId The loan id as a zero based array
+      * @param lesseeLoanId The index of the lesse's loan in a zero based array
       * @return loan The loan represented as a tuple
       */
-    function getLoan(address lesseeAddress, uint loanId) public returns (
+    function getLoanByLessee(address lesseeAddress, uint lesseeLoanId) public returns (
         uint balance,
         uint amount,
         address asset,
         address acct
     ) {
-      Loan storage loan = loans[lesseeAddress][loanId];
+      uint loanId = loanIds[lesseeAddress][lesseeLoanId];
+      return getLoan(loanId);
+    }
+
+    /**
+      * @notice `getLoan` returns a Loan
+      * @param loanId The loan id as a zero based array
+      * @return loan The loan represented as a tuple
+      */
+    function getLoan(uint loanId) public returns (
+        uint balance,
+        uint amount,
+        address asset,
+        address acct
+    ) {
+      Loan storage loan = loans[loanId];
 
       return (
         loan.balance,
@@ -106,6 +122,16 @@ contract Vault is Oracle, Ledger {
         loan.asset,
         loan.acct
       );
+    }
+
+    /**
+      * @notice `getLoansLength` returns the length of the array of loans
+      * @return loansLength the length of the loan list array
+      */
+    function getLoansLength(address lesseeAddress, uint loanId) public returns (
+        uint loansLength
+    ) {
+      return loans.length;
     }
 
     /**
