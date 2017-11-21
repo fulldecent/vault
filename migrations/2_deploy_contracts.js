@@ -1,10 +1,12 @@
-var Vault = artifacts.require("./Vault.sol");
-var EtherToken = artifacts.require("./tokens/EtherToken.sol");
-var WalletFactory = artifacts.require("./WalletFactory.sol");
+var Vault = artifacts.require("Vault.sol");
+var EtherToken = artifacts.require("EtherToken.sol");
+var WalletFactory = artifacts.require("WalletFactory.sol");
 
-module.exports = async function(deployer) {
-  await deployer.deploy(Vault, 2);
-  await deployer.deploy(EtherToken);
-
-  await deployer.deploy(WalletFactory, Vault.address, EtherToken.address);
+module.exports = function(deployer) {
+  return deployer.deploy([
+    [Vault, 2],
+    EtherToken
+  ]).then(function() {
+    return deployer.deploy(WalletFactory, Vault.address, EtherToken.address);
+  });
 };

@@ -19,7 +19,7 @@ contract WalletFactory is Owned {
 
     event NewWallet(address walletOwner, address newWalletAddress, address walletFactoryAddress);
 
-	/**
+    /**
       * @notice Creates a new Wallet Factory.
       * @param vaultAddress_ Address of Compound Vault contract
       * @param etherTokenAddress_ Address of Compound EtherToken contract
@@ -32,8 +32,9 @@ contract WalletFactory is Owned {
     /**
       * @notice Creates a new Compound Smart Wallet with given owner
       * @return wallet The new wallet which was created
+      * !!SECURITY!! Add back `ownerOnly`
       */
-    function newWallet(address walletOwner) public onlyOwner returns (Wallet) {
+    function newWallet(address walletOwner) public returns (Wallet) {
         Wallet wallet = new Wallet(walletOwner, vaultAddress, etherTokenAddress);
 
         NewWallet(walletOwner, address(wallet), address(this));
