@@ -28,7 +28,7 @@ readFiles(workingDirectory)
   .then( allContents => {
     const input = _.fromPairs(allContents);
     console.log(input);
-    var output = solc.compile({ sources: input }, 1)
+    var output = solc.compile({ sources: input }, 0)
     console.log(output.contracts)
     var metadata = JSON.parse(output.contracts[`${path.resolve(filePath)}:${fileName.replace(/.sol$/, '')}`].metadata);
     var compiler = metadata.compiler;

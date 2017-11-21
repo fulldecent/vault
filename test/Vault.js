@@ -28,10 +28,10 @@ contract('Vault', function(accounts) {
 
   describe('#getLoanByLessee', () => {
     it("returns a loan", async () => {
-      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
-      await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
 
-      const loan = await bank.getLoanByLessee.call(web3.eth.accounts[1], 0);
+      const loan = await vault.getLoanByLessee.call(web3.eth.accounts[1], 0);
       utils.assertMatchingArray(loan, [
         20,
         20,
@@ -43,11 +43,11 @@ contract('Vault', function(accounts) {
 
   describe('#getLoan', () => {
     it("returns a loan", async () => {
-      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
-      await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await bank.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
 
-      const loan = await bank.getLoan.call(1);
+      const loan = await vault.getLoan.call(1);
 
       utils.assertMatchingArray(loan, [
         40,
@@ -60,11 +60,11 @@ contract('Vault', function(accounts) {
 
   describe('#getLength', () => {
     it("returns the loan length", async () => {
-      await utils.depositEth(bank, etherToken, 100, web3.eth.accounts[1]);
-      await bank.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await bank.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
 
-      const loanLength = await bank.getLoansLength.call(web3.eth.accounts[1], 0);
+      const loanLength = await vault.getLoansLength.call(web3.eth.accounts[1], 0);
 
       assert.equal(loanLength, 2);
     });
