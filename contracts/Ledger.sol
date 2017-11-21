@@ -11,8 +11,8 @@ import "./base/Owned.sol";
   *         as well as calculating Compound interest.
   */
 contract Ledger is Owned, InterestHelper {
-    struct Balance {
-        uint256 amount;
+    struct BalanceCheckpoint {
+        uint256 balance;
         uint256 timestamp;
     }
 
@@ -21,7 +21,7 @@ contract Ledger is Owned, InterestHelper {
         uint64 payoutsPerYear;
     }
 
-    mapping(address => mapping(address => Balance)) balances;
+    mapping(address => mapping(address => BalanceCheckpoint)) balanceCheckpoints;
     mapping(address => Rate) rates;
 
     event InterestRateChange(address asset, uint64 interestRate, uint64 payoutsPerYear);
@@ -58,14 +58,14 @@ contract Ledger is Owned, InterestHelper {
     }
 
 	/**
-      * @notice `getAccountBalanceRaw` returns the balance (without interest) for
+      * @notice `getBalanceAtLastCheckpoint` returns the balance (without interest) for
       * the given account in the given asset (e.g. W-Eth or OMG)
       * @param account The account to get the balance of
       * @param asset The address of the asset
       * @return balance The balance (without interest) of the asset in given account
       */
-    function getAccountBalanceRaw(address account, address asset) public view returns (uint256) {
-        return balances[account][asset].amount;
+    function getBalanceAtLastCheckpoint(address account, address asset) public view returns (uint256) {
+        return balanceCheckpoints[account][asset].balance;
     }
 
     /**
@@ -77,8 +77,8 @@ contract Ledger is Owned, InterestHelper {
       */
     function getBalanceWithInterest(address account, address asset, uint256 timestamp) public view returns (uint256) {
         return balanceWithInterest(
-            balances[account][asset].amount,
-            balances[account][asset].timestamp,
+            balanceCheckpoints[account][asset].balance,
+            balanceCheckpoints[account][asset].timestamp,
             timestamp,
             rates[asset].interestRate,
             rates[asset].payoutsPerYear);
@@ -97,15 +97,9 @@ contract Ledger is Owned, InterestHelper {
         if (!Token(asset).transferFrom(from, address(this), amount)) {
             return revert();
         }
+        accrueInterest(from, asset);
 
-        LedgerEntry(from, asset, amount, 0);
-        LedgerEntry(address(this), asset, 0, amount);
-
-        // TODO: Calculate current balance
-
-        // Add balance for the same `from` address
-        balances[from][asset].amount += amount;
-        balances[from][asset].timestamp = now;
+        credit(from, asset, amount);
     }
 
     /**
@@ -114,20 +108,64 @@ contract Ledger is Owned, InterestHelper {
       * @param amount amount to withdraw
       */
     function withdraw(address asset, uint256 amount, address to) public {
-        // TODO: Upgrade to balance with interest
-        uint256 balance = getAccountBalanceRaw(msg.sender, asset);
-
+        accrueInterest(msg.sender, asset);
+        uint256 balance = getBalanceAtLastCheckpoint(msg.sender, asset);
         assert(amount <= balance);
 
-        LedgerEntry(msg.sender, asset, 0, amount);
-        LedgerEntry(address(this), asset, amount, 0);
-
-        // Subtract amount from that sender's balance
-        balances[msg.sender][asset].amount -= amount;
+        debit(msg.sender, asset, amount);
 
         // Transfer asset out to `to` address
         if (!Token(asset).transfer(to, amount)) {
             revert();
         }
+    }
+
+    /**
+      * @notice `accrueInterest` adds interest to your balance since the last
+      * checkpoint and sets the checkpoint to now.
+      * @param account the account to accrue interest on
+      * @param asset the asset to accrue interest on
+      */
+    function accrueInterest(address account, address asset) public {
+        BalanceCheckpoint checkpoint = balanceCheckpoints[account][asset];
+        Rate rate = rates[asset];
+
+        uint interest = balanceWithInterest(
+            checkpoint.balance,
+            checkpoint.timestamp,
+            now,
+            rate.interestRate,
+            rate.payoutsPerYear) - checkpoint.balance;
+
+        credit(account, asset, interest);
+    }
+
+    /**
+      * @notice credit an account.
+      * @param account the account to credit
+      * @param asset the asset to debit
+      * @param amount amount to debit
+      */
+    function credit(address account, address asset, uint256 amount) internal {
+        balanceCheckpoints[account][asset].balance += amount;
+        balanceCheckpoints[account][asset].timestamp = now;
+
+        LedgerEntry(account, asset, amount, 0);
+        LedgerEntry(address(this), asset, 0, amount);
+    }
+
+
+    /**
+      * @notice debit an account.
+      * @param account the account to credit
+      * @param asset the asset to debit
+      * @param amount amount to debit
+      */
+    function debit(address account, address asset, uint256 amount) internal {
+        balanceCheckpoints[account][asset].balance -= amount;
+        balanceCheckpoints[account][asset].timestamp = now;
+
+        LedgerEntry(account, asset, 0, amount);
+        LedgerEntry(address(this), asset, amount, 0);
     }
 }

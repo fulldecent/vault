@@ -17,6 +17,34 @@ async function assertFailure(msg, execFn) {
   }
 }
 
+async function increaseTime(web3, seconds) {
+  return new Promise((resolve, reject) => {
+    web3.currentProvider.sendAsync({
+      jsonrpc: "2.0",
+      method: "evm_increaseTime",
+      params: [seconds], // 86400 is num seconds in day
+      id: new Date().getTime()
+    }, (err, result) => {
+      if(err){ return reject(err) }
+      return resolve(result)
+    });
+  });
+}
+
+async function mineBlock(web3) {
+  return new Promise((resolve, reject) => {
+    web3.currentProvider.sendAsync({
+      jsonrpc: "2.0",
+      method: "evm_mine",
+      params: [],
+      id: new Date().getTime()
+    }, (err, result) => {
+      if(err){ return reject(err) }
+      return resolve(result)
+    });
+  });
+}
+
 module.exports = {
   // https://ethereum.stackexchange.com/a/21661
   //
@@ -50,6 +78,10 @@ module.exports = {
       assert.equal(value, secondArray[index])
     )
   },
+  increaseTime: async function(web3, seconds) {
+    await increaseTime(web3, seconds);
+    await mineBlock(web3);
+  },
   assertOnlyOwner: async function(f, web3) {
     await assertFailure("VM Exception while processing transaction: revert", async () => {
       await  f({from: web3.eth.accounts[1]});
@@ -66,9 +98,9 @@ module.exports = {
     await ledger.deposit(etherToken.address, amount, account);
   },
 
-  ledgerAccountBalance: async function(ledger, account, token) {
-    return (await ledger.getAccountBalanceRaw.call(account, token)).valueOf();
-  },
+  ledgerAccountBalance: async (ledger, account, token) =>
+    await ledger.getBalanceAtLastCheckpoint.call(account, token).valueOf()
+  ,
 
   tokenBalance: async function(token, account) {
     return (await token.balanceOf(account)).valueOf();

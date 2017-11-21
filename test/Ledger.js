@@ -120,7 +120,8 @@ contract('Ledger', function(accounts) {
         const interestRate = new BigNumber(0.05);
         const payoutsPerTimePeriod = new BigNumber(12);
         const duration = 10;
-        const timestamp = new BigNumber(moment().add(duration, 'years').unix());
+        const currentTimestamp = web3.eth.getBlock(web3.eth.blockNumber).timestamp;
+        const timestamp = new BigNumber(currentTimestamp + moment(0).add(duration, 'years').unix());
 
         await ledger.setInterestRate(etherToken.address, interestRate * 100, payoutsPerTimePeriod);
         await utils.depositEth(ledger, etherToken, principal.times(multiplyer), web3.eth.accounts[1]);
@@ -150,6 +151,40 @@ contract('Ledger', function(accounts) {
         // verify balances in W-Eth
         assert.equal(await utils.tokenBalance(etherToken, ledger.address), 60);
         assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
+      });
+
+      it("should update the user's balance with interest since the last checkpoint", async () => {
+        await ledger.setInterestRate(etherToken.address, 5, 1, {from: web3.eth.accounts[0]});
+        await utils.depositEth(ledger, etherToken, web3.toWei("1", "ether"), web3.eth.accounts[1]);
+
+        await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
+        await ledger.withdraw(etherToken.address, web3.toWei(".5", "ether"), web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+        const expectedBalance = utils.compoundedInterest({
+          principal: new BigNumber(web3.toWei("1", "ether")),
+          interestRate: new BigNumber(0.05),
+          payoutsPerTimePeriod: new BigNumber(1),
+          duration: 2,
+        }).toFixed(6) - web3.toWei(".5", "ether");
+        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), expectedBalance);
+
+        await utils.assertEvents(ledger, [
+        {
+          event: "LedgerEntry",
+          args: {
+            account: web3.eth.accounts[1],
+            asset: etherToken.address,
+            debit: web3.toBigNumber('102500000000000000')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            account: ledger.address,
+            asset: etherToken.address,
+            credit: web3.toBigNumber('102500000000000000')
+          }
+        },
+        ]);
       });
 
       it("should create debit and credit ledger entries", async () => {

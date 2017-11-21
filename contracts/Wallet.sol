@@ -110,7 +110,7 @@ contract Wallet is Owned {
       * @return Asset balance from Vault Contract
       */
     function balance(address asset) public view returns (uint256) {
-      return vault.getAccountBalanceRaw(address(this), asset);
+      return vault.getBalanceAtLastCheckpoint(address(this), asset);
     }
 
     /**
