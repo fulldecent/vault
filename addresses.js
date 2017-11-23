@@ -7,7 +7,16 @@ module.exports = async function(callback) {
 	const etherToken = await EtherToken.deployed();
 	const walletFactory = await WalletFactory.deployed();
 
-	process.stderr.write(vault.address + "," + etherToken.address + "," + walletFactory.address);
+	process.stderr.write(JSON.stringify(
+		{
+			"vault": vault.address,
+			"wallet_factory": walletFactory.address,
+			"ether_token": etherToken.address,
+			"tokens": {
+				[etherToken.address]: "eth"
+			}
+		}
+	));
 
 	callback();
 }
