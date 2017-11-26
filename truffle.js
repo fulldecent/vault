@@ -23,7 +23,7 @@ const infuraNetworks = _.fromPairs(_.compact(networks.map((network) => {
         port: 8545,
         network_id: "*",
         gas: 4612388,
-        gasPrice: web3.toWei(12, "gwei"),
+        gasPrice: web3.toWei(13, "gwei"),
         provider,
       }
     ];
@@ -50,7 +50,8 @@ module.exports = {
     mission: {
       port: 8545,
       gas: 4612388,
-      network_id: "*",
+      gasPrice: web3.toWei(15, "gwei"),
+      network_id: "1000",
       provider: missionProvider,
     },
     ...infuraNetworks,
