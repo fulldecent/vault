@@ -3,42 +3,50 @@ const InterestHelper = artifacts.require("./base/InterestHelper.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
+const now = moment();
+
+const tests = [
+  {
+    principal: new BigNumber(web3.toWei("5", "ether")),
+    interestRate: new BigNumber(0.05), // Percent per year, compounded daily
+    start: now.clone().add(0, 'years'),
+    end: now.clone().add(10, 'years'),
+  },
+];
+
 contract('InterestHelper', function(accounts) {
   var interestHelper;
 
-  beforeEach(async () => {
+  before(async () => {
     interestHelper = await InterestHelper.new();
   });
 
-  describe('#balanceWithInterest', () => {
-    it('should have correct interest', async () => {
-      const precision = 10;
-      const multiplyer = Math.pow(10, precision);
+  tests.forEach((test) => {
+    const duration = moment.duration(test.end.diff(test.start));
 
-      const durationInYears = 10;
-      const principal = new BigNumber(5000);
-      const startTime = new BigNumber(moment().add(0, 'years').unix());
-      const endTime = new BigNumber(moment().add(durationInYears, 'years').unix());
-      const interestRate = new BigNumber(0.05);
-      const payoutsPerYear = new BigNumber(12);
+    it.only("should have correct interest for " + test.principal + " at " + test.interestRate + " daily compounding interest after " + duration.humanize(), async () => {
+      const startTime = new BigNumber(test.start.unix());
+      const endTime = new BigNumber(test.end.unix());
+      console.log(endTime - startTime);
+      const duration = ( endTime - startTime ) / ( 31557600 );
+
+      console.log(["Test Duration Years", duration]);
 
       const expectedBalance = utils.compoundedInterest({
-        principal: principal,
-        interestRate: interestRate,
-        payoutsPerTimePeriod: payoutsPerYear,
-        duration: durationInYears,
+        principal: test.principal,
+        interestRate: test.interestRate,
+        payoutsPerTimePeriod: test.payoutsPerYear,
+        duration,
       }).toFixed(6);
 
-      var balance = await interestHelper.balanceWithInterest.call(
-        principal.times(multiplyer),
+      const balance = await interestHelper.balanceWithInterest.call(
+        test.principal,
         startTime,
         endTime,
-        interestRate * 100,
-        payoutsPerYear);
+        test.interestRate * 100,
+      );
 
-      balance = (balance.valueOf()/multiplyer).toFixed(6)
-
-      assert.equal(balance, expectedBalance);
+      assert.equal(balance.valueOf(), expectedBalance);
     });
   });
 });

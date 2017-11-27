@@ -80,8 +80,7 @@ contract Ledger is Owned, InterestHelper {
             balances[account][asset].amount,
             balances[account][asset].timestamp,
             timestamp,
-            rates[asset].interestRate,
-            rates[asset].payoutsPerYear);
+            rates[asset].interestRate);
     }
 
     /**

@@ -8,24 +8,39 @@ pragma solidity ^0.4.18;
   */
 contract InterestHelper {
 
-	/**
-      * @notice `balanceWithInterest` returns the balance with
-      *			compound interest over the given period.
-      * @param principal The starting principal
-      * @param beginTime The time (as an epoch) when interest began to accrue
-      * @param endTime The time (as an epoch) when interest stopped accruing (e.g. now)
-      * @param interestRate The annual interest rate
-      * @param payoutsPerYear The number of payouts per year
-      */
-	function balanceWithInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRate, uint64 payoutsPerYear) public pure returns (uint256) {
-		uint256 duration = (endTime - beginTime) / (1 years);
-		uint256 payouts = duration * payoutsPerYear;
-		uint256 amortization = principal;
+  mapping(uint => uint) interestLookupTable;
 
-		for (uint64 _i = 0; _i < payouts; _i++) {
-		    amortization = amortization + ((amortization * interestRate) / 100 / payoutsPerYear);
-		}
+  function InterestHelper() {
+    interestLookupTable[1]    =    13671105; // 1 day
+    interestLookupTable[10]    =  136795183; // 10 days
+    interestLookupTable[3650] = 64700949769; // 10 years
+  }
+  /**
+   * @notice `balanceWithInterest` returns the balance with
+   * compound interest over the given period.
+   * @param principal The starting principal
+   * @param beginTime The time (as an epoch) when interest began to accrue
+   * @param endTime The time (as an epoch) when interest stopped accruing (e.g. now)
+   * @param interestRate The annual interest rate
+   */
+  function balanceWithInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRate) public view returns (uint256) {
+    uint time = endTime - beginTime;
+    return principal * (1 + interestLookupTable[time]);
+  }
 
-		return amortization;
-	}
+  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+    if (a == 0) {
+      return 0;
+    }
+    uint256 c = a * b;
+    assert(c / a == b);
+    return c;
+  }
+
+  function div(uint256 a, uint256 b) internal pure returns (uint256) {
+    // assert(b > 0); // Solidity automatically throws when dividing by 0
+    uint256 c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return c;
+  }
 }
