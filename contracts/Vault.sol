@@ -10,12 +10,17 @@ import "./Ledger.sol";
   *         all accounts in Compound.
   */
 contract Vault is Oracle, Ledger {
+  uint constant LOAN_APR = 20;
+  uint constant MIN_LOAN_DURATION = 2;
+  uint constant MAX_LOAN_DURATION = 24;
+  uint constant PAYMENT_FREQUENCY = 2;
   uint minimumCollateralRatio;
   address[] loanableAssets;
 
   struct Loan {
         uint balance;
         uint amount;
+        uint duration;
         address asset;
         address acct;
     }
@@ -64,19 +69,21 @@ contract Vault is Oracle, Ledger {
       * @param amountRequested The amount requested of the asset
       * @return value The amount loaned
       */
-    function newLoan(address asset, uint amountRequested) public returns (uint256) {
-      // Compound currently only allows loans in ETH
+    function newLoan(address asset, uint amountRequested, uint duration) public returns (uint256) {
+      requireValidLoanDuration(duration);
       require(validCollateralRatio(amountRequested));
       require(loanableAsset(asset));
       Loan memory loan = Loan({
           asset: asset,
           acct: msg.sender,
           amount: amountRequested,
+          duration: duration,
           balance: amountRequested
       });
 
       loans.push(loan);
-      loanIds[msg.sender].push(loans.length - 1);
+      uint loanId = loans.length - 1;
+      loanIds[msg.sender].push(loanId);
 
       uint256 amountLoaned = amountRequested;
 
@@ -84,7 +91,37 @@ contract Vault is Oracle, Ledger {
           revert();
       }
 
-      return amountLoaned;
+      return loanId;
+    }
+
+    /**
+      * @notice `payLoan` takes payment from the user's collateral
+      * @param loanId the loanId to pay
+      */
+    function payLoan(address account, uint64 loanId) public returns (
+        uint balance,
+        uint amount,
+        uint duration,
+        address asset,
+        address acct
+    ) {
+      Loan storage loan = loans[loanId];
+      uint loanPayment = getLoanPayment(loanId);
+      loan.balance -= loanPayment;
+      debit(account, loan.asset, loanPayment);
+      return getLoan(loanId);
+    }
+
+    function getLoanPayment(uint loanId) returns (uint) {
+      Loan storage loan = loans[loanId];
+      Rate rate = rates[loan.asset];
+      uint paymentCount = (loan.duration / 2);
+      return balanceWithInterest(
+        loan.amount,
+        0,
+        loan.duration * 1 weeks,
+        uint64(LOAN_APR),
+        uint64(52/loan.duration)) / paymentCount;
     }
 
     /**
@@ -96,6 +133,7 @@ contract Vault is Oracle, Ledger {
     function getLoanByLessee(address lesseeAddress, uint lesseeLoanId) public returns (
         uint balance,
         uint amount,
+        uint duration,
         address asset,
         address acct
     ) {
@@ -111,6 +149,7 @@ contract Vault is Oracle, Ledger {
     function getLoan(uint loanId) public returns (
         uint balance,
         uint amount,
+        uint duration,
         address asset,
         address acct
     ) {
@@ -119,6 +158,7 @@ contract Vault is Oracle, Ledger {
       return (
         loan.balance,
         loan.amount,
+        loan.duration,
         loan.asset,
         loan.acct
       );
@@ -151,6 +191,17 @@ contract Vault is Oracle, Ledger {
       */
     function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
         return (getValueEquivalent(msg.sender) * minimumCollateralRatio) > requestedAmount;
+    }
+
+    /**
+      * @notice `requireValidLoanDuration` determines if a a loan length is valid
+      * @param duration the requested loan amount
+      * @return boolean true if the requested length is valid and false otherwise
+      */
+    function requireValidLoanDuration(uint duration) view internal {
+      require(duration >= MIN_LOAN_DURATION);
+      require(duration <= MAX_LOAN_DURATION);
+      require(duration % PAYMENT_FREQUENCY == 0);
     }
 
     /**

@@ -127,7 +127,7 @@ contract Ledger is Owned, InterestHelper {
       * @return the account balance after accrual
       */
     function accrueInterestAndSaveCheckpoint(address account, address asset) public returns (uint) {
-        BalanceCheckpoint checkpoint = balanceCheckpoints[account][asset];
+        BalanceCheckpoint storage checkpoint = balanceCheckpoints[account][asset];
         Rate rate = rates[asset];
 
         uint interest = balanceWithInterest(

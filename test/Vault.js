@@ -29,29 +29,43 @@ contract('Vault', function(accounts) {
   describe('#getLoanByLessee', () => {
     it("returns a loan", async () => {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
-      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
 
       const loan = await vault.getLoanByLessee.call(web3.eth.accounts[1], 0);
       utils.assertMatchingArray(loan, [
         20,
         20,
+        24,
         etherToken.address,
         web3.eth.accounts[1],
       ]);
     });
   });
 
+  describe('#getLoanPayment', () => {
+    it("returns the loan payment amount", async () => {
+      const loanAmount = web3.toWei("4", "ether");
+      const loanLengthInWeeks = 8;
+      const payments = loanLengthInWeeks / 2;
+      await utils.depositEth(vault, etherToken, loanAmount * 2, web3.eth.accounts[1]);
+      await vault.newLoan(etherToken.address, loanAmount, loanLengthInWeeks, {from: web3.eth.accounts[1]});
+
+      assert.equal((await(vault.getLoanPayment.call(0))).toNumber(), web3.toWei("1", "ether"));
+    });
+  });
+
   describe('#getLoan', () => {
     it("returns a loan", async () => {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
-      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await vault.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 40, 24, {from: web3.eth.accounts[1]});
 
       const loan = await vault.getLoan.call(1);
 
       utils.assertMatchingArray(loan, [
         40,
         40,
+        24,
         etherToken.address,
         web3.eth.accounts[1],
       ]);
@@ -61,8 +75,8 @@ contract('Vault', function(accounts) {
   describe('#getLength', () => {
     it("returns the loan length", async () => {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
-      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await vault.newLoan(etherToken.address, 40, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
+      await vault.newLoan(etherToken.address, 40, 24, {from: web3.eth.accounts[1]});
 
       const loanLength = await vault.getLoansLength.call(web3.eth.accounts[1], 0);
 
@@ -75,11 +89,11 @@ contract('Vault', function(accounts) {
       it("pays out the amount requested", async () => {
         await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
         // Check return value
-        const amountLoaned = await vault.newLoan.call(etherToken.address, 20, {from: web3.eth.accounts[1]});
-        assert.equal(amountLoaned.valueOf(), 20);
+        const amountLoaned = await vault.newLoan.call(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
+        assert.equal(amountLoaned.valueOf(), 0);
 
         // Call actual function
-        await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+        await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
 
         // verify balances in W-Eth
         assert.equal(await utils.tokenBalance(etherToken, vault.address), 80);
@@ -92,7 +106,7 @@ contract('Vault', function(accounts) {
         await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[0]);
 
         await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-          await vault.newLoan(etherToken.address, 201, {from: web3.eth.accounts[0]});
+          await vault.newLoan(etherToken.address, 201, 24, {from: web3.eth.accounts[0]});
         });
       });
     });
@@ -103,7 +117,7 @@ contract('Vault', function(accounts) {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[0]);
 
       await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-        await vault.newLoan(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
+        await vault.newLoan(utils.tokenAddrs.OMG, 50, 24, {from: web3.eth.accounts[0]});
       });
     });
   });
@@ -120,6 +134,52 @@ contract('Vault', function(accounts) {
       const eqValue = await vault.getValueEquivalent.call(web3.eth.accounts[1]);
 
       assert.equal(eqValue.valueOf(), 200);
+    });
+  });
+
+  describe('#payLoan', () => {
+    it("should decrease the loan balance", async () => {
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      const loanId = (await vault.newLoan.call(etherToken.address, 20, 24, {from: web3.eth.accounts[1]})).toNumber();
+      await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]})
+
+      await vault.payLoan(web3.eth.accounts[1], loanId);
+      const loan = await vault.getLoanByLessee.call(web3.eth.accounts[1], 0);
+      utils.assertMatchingArray(loan, [
+        19,
+        20,
+        24,
+        etherToken.address,
+        web3.eth.accounts[1],
+      ]);
+    });
+
+    it("should decrease the user's balance", async () => {
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      const loanId = (await vault.newLoan.call(etherToken.address, 20, 24, {from: web3.eth.accounts[1]})).toNumber();
+      await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]})
+
+      await vault.payLoan(web3.eth.accounts[1], loanId);
+      const loan = await vault.getLoanByLessee.call(web3.eth.accounts[1], 0);
+      assert.equal(await utils.ledgerAccountBalance(vault, web3.eth.accounts[1], etherToken.address), 99);
+        await utils.assertEvents(vault, [
+        {
+          event: "LedgerEntry",
+          args: {
+            account: vault.address,
+            asset: etherToken.address,
+            debit: web3.toBigNumber('1')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            account: web3.eth.accounts[1],
+            asset: etherToken.address,
+            credit: web3.toBigNumber('1')
+          }
+        },
+        ]);
     });
   });
 
