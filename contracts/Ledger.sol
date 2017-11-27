@@ -137,7 +137,10 @@ contract Ledger is Owned, InterestHelper {
             rate.interestRate,
             rate.payoutsPerYear) - checkpoint.balance;
 
-        credit(account, asset, interest);
+        if (interest > 0) {
+          credit(account, asset, interest);
+        }
+
         return getBalanceAtLastCheckpoint(account, asset);
     }
 
