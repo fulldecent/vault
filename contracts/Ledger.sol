@@ -97,7 +97,7 @@ contract Ledger is Owned, InterestHelper {
         if (!Token(asset).transferFrom(from, address(this), amount)) {
             return revert();
         }
-        accrueInterest(from, asset);
+        accrueInterestAndSaveCheckpoint(from, asset);
 
         credit(from, asset, amount);
     }
@@ -108,8 +108,7 @@ contract Ledger is Owned, InterestHelper {
       * @param amount amount to withdraw
       */
     function withdraw(address asset, uint256 amount, address to) public {
-        accrueInterest(msg.sender, asset);
-        uint256 balance = getBalanceAtLastCheckpoint(msg.sender, asset);
+        uint256 balance = accrueInterestAndSaveCheckpoint(msg.sender, asset);
         assert(amount <= balance);
 
         debit(msg.sender, asset, amount);
@@ -121,12 +120,13 @@ contract Ledger is Owned, InterestHelper {
     }
 
     /**
-      * @notice `accrueInterest` adds interest to your balance since the last
+      * @notice `accrueInterestAndSaveCheckpoint` adds interest to your balance since the last
       * checkpoint and sets the checkpoint to now.
       * @param account the account to accrue interest on
       * @param asset the asset to accrue interest on
+      * @return the account balance after accrual
       */
-    function accrueInterest(address account, address asset) public {
+    function accrueInterestAndSaveCheckpoint(address account, address asset) public returns (uint) {
         BalanceCheckpoint checkpoint = balanceCheckpoints[account][asset];
         Rate rate = rates[asset];
 
@@ -138,6 +138,7 @@ contract Ledger is Owned, InterestHelper {
             rate.payoutsPerYear) - checkpoint.balance;
 
         credit(account, asset, interest);
+        return getBalanceAtLastCheckpoint(account, asset);
     }
 
     /**
