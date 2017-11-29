@@ -188,11 +188,14 @@ contract('Ledger', function(accounts) {
       });
 
       it("should create debit and credit ledger entries", async () => {
-        await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
+        const initialBalance = 100;
+        const withdrawlAmount = 40;
 
-        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 100);
+        await utils.depositEth(ledger, etherToken, initialBalance, web3.eth.accounts[1]);
 
-        await ledger.withdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), initialBalance);
+
+        await ledger.withdraw(etherToken.address, withdrawlAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
         await utils.assertEvents(ledger, [
         {
@@ -200,7 +203,10 @@ contract('Ledger', function(accounts) {
           args: {
             account: ledger.address,
             asset: etherToken.address,
-            debit: web3.toBigNumber('40')
+            debit: web3.toBigNumber(withdrawlAmount),
+            credit: web3.toBigNumber('0'),
+            action: web3.toBigNumber('1'),
+            finalBalance: web3.toBigNumber('0')
           }
         },
         {
@@ -208,7 +214,10 @@ contract('Ledger', function(accounts) {
           args: {
             account: web3.eth.accounts[1],
             asset: etherToken.address,
-            credit: web3.toBigNumber('40')
+            debit: web3.toBigNumber('0'),
+            credit: web3.toBigNumber(withdrawlAmount),
+            action: web3.toBigNumber('1'),
+            finalBalance: web3.toBigNumber(initialBalance - withdrawlAmount)
           }
         }
         ]);

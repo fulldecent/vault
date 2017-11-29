@@ -11,6 +11,8 @@ import "./base/Owned.sol";
   *         as well as calculating Compound interest.
   */
 contract Ledger is Owned, InterestHelper {
+    enum LedgerAction { Deposit, Withdrawal, Interest }
+
     struct BalanceCheckpoint {
         uint256 balance;
         uint256 timestamp;
@@ -25,7 +27,13 @@ contract Ledger is Owned, InterestHelper {
     mapping(address => Rate) rates;
 
     event InterestRateChange(address asset, uint64 interestRate, uint64 payoutsPerYear);
-    event LedgerEntry(address account, address asset, uint256 debit, uint256 credit);
+    event LedgerEntry(
+        address account,       // account for ledger entry (may be ourselves)
+        address asset,         // asset which is being moved
+        uint256 debit,         // debits associated with this asset (positive on balance sheet)
+        uint256 credit,        // credits assocated with this asset (negative on balance sheet)
+        uint8   action,        // LedgerAction which caused this ledger entry
+        uint256 finalBalance); // final balance after action (will be 0 when `account=address(this)`)
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
@@ -99,7 +107,7 @@ contract Ledger is Owned, InterestHelper {
         }
         accrueInterestAndSaveCheckpoint(from, asset);
 
-        credit(from, asset, amount);
+        credit(from, asset, amount, LedgerAction.Deposit);
     }
 
     /**
@@ -111,7 +119,7 @@ contract Ledger is Owned, InterestHelper {
         uint256 balance = accrueInterestAndSaveCheckpoint(msg.sender, asset);
         assert(amount <= balance);
 
-        debit(msg.sender, asset, amount);
+        debit(msg.sender, asset, amount, LedgerAction.Withdrawal);
 
         // Transfer asset out to `to` address
         if (!Token(asset).transfer(to, amount)) {
@@ -138,7 +146,7 @@ contract Ledger is Owned, InterestHelper {
             rate.payoutsPerYear) - checkpoint.balance;
 
         if (interest > 0) {
-          credit(account, asset, interest);
+          credit(account, asset, interest, LedgerAction.Interest);
         }
 
         return getBalanceAtLastCheckpoint(account, asset);
@@ -147,29 +155,36 @@ contract Ledger is Owned, InterestHelper {
     /**
       * @notice credit an account.
       * @param account the account to credit
-      * @param asset the asset to debit
-      * @param amount amount to debit
+      * @param asset the asset to credit
+      * @param amount amount to credit
+      * @param action reason this credit occured
       */
-    function credit(address account, address asset, uint256 amount) internal {
+    function credit(address account, address asset, uint256 amount, LedgerAction action) internal {
         balanceCheckpoints[account][asset].balance += amount;
         balanceCheckpoints[account][asset].timestamp = now;
 
-        LedgerEntry(account, asset, amount, 0);
-        LedgerEntry(address(this), asset, 0, amount);
-    }
+        // Add ledger entry for the account
+        LedgerEntry(account, asset, amount, 0, uint8(action), balanceCheckpoints[account][asset].balance);
 
+        // Add ledger entry for the ledger contract itself
+        LedgerEntry(address(this), asset, 0, amount, uint8(action), 0);
+    }
 
     /**
       * @notice debit an account.
       * @param account the account to credit
       * @param asset the asset to debit
       * @param amount amount to debit
+      * @param action reason this debit occured
       */
-    function debit(address account, address asset, uint256 amount) internal {
+    function debit(address account, address asset, uint256 amount, LedgerAction action) internal {
         balanceCheckpoints[account][asset].balance -= amount;
         balanceCheckpoints[account][asset].timestamp = now;
 
-        LedgerEntry(account, asset, 0, amount);
-        LedgerEntry(address(this), asset, amount, 0);
+        // Add ledger entry for the account
+        LedgerEntry(account, asset, 0, amount, uint8(action), balanceCheckpoints[account][asset].balance);
+
+        // Add ledger entry for the ledger contract itself
+        LedgerEntry(address(this), asset, amount, 0, uint8(action), 0);
     }
 }
