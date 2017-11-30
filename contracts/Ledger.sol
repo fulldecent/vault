@@ -11,7 +11,8 @@ import "./base/Owned.sol";
   *         as well as calculating Compound interest.
   */
 contract Ledger is Owned, InterestHelper {
-    enum LedgerAction { Deposit, Withdrawal, Interest }
+    enum LedgerAction { CustomerDeposit, CustomerWithdrawal, Interest }
+    enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
 
     struct BalanceCheckpoint {
         uint256 balance;
@@ -23,17 +24,18 @@ contract Ledger is Owned, InterestHelper {
         uint64 payoutsPerYear;
     }
 
-    mapping(address => mapping(address => BalanceCheckpoint)) balanceCheckpoints;
+    mapping(address => mapping(LedgerAccount => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
     mapping(address => Rate) rates;
 
     event InterestRateChange(address asset, uint64 interestRate, uint64 payoutsPerYear);
     event LedgerEntry(
-        address account,       // account for ledger entry (may be ourselves)
-        address asset,         // asset which is being moved
+        uint8   assetType,     // Asset type which caused this ledger entry
+        address assetAddress,  // Asset address if applicable
         uint256 debit,         // debits associated with this asset (positive on balance sheet)
         uint256 credit,        // credits assocated with this asset (negative on balance sheet)
         uint8   action,        // LedgerAction which caused this ledger entry
-        uint256 finalBalance); // final balance after action (will be 0 when `account=address(this)`)
+        address account,       // account for ledger entry (may be nil)
+        uint256 finalBalance); // final balance after action if account supplied
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
@@ -93,48 +95,13 @@ contract Ledger is Owned, InterestHelper {
     }
 
     /**
-      * @notice `deposit` deposits a given asset in the Vault.
-      * @param asset Asset to deposit
-      * @param from The account to pull asset from
-      * @param amount The amount of asset to deposit
-      */
-    function deposit(address asset, uint256 amount, address from) public {
-        // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
-
-        // Transfer ourselves the asset from `from`
-        if (!Token(asset).transferFrom(from, address(this), amount)) {
-            return revert();
-        }
-        accrueInterestAndSaveCheckpoint(from, asset);
-
-        credit(from, asset, amount, LedgerAction.Deposit);
-    }
-
-    /**
-      * @notice `withdraw` withdraws a given amount from an account's balance.
-      * @param asset Asset type to withdraw
-      * @param amount amount to withdraw
-      */
-    function withdraw(address asset, uint256 amount, address to) public {
-        uint256 balance = accrueInterestAndSaveCheckpoint(msg.sender, asset);
-        assert(amount <= balance);
-
-        debit(msg.sender, asset, amount, LedgerAction.Withdrawal);
-
-        // Transfer asset out to `to` address
-        if (!Token(asset).transfer(to, amount)) {
-            revert();
-        }
-    }
-
-    /**
       * @notice `accrueInterestAndSaveCheckpoint` adds interest to your balance since the last
       * checkpoint and sets the checkpoint to now.
       * @param account the account to accrue interest on
       * @param asset the asset to accrue interest on
       * @return the account balance after accrual
       */
-    function accrueInterestAndSaveCheckpoint(address account, address asset) public returns (uint) {
+    function accrueInterestAndSaveCheckpoint(LedgerAccount ledgerAccount, address account, address asset) public returns (uint) {
         BalanceCheckpoint checkpoint = balanceCheckpoints[account][asset];
         Rate rate = rates[asset];
 
@@ -146,45 +113,83 @@ contract Ledger is Owned, InterestHelper {
             rate.payoutsPerYear) - checkpoint.balance;
 
         if (interest > 0) {
-          credit(account, asset, interest, LedgerAction.Interest);
+            // TODO: This part is very confusing...
+            if (ledgerAccount == LedgerAccount.Deposit) {
+                debit(LedgerAction.Interest, LedgerAccount.InterestExpense, from, asset, interest);
+                credit(LedgerAction.Interest, LedgerAccount.Deposit, from, asset, interest);
+            } else if (ledgerAccount == LedgerAccount.Loan) {
+                // TODO: What happens if this goes negative???
+                debit(LedgerAction.Interest, LedgerAccount.Deposit, from, asset, interest);
+                credit(LedgerAction.Interest, LedgerAccount.InterestIncome, from, asset, interest);
+            }
         }
 
         return getBalanceAtLastCheckpoint(account, asset);
     }
 
     /**
-      * @notice credit an account.
+      * @notice Debit a ledger account.
       * @param account the account to credit
       * @param asset the asset to credit
       * @param amount amount to credit
       * @param action reason this credit occured
       */
-    function credit(address account, address asset, uint256 amount, LedgerAction action) internal {
-        balanceCheckpoints[account][asset].balance += amount;
-        balanceCheckpoints[account][asset].timestamp = now;
+    function debit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
+        uint256 finalBalance;
 
-        // Add ledger entry for the account
-        LedgerEntry(account, asset, amount, 0, uint8(action), balanceCheckpoints[account][asset].balance);
+        if (ledgerAccount == LedgerAccount.Deposit) {
+            balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance += amount;
+            balanceCheckpoints[account][LedgerAccount.Deposit][asset].timestamp = now;
 
-        // Add ledger entry for the ledger contract itself
-        LedgerEntry(address(this), asset, 0, amount, uint8(action), 0);
+            finalBalance = balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance;
+        } else if (ledgerAccount == LedgerAccount.Loan) {
+            balanceCheckpoints[account][LedgerAccount.Loan][asset].balance -= amount;
+            balanceCheckpoints[account][LedgerAccount.Loan][asset].timestamp = now;
+
+            finalBalance = balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance;
+        }
+
+        // Debit Entry
+        LedgerEntry({
+          ledgerAction: ledgerAction,
+          ledgerAccount: ledgerAccount,
+          customer: customer,
+          asset: asset,
+          amount: amount
+          finalBalance: finalBalance
+        });
     }
 
     /**
-      * @notice debit an account.
+      * @notice Credit a ledger account.
       * @param account the account to credit
       * @param asset the asset to debit
       * @param amount amount to debit
       * @param action reason this debit occured
       */
-    function debit(address account, address asset, uint256 amount, LedgerAction action) internal {
-        balanceCheckpoints[account][asset].balance -= amount;
-        balanceCheckpoints[account][asset].timestamp = now;
+    function credit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
+        uint256 finalBalance;
 
-        // Add ledger entry for the account
-        LedgerEntry(account, asset, 0, amount, uint8(action), balanceCheckpoints[account][asset].balance);
+        if (ledgerAccount == LedgerAccount.Deposit) {
+            balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance -= amount;
+            balanceCheckpoints[account][LedgerAccount.Deposit][asset].timestamp = now;
 
-        // Add ledger entry for the ledger contract itself
-        LedgerEntry(address(this), asset, amount, 0, uint8(action), 0);
+            finalBalance = balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance;
+        } else if (ledgerAccount == LedgerAccount.Loan) {
+            balanceCheckpoints[account][LedgerAccount.Loan][asset].balance += amount;
+            balanceCheckpoints[account][LedgerAccount.Loan][asset].timestamp = now;
+
+            finalBalance = balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance;
+        }
+
+        // Credit Entry
+        LedgerEntry({
+          ledgerAction: ledgerAction,
+          ledgerAccount: ledgerAccount,
+          customer: customer,
+          asset: asset,
+          amount: amount
+          finalBalance: finalBalance
+        });
     }
 }
