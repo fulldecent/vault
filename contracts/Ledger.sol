@@ -29,13 +29,12 @@ contract Ledger is Owned, InterestHelper {
 
     event InterestRateChange(address asset, uint64 interestRate, uint64 payoutsPerYear);
     event LedgerEntry(
-        uint8   assetType,     // Asset type which caused this ledger entry
-        address assetAddress,  // Asset address if applicable
-        uint256 debit,         // debits associated with this asset (positive on balance sheet)
-        uint256 credit,        // credits assocated with this asset (negative on balance sheet)
-        uint8   action,        // LedgerAction which caused this ledger entry
-        address account,       // account for ledger entry (may be nil)
-        uint256 finalBalance); // final balance after action if account supplied
+        uint8   ledgerAction,  // Ledger action
+        uint8   ledgerAccount, // Ledger account
+        address customer,      // Customer associated with entry
+        address asset,         // Asset associated with this entry
+        uint256 amount,        // Amount of asset associated with this entry
+        uint256 finalBalance); // Ledger account is Deposit or Loan, the new balance
 
     /**
       * @notice `Ledger` tracks balances for a given account by asset with interest
