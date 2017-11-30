@@ -4,6 +4,22 @@ const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
+async function evmRevert(web3) {
+  // if(web3){
+  //   console.log("revertin!");
+    return new Promise((resolve, reject) => {
+      web3.currentProvider.sendAsync({
+        jsonrpc: "2.0",
+        method: "evm_revert",
+        id: new Date().getTime()
+      }, (err, result) => {
+        if(err){ return reject(err) }
+        return resolve(result)
+      });
+    });
+  // }
+}
+
 contract('Vault', function(accounts) {
   var vault;
   var etherToken;
@@ -13,6 +29,10 @@ contract('Vault', function(accounts) {
     await vault.setAssetValue(etherToken.address, 1);
     await vault.addLoanableAsset(etherToken.address);
   });
+
+  afterEach(async () => {
+    await evmRevert(web3);
+  })
 
   describe('#setMinimumCollateralRatio', () => {
     it('only can be called by the contract owner', async () => {
@@ -32,13 +52,12 @@ contract('Vault', function(accounts) {
       await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
 
       const loan = await vault.getLoanByLessee.call(web3.eth.accounts[1], 0);
-      utils.assertMatchingArray(loan, [
-        20,
-        20,
-        24,
-        etherToken.address,
-        web3.eth.accounts[1],
-      ]);
+      assert.equal(loan[0], 20);
+      assert.equal(loan[1], 20);
+      assert.equal(loan[2], 24);
+      assert.closeTo(loan[3].toNumber(), moment().unix(), 5)
+      assert.equal(loan[4], etherToken.address);
+      assert.equal(loan[5], web3.eth.accounts[1]);
     });
   });
 
@@ -55,20 +74,19 @@ contract('Vault', function(accounts) {
   });
 
   describe('#getLoan', () => {
-    it("returns a loan", async () => {
+    it.only("returns a loan", async () => {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
       await vault.newLoan(etherToken.address, 20, 24, {from: web3.eth.accounts[1]});
       await vault.newLoan(etherToken.address, 40, 24, {from: web3.eth.accounts[1]});
 
       const loan = await vault.getLoan.call(1);
 
-      utils.assertMatchingArray(loan, [
-        40,
-        40,
-        24,
-        etherToken.address,
-        web3.eth.accounts[1],
-      ]);
+      assert.equal(loan[0], 40);
+      assert.equal(loan[1], 40);
+      assert.equal(loan[2], 24);
+      assert.closeTo(loan[3].toNumber(), moment().unix(), 5)
+      assert.equal(loan[4], etherToken.address);
+      assert.equal(loan[5], web3.eth.accounts[1]);
     });
   });
 
@@ -145,13 +163,12 @@ contract('Vault', function(accounts) {
 
       await vault.payLoan(web3.eth.accounts[1], loanId);
       const loan = await vault.getLoanByLessee.call(web3.eth.accounts[1], 0);
-      utils.assertMatchingArray(loan, [
-        19,
-        20,
-        24,
-        etherToken.address,
-        web3.eth.accounts[1],
-      ]);
+      assert.equal(loan[0], 19);
+      assert.equal(loan[1], 20);
+      assert.equal(loan[2], 24);
+      assert.closeTo(loan[3].toNumber(), moment().unix(), 5)
+      assert.equal(loan[4], etherToken.address);
+      assert.equal(loan[5], web3.eth.accounts[1]);
     });
 
     it("should decrease the user's balance", async () => {

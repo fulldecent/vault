@@ -21,6 +21,7 @@ contract Vault is Oracle, Ledger {
         uint balance;
         uint amount;
         uint duration;
+        uint nextPaymentDue;
         address asset;
         address acct;
     }
@@ -78,7 +79,8 @@ contract Vault is Oracle, Ledger {
           acct: msg.sender,
           amount: amountRequested,
           duration: duration,
-          balance: amountRequested
+          balance: amountRequested,
+          nextPaymentDue: now + (PAYMENT_FREQUENCY * 1 weeks)
       });
 
       loans.push(loan);
@@ -102,10 +104,12 @@ contract Vault is Oracle, Ledger {
         uint balance,
         uint amount,
         uint duration,
+        uint nextPaymentDue,
         address asset,
         address acct
     ) {
       Loan storage loan = loans[loanId];
+      // require(loanPaymentAllowed(loan, acct, amount));
       uint loanPayment = getLoanPayment(loanId);
       loan.balance -= loanPayment;
       debit(account, loan.asset, loanPayment);
@@ -134,6 +138,7 @@ contract Vault is Oracle, Ledger {
         uint balance,
         uint amount,
         uint duration,
+        uint nextPaymentDue,
         address asset,
         address acct
     ) {
@@ -150,6 +155,7 @@ contract Vault is Oracle, Ledger {
         uint balance,
         uint amount,
         uint duration,
+        uint nextPaymentDue,
         address asset,
         address acct
     ) {
@@ -159,6 +165,7 @@ contract Vault is Oracle, Ledger {
         loan.balance,
         loan.amount,
         loan.duration,
+        loan.nextPaymentDue,
         loan.asset,
         loan.acct
       );
@@ -213,6 +220,17 @@ contract Vault is Oracle, Ledger {
       return arrayContainsAddress(loanableAssets, asset);
     }
 
+
+    /**
+      * @notice `loanPaymentAllowed` determines if the asset is loanable
+      * @param sender the assets to query
+      * @param amount the amount of the requested payment
+      * @return boolean true if the asset is loanable, false if not
+      */
+    function loanPaymentAllowed(uint loanId, address sender, uint amount) returns (bool) {
+      Loan storage loan = loans[loanId];
+      return (loan.acct == sender);
+    }
 
     /**
       * @notice Do not pay directly into Vault, please use `deposit`.
