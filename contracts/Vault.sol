@@ -19,8 +19,7 @@ contract Vault is Oracle, Ledger {
         address asset;
         address acct;
     }
-    Loan[] loans;
-    mapping(address => uint256[]) loanIds;
+    mapping(address => Loan) loans;
 
 
     /**
@@ -75,8 +74,7 @@ contract Vault is Oracle, Ledger {
           balance: amountRequested
       });
 
-      loans.push(loan);
-      loanIds[msg.sender].push(loans.length - 1);
+      loans[msg.sender] = loan;
 
       uint256 amountLoaned = amountRequested;
 
@@ -88,33 +86,17 @@ contract Vault is Oracle, Ledger {
     }
 
     /**
-      * @notice `getLoanByLessee` returns a Loan by Lessee
-      * @param lesseeAddress The lessee's address
-      * @param lesseeLoanId The index of the lesse's loan in a zero based array
-      * @return loan The loan represented as a tuple
-      */
-    function getLoanByLessee(address lesseeAddress, uint lesseeLoanId) public returns (
-        uint balance,
-        uint amount,
-        address asset,
-        address acct
-    ) {
-      uint loanId = loanIds[lesseeAddress][lesseeLoanId];
-      return getLoan(loanId);
-    }
-
-    /**
       * @notice `getLoan` returns a Loan
-      * @param loanId The loan id as a zero based array
+      * @param lessee The address of the lessee
       * @return loan The loan represented as a tuple
       */
-    function getLoan(uint loanId) public returns (
+    function getLoan(address lessee) public returns (
         uint balance,
         uint amount,
         address asset,
         address acct
     ) {
-      Loan storage loan = loans[loanId];
+      Loan storage loan = loans[lessee];
 
       return (
         loan.balance,
@@ -122,16 +104,6 @@ contract Vault is Oracle, Ledger {
         loan.asset,
         loan.acct
       );
-    }
-
-    /**
-      * @notice `getLoansLength` returns the length of the array of loans
-      * @return loansLength the length of the loan list array
-      */
-    function getLoansLength(address lesseeAddress, uint loanId) public returns (
-        uint loansLength
-    ) {
-      return loans.length;
     }
 
     /**
