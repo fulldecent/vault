@@ -1,8 +1,8 @@
 pragma solidity ^0.4.18;
 
-import "./base/InterestHelper.sol";
 import "./base/Token.sol";
 import "./base/Owned.sol";
+import "./base/Interesting.sol";
 
 /**
   * @title The Compound Ledger
@@ -10,7 +10,7 @@ import "./base/Owned.sol";
   * @notice Ledger keeps track of all balances of all asset types in Compound,
   *         as well as calculating Compound interest.
   */
-contract Ledger is Owned, InterestHelper {
+contract Ledger is Owned, Interesting {
     enum LedgerAction { CustomerDeposit, CustomerWithdrawal, Interest }
     enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
 
@@ -20,10 +20,9 @@ contract Ledger is Owned, InterestHelper {
         uint64  interestRateBPS;
     }
 
-    mapping(address => mapping(LedgerAccount => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
-    mapping(address => uint64) rates;
+    // A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
+    mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
-    event InterestRateChange(address asset, uint64 interestRateBPS);
     event LedgerEntry(
         uint8   ledgerAction,  // Ledger action
         uint8   ledgerAccount, // Ledger account
@@ -33,166 +32,80 @@ contract Ledger is Owned, InterestHelper {
         uint256 finalBalance); // Ledger account is Deposit or Loan, the new balance
 
     /**
-      * @notice `Ledger` tracks balances for a given account by asset with interest
+      * @notice `Ledger` tracks balances for a given customer by asset with interest
       */
     function Ledger() public {}
 
     /**
-      * @notice `setInterestRate` sets the interest rate for a given asset
-      * @param interestRateBPS The interest rate per interval
-      */
-    function setInterestRate(address asset, uint64 interestRateBPS) public onlyOwner {
-        InterestRateChange(asset, interestRateBPS);
-
-        rates[asset] = interestRateBPS;
-    }
-
-    /**
-      * @notice `getInterestRate` returns the interest rate for given asset
-      * @param asset The asset to get the interest rate for
-      * @return rate The given interest rate in basis points
-      */
-    function getInterestRate(address asset) public view returns (uint64) {
-        return rates[asset];
-    }
-
-	/**
-      * @notice `getDepositBalanceAtLastCheckpoint` returns the balance (without interest) for
-      * the given account in the given asset (e.g. W-Eth or OMG)
-      * @param account The account to get the balance of
-      * @param asset The address of the asset
-      * @return balance The balance (without interest) of the asset in given account
-      */
-    function getDepositBalanceAtLastCheckpoint(address account, address asset) public view returns (uint256) {
-        return balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance;
-    }
-
-    /**
-      * @notice `getLoanBalanceAtLastCheckpoint` returns the balance (without interest) for
-      * the given account in the given asset (e.g. W-Eth or OMG)
-      * @param account The account to get the balance of
-      * @param asset The address of the asset
-      * @return balance The balance (without interest) of the asset in given account
-      */
-    function getLoanBalanceAtLastCheckpoint(address account, address asset) public view returns (uint256) {
-        return balanceCheckpoints[account][LedgerAccount.Loan][asset].balance;
-    }
-
-    /**
-      * @notice `getDepositBalanceWithInterest` returns the balance (with interest) for
-      * the given account in the given asset (e.g. W-Eth or OMG)
-      * @param account The account to get the balance of
-      * @param asset The asset to check the balance of
-      * @param timestamp The timestamp at which to check the value.
-      */
-    function getDepositBalanceWithInterest(address account, address asset, uint256 timestamp) public view returns (uint256) {
-        return balanceWithInterest(
-            balanceCheckpoints[account][LedgerAccount.Deposit][asset].balance,
-            balanceCheckpoints[account][LedgerAccount.Deposit][asset].timestamp,
-            timestamp,
-            interestRate);
-    }
-
-    /**
-      * @notice `getLoanBalanceWithInterest` returns the balance (with interest) for
-      * the given account in the given asset (e.g. W-Eth or OMG)
-      * @param account The account to get the balance of
-      * @param asset The asset to check the balance of
-      * @param timestamp The timestamp at which to check the value.
-      */
-    function getLoanBalanceWithInterest(address account, address asset, uint256 timestamp) public view returns (uint256) {
-        return balanceWithInterest(
-            balanceCheckpoints[account][LedgerAccount.Loan][asset].balance,
-            balanceCheckpoints[account][LedgerAccount.Loan][asset].timestamp,
-            timestamp,
-            interestRate);
-    }
-
-    /**
-      * @notice `accrueInterestAndSaveCheckpoint` adds interest to your balance since the last
-      * checkpoint and sets the checkpoint to now.
-      * @param account the account to accrue interest on
-      * @param asset the asset to accrue interest on
-      * @return the account balance after accrual
-      */
-    function accrueInterestAndSaveCheckpoint(LedgerAccount ledgerAccount, address account, address asset) public returns (uint) {
-        BalanceCheckpoint checkpoint = balanceCheckpoints[account][asset];
-        Rate rate = rates[asset];
-
-        uint interest = balanceWithInterest(
-            checkpoint.balance,
-            checkpoint.timestamp,
-            now,
-            rate.interestRate,
-            rate.payoutsPerYear) - checkpoint.balance;
-
-        if (interest > 0) {
-            if (ledgerAccount == LedgerAccount.Deposit) {
-                debit(LedgerAction.Interest, LedgerAccount.InterestExpense, from, asset, interest);
-                credit(LedgerAction.Interest, LedgerAccount.Deposit, from, asset, interest);
-            } else if (ledgerAccount == LedgerAccount.Loan) {
-                debit(LedgerAction.Interest, LedgerAccount.Loan, from, asset, interest);
-                credit(LedgerAction.Interest, LedgerAccount.InterestIncome, from, asset, interest);
-            }
-        }
-
-        return getBalanceAtLastCheckpoint(account, asset);
-    }
-
-    /**
       * @notice Debit a ledger account.
-      * @param account the account to credit
-      * @param asset the asset to credit
-      * @param amount amount to credit
-      * @param action reason this credit occured
+      * @param ledgerAction What caused this debit?
+      * @param ledgerAccount Which ledger account to adjust (e.g. Deposit or Loan)
+      * @param customer The customer associated with this debit
+      * @param asset The asset which is being debited
+      * @param amount The amount to debit
       */
     function debit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         uint256 finalBalance = adjustBalance(
             customer,
-            ledgerAction,
+            ledgerAccount,
             asset,
             amount,
             ledgerAccount == LedgerAccount.Loan);
 
         // Debit Entry
         LedgerEntry({
-          ledgerAction: ledgerAction,
-          ledgerAccount: ledgerAccount,
+          ledgerAction: uint8(ledgerAction),
+          ledgerAccount: uint8(ledgerAccount),
           customer: customer,
           asset: asset,
-          amount: amount
+          amount: amount,
           finalBalance: finalBalance
         });
     }
 
     /**
       * @notice Credit a ledger account.
-      * @param account the account to credit
-      * @param asset the asset to debit
-      * @param amount amount to debit
-      * @param action reason this debit occured
+      * @param ledgerAction What caused this credit?
+      * @param ledgerAccount Which ledger account to adjust (e.g. Deposit or Loan)
+      * @param customer The customer associated with this credit
+      * @param asset The asset which is being credited
+      * @param amount The amount to credit
       */
     function credit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         uint256 finalBalance = adjustBalance(
             customer,
-            ledgerAction,
+            ledgerAccount,
             asset,
             amount,
             ledgerAccount == LedgerAccount.Deposit);
 
         // Credit Entry
         LedgerEntry({
-          ledgerAction: ledgerAction,
-          ledgerAccount: ledgerAccount,
+          ledgerAction: uint8(ledgerAction),
+          ledgerAccount: uint8(ledgerAccount),
           customer: customer,
           asset: asset,
-          amount: amount
+          amount: amount,
           finalBalance: finalBalance
         });
     }
 
-    function adjustBalance(address customer, LedgerAccount ledgerAccount, address asset, uint256 balance, bool isPositive) private returns (uint256) {
-        utin256 delta;
+    /**
+      * @notice Adjusts the balance on a given account
+      * @param customer the customer
+      * @param ledgerAccount which account to adjust
+      * @param asset The asset to adjust
+      * @param amount The amount to adjust that asset
+      * @param isPositive Should the amount go up or down?
+      */
+    function adjustBalance(address customer, LedgerAccount ledgerAccount, address asset, uint256 amount, bool isPositive) private returns (uint256) {
+        uint256 delta;
+        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+
+        if (checkpoint.timestamp != now) {
+            // We always need to accrue interest before updating balance!
+            revert();
+        }
 
         if (isPositive) {
             delta = amount;
@@ -202,13 +115,52 @@ contract Ledger is Owned, InterestHelper {
 
         if (ledgerAccount == LedgerAccount.Loan && isPositive) {
             // TODO: Adjust interest rate to weighted average for additional principal
-            uint256 newRate = 000;
-            balanceCheckpoints[customer][ledgerAccount][asset].rate = newRate;
+            uint64 newRate = 0;
+            checkpoint.interestRateBPS = newRate;
         }
 
-        balanceCheckpoints[customer][ledgerAccount][asset].balance += delta;
-        balanceCheckpoints[customer][ledgerAccount][asset].timestamp = now;
+        checkpoint.balance += delta;
+        return checkpoint.balance;
+    }
 
-        return balanceCheckpoints[customer][ledgerAccount][asset].balance;
+    /**
+      * @notice `getBalanceAtLastCheckpoint` returns the balance (without interest) for
+      *         the given customer in the given asset (e.g. W-Eth or OMG)
+      * @param customer The customer to get the balance of
+      * @param asset The address of the asset
+      * @return balance The balance (without interest) of the asset in given customer account
+      */
+    function getBalanceAtLastCheckpoint(LedgerAccount ledgerAccount, address customer, address asset) private returns (uint256) {
+        return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
+    }
+
+    /**
+      * @notice `accrueInterestAndSaveCheckpoint` adds interest to your balance since the last
+      *         checkpoint and sets the checkpoint to now.
+      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @param customer the customer
+      * @param asset the asset to accrue interest on
+      * @return the customer's balance in this asset after accrual
+      */
+    function accrueInterestAndSaveCheckpoint(LedgerAccount ledgerAccount, address customer, address asset) internal returns (uint256) {
+        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+
+        uint interest = balanceWithInterest(
+            checkpoint.balance,
+            checkpoint.timestamp,
+            now,
+            rates[asset]) - checkpoint.balance;
+
+        if (interest > 0) {
+            if (ledgerAccount == LedgerAccount.Deposit) {
+                debit(LedgerAction.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
+                credit(LedgerAction.Interest, LedgerAccount.Deposit, customer, asset, interest);
+            } else if (ledgerAccount == LedgerAccount.Loan) {
+                debit(LedgerAction.Interest, LedgerAccount.Loan, customer, asset, interest);
+                credit(LedgerAction.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
+            }
+        }
+
+        return getBalanceAtLastCheckpoint(ledgerAccount, customer, asset);
     }
 }
