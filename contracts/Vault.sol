@@ -2,6 +2,8 @@ pragma solidity ^0.4.18;
 
 import "./Oracle.sol";
 import "./Ledger.sol";
+import "./Savings.sol";
+import "./Loaner.sol";
 
 /**
   * @title The Compound Vault Contract
@@ -9,7 +11,7 @@ import "./Ledger.sol";
   * @notice The Compound Vault Contract in the core contract governing
   *         all accounts in Compound.
   */
-contract Vault is Oracle, Ledger {
+contract Vault is Oracle, Ledger, Savings, Loaner {
   uint minimumCollateralRatio;
   address[] loanableAssets;
 
@@ -51,7 +53,7 @@ contract Vault is Oracle, Ledger {
         for (uint64 i = 0; i < assets.length; i++) {
             address asset = assets[i];
 
-            balance += getAssetValue(asset) * getBalanceWithInterest(acct, asset, now); // From Ledger
+            balance += getAssetValue(asset) * getDepositBalance(acct, asset); // From Savings
         }
 
         return balance;
