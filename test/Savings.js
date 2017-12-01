@@ -122,7 +122,7 @@ contract('Savings', function(accounts) {
         assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
       });
 
-      it("should update the user's balance with interest since the last checkpoint", async () => {
+      it.only("should update the user's balance with interest since the last checkpoint", async () => {
         const startingBlock = web3.eth.blockNumber;
         const depositAmount = web3.toWei("1", "ether");
         const depositAmountBigNumber = new BigNumber(depositAmount);
