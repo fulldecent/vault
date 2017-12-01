@@ -48,9 +48,9 @@ async function mineBlock(web3) {
 module.exports = {
   // https://ethereum.stackexchange.com/a/21661
   //
-  assertEvents: function(contract, expectedEvents) {
+  assertEvents: function(contract, expectedEvents, args) {
     return new Promise((resolve, reject) => {
-      var event = contract.allEvents();
+      var event = contract.allEvents(args);
       event.get((error, events) => {
         _.each(expectedEvents, (expectedEvent) => {
           if (!_.find(events, expectedEvent)) {
@@ -93,6 +93,7 @@ module.exports = {
     await etherToken.deposit({from: account, value: amount});
     await etherToken.transfer(transferrable, 100, {from: account});
   },
+
   depositEth: async function(savings, etherToken, amount, account) {
     await createAndApproveWeth(savings, etherToken, amount, account);
     await savings.customerDeposit(etherToken.address, amount, account);
