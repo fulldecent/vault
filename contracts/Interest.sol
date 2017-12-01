@@ -1,7 +1,7 @@
 pragma solidity ^0.4.18;
 
-import "./InterestHelper.sol";
-import "./Owned.sol";
+import "./base/InterestHelper.sol";
+import "./base/Owned.sol";
 
 /**
   * @title The Compound Interest Rate Contract
@@ -9,7 +9,7 @@ import "./Owned.sol";
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
 
-contract Interesting is InterestHelper, Owned {
+contract Interest is InterestHelper, Owned {
 
 	// Track assets -> rates
 	mapping(address => uint64) rates;

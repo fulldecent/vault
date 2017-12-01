@@ -83,20 +83,23 @@ contract('Savings', function(accounts) {
       ]);
     });
 
-    it("should only work if properly authorized", async () => {
-      await utils.createAndApproveWeth(ledger, etherToken, 100, web3.eth.accounts[1], 99);
+    it("should only work if ERC20 properly authorized", async () => {
+      await utils.createAndApproveWeth(savings, etherToken, 100, web3.eth.accounts[1], 99);
 
       try {
-        await ledger.customerDeposit(etherToken.address, 100, web3.eth.accounts[1]);
+        await savings.customerDeposit(etherToken.address, 100, web3.eth.accounts[1]);
         assert.fail('should have thrown');
       } catch(error) {
         assert.equal(error.message, "VM Exception while processing transaction: revert")
       }
+
+      // works okay for 99
+      await savings.customerDeposit(etherToken.address, 99, web3.eth.accounts[1]);
     });
 
     it("should fail for unknown assets", async () => {
       try {
-        await ledger.deposit(0, 100, web3.eth.accounts[1]);
+        await savings.customerDeposit(0, 100, web3.eth.accounts[1]);
         assert.fail('should have thrown');
       } catch(error) {
         assert.equal(error.message, "VM Exception while processing transaction: revert")
@@ -104,163 +107,182 @@ contract('Savings', function(accounts) {
     });
   });
 
-  describe('with interest', () => {
-    describe('#setInterestRate', () => {
-      it("should set interest rate", async () => {
-        await ledger.setInterestRate(etherToken.address, 5, 12, {from: web3.eth.accounts[0]});
-
-        const [interestRate, payoutsPerYear] = (await ledger.getInterestRate(etherToken.address)).valueOf();
-        assert.equal(interestRate.valueOf(), 5);
-        assert.equal(payoutsPerYear.valueOf(), 12);
-      });
-
-      it("should emit event", async () => {
-        await ledger.setInterestRate(etherToken.address, 5, 12, {from: web3.eth.accounts[0]});
-
-        await utils.assertEvents(ledger, [
-        {
-          event: "InterestRateChange",
-          args: {
-            asset: etherToken.address,
-            interestRate: web3.toBigNumber('5'),
-            payoutsPerYear: web3.toBigNumber('12')
-          }
-        }]);
-      });
-
-      it("should be owner only", async () => {
-        try {
-          await ledger.setInterestRate(etherToken.address, 5, 12, {from: web3.eth.accounts[1]});
-          assert.fail('should have thrown');
-        } catch(error) {
-          assert.equal(error.message, "VM Exception while processing transaction: revert")
-        }
-      });
-    });
-
-    describe('#getBalanceWithInterest', () => {
-      it("should calculate cumulative interest", async () => {
-        // % 5 interest paid out monthly for 10 years
-        const precision = 10;
-        const multiplyer = Math.pow(10, precision);
-        const principal = new BigNumber(5000);
-        const interestRate = new BigNumber(0.05);
-        const payoutsPerTimePeriod = new BigNumber(12);
-        const duration = 10;
-        const currentTimestamp = web3.eth.getBlock(web3.eth.blockNumber).timestamp;
-        const timestamp = new BigNumber(currentTimestamp + moment(0).add(duration, 'years').unix());
-
-        await ledger.setInterestRate(etherToken.address, interestRate * 100, payoutsPerTimePeriod);
-        await utils.depositEth(ledger, etherToken, principal.times(multiplyer), web3.eth.accounts[1]);
-
-        const balance = await ledger.getBalanceWithInterest(web3.eth.accounts[1], etherToken.address, timestamp);
-        const expectedValue = utils.compoundedInterest({
-          principal: principal,
-          interestRate,
-          payoutsPerTimePeriod,
-          duration,
-        }).toFixed(6);
-        assert.equal((balance.valueOf()/multiplyer).toFixed(6), expectedValue);
-      });
-    });
-  });
-
-  describe('#withdrawl', () => {
+  describe('#customerDeposit', () => {
     describe('if you have enough funds', () => {
       it("should decrease the account's balance", async () => {
-        await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
+        await utils.depositEth(savings, etherToken, 100, web3.eth.accounts[1]);
 
-        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 100);
+        assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 100);
 
-        await ledger.withdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), 60);
+        await savings.customerWithdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+        assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
-        assert.equal(await utils.tokenBalance(etherToken, ledger.address), 60);
+        assert.equal(await utils.tokenBalance(etherToken, savings.address), 60);
         assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
       });
 
       it("should update the user's balance with interest since the last checkpoint", async () => {
-        await ledger.setInterestRate(etherToken.address, 5, 1, {from: web3.eth.accounts[0]});
-        await utils.depositEth(ledger, etherToken, web3.toWei("1", "ether"), web3.eth.accounts[1]);
+        const startingBlock = web3.eth.blockNumber;
+        const depositAmount = web3.toWei("1", "ether");
+        const depositAmountBigNumber = new BigNumber(depositAmount);
+        const withdrawAmount = web3.toWei(".5", "ether");
+        const withdrawalAmountBigNumber = new BigNumber(withdrawAmount);
+
+        await savings.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
+        await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 
         await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
-        await ledger.withdraw(etherToken.address, web3.toWei(".5", "ether"), web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-        const expectedBalance = utils.compoundedInterest({
-          principal: new BigNumber(web3.toWei("1", "ether")),
-          interestRate: new BigNumber(0.05),
-          payoutsPerTimePeriod: new BigNumber(1),
-          duration: 2,
-        }).toFixed(6) - web3.toWei(".5", "ether");
-        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), expectedBalance);
+        await savings.customerWithdraw(etherToken.address, withdrawAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
-        await utils.assertEvents(ledger, [
+        const balanceWithInterest = utils.compoundedInterest({
+          principal: depositAmountBigNumber,
+          interestRate: new BigNumber(0.05),
+          payoutsPerTimePeriod: new BigNumber(12),
+          duration: 2,
+        }).toFixed(6);
+
+        const expectedBalance = balanceWithInterest - withdrawalAmountBigNumber;
+        const actualBalance = await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address)
+
+        assert.equal(actualBalance, expectedBalance);
+
+        const actualInterest = actualBalance.plus(withdrawalAmountBigNumber).minus(depositAmountBigNumber);
+
+        await utils.assertEvents(savings, [
+        // Deposit
         {
           event: "LedgerEntry",
           args: {
-            account: web3.eth.accounts[1],
-            asset: etherToken.address,
-            debit: web3.toBigNumber('102500000000000000')
-          }
-        },
-        {
+              ledgerType: LedgerType.Debit,
+              ledgerAction: LedgerAction.CustomerDeposit,
+              ledgerAccount: LedgerAccount.Cash,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: depositAmountBigNumber,
+              finalBalance: web3.toBigNumber('0')
+            }
+          },
+          {
+            event: "LedgerEntry",
+            args: {
+              ledgerType: LedgerType.Credit,
+              ledgerAction: LedgerAction.CustomerDeposit,
+              ledgerAccount: LedgerAccount.Deposit,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: depositAmountBigNumber,
+              finalBalance: depositAmountBigNumber
+            }
+          },
+          // InterestExpense
+          {
           event: "LedgerEntry",
           args: {
-            account: ledger.address,
-            asset: etherToken.address,
-            credit: web3.toBigNumber('102500000000000000')
+              ledgerType: LedgerType.Debit,
+              ledgerAction: LedgerAction.Interest,
+              ledgerAccount: LedgerAccount.InterestExpense,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: actualInterest,
+              finalBalance: web3.toBigNumber('0')
+            }
+          },
+          {
+            event: "LedgerEntry",
+            args: {
+              ledgerType: LedgerType.Credit,
+              ledgerAction: LedgerAction.Interest,
+              ledgerAccount: LedgerAccount.Deposit,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: actualInterest,
+              finalBalance: actualInterest.plus(depositAmountBigNumber)
+            }
+          },
+          // Withdrawal
+          {
+          event: "LedgerEntry",
+          args: {
+              ledgerType: LedgerType.Debit,
+              ledgerAction: LedgerAction.CustomerWithdrawal,
+              ledgerAccount: LedgerAccount.Deposit,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: withdrawalAmountBigNumber,
+              finalBalance: actualBalance
+            }
+          },
+          {
+            event: "LedgerEntry",
+            args: {
+              ledgerType: LedgerType.Credit,
+              ledgerAction: LedgerAction.CustomerWithdrawal,
+              ledgerAccount: LedgerAccount.Cash,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: withdrawalAmountBigNumber,
+              finalBalance: web3.toBigNumber('0')
+            }
           }
-        },
-        ]);
+        ], {fromBlock: startingBlock, toBlock: 'latest'});
       });
 
-      it("should create debit and credit ledger entries", async () => {
+      it("should create debit deposits and credit cash", async () => {
         const initialBalance = 100;
-        const withdrawlAmount = 40;
+        const initialBalanceBigNumber = web3.toBigNumber(initialBalance);
+        const withdrawalAmount = 40;
+        const withdrawalAmountBigNumber = web3.toBigNumber(withdrawalAmount);
 
-        await utils.depositEth(ledger, etherToken, initialBalance, web3.eth.accounts[1]);
+        await utils.depositEth(savings, etherToken, initialBalance, web3.eth.accounts[1]);
 
-        assert.equal(await utils.ledgerAccountBalance(ledger, web3.eth.accounts[1], etherToken.address), initialBalance);
+        assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), initialBalance);
 
-        await ledger.withdraw(etherToken.address, withdrawlAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+        await savings.customerWithdraw(etherToken.address, withdrawalAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
-        await utils.assertEvents(ledger, [
+        await utils.assertEvents(savings, [
         {
           event: "LedgerEntry",
           args: {
-            account: ledger.address,
-            asset: etherToken.address,
-            debit: web3.toBigNumber(withdrawlAmount),
-            credit: web3.toBigNumber('0'),
-            action: web3.toBigNumber('1'),
-            finalBalance: web3.toBigNumber('0')
+              ledgerType: LedgerType.Debit,
+              ledgerAction: LedgerAction.CustomerWithdrawal,
+              ledgerAccount: LedgerAccount.Deposit,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: withdrawalAmountBigNumber,
+              finalBalance: initialBalanceBigNumber.minus(withdrawalAmountBigNumber)
+            }
+          },
+          {
+            event: "LedgerEntry",
+            args: {
+              ledgerType: LedgerType.Credit,
+              ledgerAction: LedgerAction.CustomerWithdrawal,
+              ledgerAccount: LedgerAccount.Cash,
+              customer: web3.eth.accounts[1],
+              asset: etherToken.address,
+              amount: withdrawalAmountBigNumber,
+              finalBalance: web3.toBigNumber('0')
+            }
           }
-        },
-        {
-          event: "LedgerEntry",
-          args: {
-            account: web3.eth.accounts[1],
-            asset: etherToken.address,
-            debit: web3.toBigNumber('0'),
-            credit: web3.toBigNumber(withdrawlAmount),
-            action: web3.toBigNumber('1'),
-            finalBalance: web3.toBigNumber(initialBalance - withdrawlAmount)
-          }
-        }
         ]);
       });
     });
 
     describe("if you don't have sufficient funds", () => {
       it("throws an error", async () => {
-        await utils.depositEth(ledger, etherToken, 100, web3.eth.accounts[1]);
+        await utils.depositEth(savings, etherToken, 100, web3.eth.accounts[1]);
 
         try {
-          await ledger.withdraw(etherToken.address, 101, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+          // withdrawing 101 throws
+          await savings.customerWithdraw(etherToken.address, 101, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
           assert.fail('should have thrown');
         } catch (error) {
           assert.equal(error.message, "VM Exception while processing transaction: invalid opcode")
         }
+
+        // but withdrawing 100 is okay
+        await savings.customerWithdraw(etherToken.address, 100, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
       });
     });
   });

@@ -2,7 +2,7 @@ pragma solidity ^0.4.18;
 
 import "./base/Token.sol";
 import "./base/Owned.sol";
-import "./base/Interesting.sol";
+import "./Interest.sol";
 
 /**
   * @title The Compound Ledger
@@ -10,7 +10,7 @@ import "./base/Interesting.sol";
   * @notice Ledger keeps track of all balances of all asset types in Compound,
   *         as well as calculating Compound interest.
   */
-contract Ledger is Owned, Interesting {
+contract Ledger is Owned, Interest {
     enum LedgerType { Debit, Credit }
     enum LedgerAction { CustomerDeposit, CustomerWithdrawal, Interest }
     enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
