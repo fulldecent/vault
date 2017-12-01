@@ -5,22 +5,22 @@ const utils = require('./utils');
 const moment = require('moment');
 
 const LedgerType = {
-  Credit: 0,
-  Debit: 1
+  Debit: web3.toBigNumber(0),
+  Credit: web3.toBigNumber(1)
 };
 
 const LedgerAction = {
-  CustomerDeposit: 0,
-  CustomerWithdrawal: 1,
-  Interest: 2
+  CustomerDeposit: web3.toBigNumber(0),
+  CustomerWithdrawal: web3.toBigNumber(1),
+  Interest: web3.toBigNumber(2)
 };
 
 const LedgerAccount = {
-  Cash: 0,
-  Loan: 1,
-  Deposit: 2,
-  InterestExpense: 3,
-  InterestIncome: 4
+  Cash: web3.toBigNumber(0),
+  Loan: web3.toBigNumber(1),
+  Deposit: web3.toBigNumber(2),
+  InterestExpense: web3.toBigNumber(3),
+  InterestIncome: web3.toBigNumber(4)
 };
 
 contract('Savings', function(accounts) {
@@ -52,7 +52,7 @@ contract('Savings', function(accounts) {
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
-    it.only("should create debit and credit ledger entries", async () => {
+    it("should create debit and credit ledger entries", async () => {
       await utils.depositEth(savings, etherToken, 100, web3.eth.accounts[1]);
 
       await utils.assertEvents(savings, [
@@ -65,7 +65,7 @@ contract('Savings', function(accounts) {
           customer: web3.eth.accounts[1],
           asset: etherToken.address,
           amount: web3.toBigNumber('100'),
-          finalBalance: 0
+          finalBalance: web3.toBigNumber('0')
         }
       },
       {
@@ -87,7 +87,7 @@ contract('Savings', function(accounts) {
       await utils.createAndApproveWeth(ledger, etherToken, 100, web3.eth.accounts[1], 99);
 
       try {
-        await ledger.deposit(etherToken.address, 100, web3.eth.accounts[1]);
+        await ledger.customerDeposit(etherToken.address, 100, web3.eth.accounts[1]);
         assert.fail('should have thrown');
       } catch(error) {
         assert.equal(error.message, "VM Exception while processing transaction: revert")
