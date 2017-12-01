@@ -22,7 +22,7 @@ contract InterestHelper {
 		uint256 amortization = principal;
 
 		for (uint64 _i = 0; _i < payouts; _i++) {
-		    amortization = amortization + ((amortization * interestRateBPS) / 100 / 12);
+		    amortization = amortization + ((amortization * interestRateBPS / 100) / 100 / 12);
 		}
 
 		return amortization;
