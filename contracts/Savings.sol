@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "./Ledger.sol";
+import "./InterestBearingBalanceSheet.sol";
 import "./base/Owned.sol";
 
 /**
@@ -8,7 +8,7 @@ import "./base/Owned.sol";
   * @author Compound
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
-contract Savings is Owned, Ledger {
+contract Savings is Owned, InterestBearingBalanceSheet {
 
 	/**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
@@ -26,8 +26,8 @@ contract Savings is Owned, Ledger {
 
         accrueDepositInterest(from, asset);
 
-        debit(LedgerAction.CustomerDeposit, LedgerAccount.Cash, from, asset, amount);
-        credit(LedgerAction.CustomerDeposit, LedgerAccount.Deposit, from, asset, amount);
+        debit(LedgerReason.CustomerDeposit, LedgerAccount.Cash, from, asset, amount);
+        credit(LedgerReason.CustomerDeposit, LedgerAccount.Deposit, from, asset, amount);
     }
 
     /**
@@ -40,8 +40,8 @@ contract Savings is Owned, Ledger {
         uint256 balance = accrueDepositInterest(msg.sender, asset);
         assert(amount <= balance);
 
-        debit(LedgerAction.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
-        credit(LedgerAction.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
+        debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
+        credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
 
         // Transfer asset out to `to` address
         if (!Token(asset).transfer(to, amount)) {

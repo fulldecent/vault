@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "./Ledger.sol";
+import "./InterestBearingBalanceSheet.sol";
 import "./base/Owned.sol";
 
 /**
@@ -8,7 +8,7 @@ import "./base/Owned.sol";
   * @author Compound
   * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
   */
-contract Loaner is Owned, Ledger {
+contract Loaner is Owned, InterestBearingBalanceSheet {
     // function customerBorrow(address ) {
  	//     if allow(....) {
  	//         debit(LedgerAction.CustomerLoan, LedgerAccount.Loan, from, asset, amount);
