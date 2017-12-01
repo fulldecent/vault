@@ -57,7 +57,7 @@ contract Wallet is Owned {
         Token(asset).approve(address(vault), amount);
 
         // Deposit asset in Compound Vault contract
-        vault.deposit(asset, amount, address(this));
+        vault.customerDeposit(asset, amount, address(this));
 
         // Log this deposit
         Deposit(msg.sender, asset, amount);
