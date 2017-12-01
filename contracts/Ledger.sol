@@ -2,6 +2,7 @@ pragma solidity ^0.4.18;
 
 import "./base/Token.sol";
 import "./base/Owned.sol";
+import "./BalanceSheet.sol";
 
 /**
   * @title The Compound Ledger
@@ -9,11 +10,7 @@ import "./base/Owned.sol";
   * @notice Ledger keeps track of all balances of all asset types in Compound,
   *         as well as calculating Compound interest.
   */
-contract Ledger is Owned {
-    enum LedgerReason { CustomerDeposit, CustomerWithdrawal, Interest }
-    enum LedgerType { Debit, Credit }
-    enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
-
+contract Ledger is Owned, BalanceSheet {
     event LedgerEntry(
         LedgerReason    ledgerReason,     // Ledger reason
         LedgerType      ledgerType,       // Credit or Debit
@@ -24,6 +21,7 @@ contract Ledger is Owned {
         uint256         balance,          // Ledger account is Deposit or Loan, the new balance
         uint64          interestRateBPS,  // Interest rate in basis point if fixed
         uint256         nextPaymentDate); // Nexy payment date if associated with loan
+
 
     /**
       * @notice `Ledger` tracks balances for a given customer by asset with interest
@@ -41,16 +39,16 @@ contract Ledger is Owned {
       */
     function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
         uint256 finalBalance;
-        uint64 finalInterestRateBPS;
-        uint256 finalNextPaymentDate;
 
-        (finalBalance, finalInterestRateBPS, finalNextPaymentDate) = adjustBalance(
-          customer,
-          ledgerReason,
-          LedgerType.Debit,
-          ledgerAccount,
-          asset,
-          amount);
+        if(isBalanceAccount(ledgerAccount)) {
+          finalBalance = debitBalance(
+            customer,
+            ledgerReason,
+            LedgerType.Debit,
+            ledgerAccount,
+            asset,
+            amount);
+        }
 
         // Debit Entry
         LedgerEntry({
@@ -61,8 +59,8 @@ contract Ledger is Owned {
             asset: asset,
             amount: amount,
             balance: finalBalance,
-            interestRateBPS: finalInterestRateBPS,
-            nextPaymentDate: finalNextPaymentDate
+            interestRateBPS: 0,
+            nextPaymentDate: 0
         });
 
         return finalBalance;
@@ -79,16 +77,15 @@ contract Ledger is Owned {
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
         uint256 finalBalance;
-        uint64 finalInterestRateBPS;
-        uint256 finalNextPaymentDate;
-
-        (finalBalance, finalInterestRateBPS, finalNextPaymentDate) = adjustBalance(
-          customer,
-          ledgerReason,
-          LedgerType.Credit,
-          ledgerAccount,
-          asset,
-          amount);
+        if(isBalanceAccount(ledgerAccount)) {
+          finalBalance = creditBalance(
+            customer,
+            ledgerReason,
+            LedgerType.Credit,
+            ledgerAccount,
+            asset,
+            amount);
+        }
 
         // Credit Entry
         LedgerEntry({
@@ -99,23 +96,21 @@ contract Ledger is Owned {
             asset: asset,
             amount: amount,
             balance: finalBalance,
-            interestRateBPS: finalInterestRateBPS,
-            nextPaymentDate: finalNextPaymentDate
+            interestRateBPS: 0,
+            nextPaymentDate: 0
         });
 
         return finalBalance;
     }
 
     /**
-      * @notice Stub to adjust balance on a given account
-      * @param customer the customer
-      * @param ledgerReason which caused this adjustment
-      * @param ledgerType credit or debit?
-      * @param ledgerAccount which account to adjust
-      * @param asset The asset to adjust
-      * @param amount The amount to adjust that asset
+      * @notice `isBalanceAccount` indicates if this account is the type that has an associated balance
+      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @return whether or not this ledger account tracks a balance
       */
-    function adjustBalance(address customer, LedgerReason ledgerReason, LedgerType ledgerType, LedgerAccount ledgerAccount, address asset, uint256 amount) internal returns (uint256, uint64, uint256) {
-      revert();
+    function isBalanceAccount(LedgerAccount ledgerAccount) private returns (bool) {
+        return (
+            ledgerAccount == LedgerAccount.Loan ||
+            ledgerAccount == LedgerAccount.Deposit);
     }
 }

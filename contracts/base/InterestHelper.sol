@@ -16,15 +16,26 @@ contract InterestHelper {
       * @param endTime The time (as an epoch) when interest stopped accruing (e.g. now)
       * @param interestRateBPS The annual interest rate (APR)
       */
-	function balanceWithInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public pure returns (uint256) {
-		uint256 duration = (endTime - beginTime) / (1 years);
-		uint256 payouts = duration * 12;
-		uint256 amortization = principal;
+    function balanceWithInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public pure returns (uint256) {
+uint256 duration = (endTime - beginTime) / (1 years);
+    uint256 payouts = duration * 12;
+    uint256 amortization = principal;
 
-		for (uint64 _i = 0; _i < payouts; _i++) {
-		    amortization = amortization + ((amortization * interestRateBPS / 100) / 100 / 12);
-		}
+    for (uint64 _i = 0; _i < payouts; _i++) {
+        amortization = amortization + ((amortization * interestRateBPS / 100) / 100 / 12);
+    }
 
-		return amortization;
-	}
+    return amortization;
+  }
+
+  /**
+      * @notice `compoundedInterest` returns compounded interest over the given period.
+      * @param principal The starting principal
+      * @param beginTime The time (as an epoch) when interest began to accrue
+      * @param endTime The time (as an epoch) when interest stopped accruing (e.g. now)
+      * @param interestRateBPS The annual interest rate (APR)
+      */
+    function compoundedInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public pure returns (uint256) {
+        return balanceWithInterest(principal, beginTime, endTime, interestRateBPS) - principal;
+    }
 }

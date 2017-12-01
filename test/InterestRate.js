@@ -16,8 +16,8 @@ contract('InterestRate', function(accounts) {
     it("should set interest rate", async () => {
       await interestRate.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
 
-      const interestRate = await interestRate.getInterestRate.call(etherToken.address);
-      assert.equal(interestRate, 500);
+      const rate = await interestRate.getInterestRate.call(etherToken.address);
+      assert.equal(rate, 500);
     });
 
     it("should emit event", async () => {
