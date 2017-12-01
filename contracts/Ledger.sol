@@ -51,13 +51,12 @@ contract Ledger is Owned, Interest {
         uint256 finalBalance;
 
         if (isBalanceAccount(ledgerAccount)) {
-            finalBalance = adjustBalance(
+            finalBalance = debitBalance(
                 customer,
                 ledgerAction,
                 ledgerAccount,
                 asset,
-                amount,
-                ledgerAccount == LedgerAccount.Loan);
+                amount);
         }
 
         // Debit Entry
@@ -87,13 +86,12 @@ contract Ledger is Owned, Interest {
         uint256 finalBalance;
 
         if (isBalanceAccount(ledgerAccount)) {
-            finalBalance = adjustBalance(
+            finalBalance = creditBalance(
                 customer,
                 ledgerAction,
                 ledgerAccount,
                 asset,
-                amount,
-                ledgerAccount == LedgerAccount.Deposit);
+                amount);
         }
 
         // Credit Entry
@@ -110,16 +108,7 @@ contract Ledger is Owned, Interest {
         return finalBalance;
     }
 
-    /**
-      * @notice Adjusts the balance on a given account
-      * @param customer the customer
-      * @param ledgerAction which caused this adjustment
-      * @param ledgerAccount which account to adjust
-      * @param asset The asset to adjust
-      * @param amount The amount to adjust that asset
-      * @param isPositive Should the amount go up or down?
-      */
-    function adjustBalance(address customer, LedgerAction ledgerAction, LedgerAccount ledgerAccount, address asset, uint256 amount, bool isPositive) private returns (uint256) {
+    function debitBalance(address customer, LedgerAction ledgerAction, LedgerAccount ledgerAccount, address asset, uint256 amount) private returns (uint256) {
         uint256 delta;
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
 
@@ -130,19 +119,35 @@ contract Ledger is Owned, Interest {
             revert();
         }
 
-        if (isPositive) {
-            delta = amount;
-        } else {
-            delta = 0 - amount;
-        }
-
-        if (ledgerAccount == LedgerAccount.Loan && isPositive) {
+        if (ledgerAccount == LedgerAccount.Loan) {
             // TODO: Adjust interest rate to weighted average for additional principal
             uint64 newRate = 0;
             checkpoint.interestRateBPS = newRate;
         }
 
-        checkpoint.balance += delta;
+        checkpoint.balance -= amount;
+
+        return checkpoint.balance;
+    }
+
+    function creditBalance(address customer, LedgerAction ledgerAction, LedgerAccount ledgerAccount, address asset, uint256 amount) private returns (uint256) {
+        uint256 delta;
+        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+
+        if (ledgerAction == LedgerAction.Interest) {
+          checkpoint.timestamp = now;
+        } else if (checkpoint.timestamp != now) {
+            // We always need to accrue interest before updating balance!
+            revert();
+        }
+
+        if (ledgerAccount == LedgerAccount.Loan) {
+            // TODO: Adjust interest rate to weighted average for additional principal
+            uint64 newRate = 0;
+            checkpoint.interestRateBPS = newRate;
+        }
+
+        checkpoint.balance += amount;
 
         return checkpoint.balance;
     }
