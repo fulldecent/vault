@@ -25,8 +25,8 @@ contract Ledger is Owned, Interest {
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
     event LedgerEntry(
-        uint8   ledgerType,    // Credit or Debit
         uint8   ledgerAction,  // Ledger action
+        uint8   ledgerType,    // Credit or Debit
         uint8   ledgerAccount, // Ledger account
         address customer,      // Customer associated with entry
         address asset,         // Asset associated with this entry
@@ -62,8 +62,8 @@ contract Ledger is Owned, Interest {
 
         // Debit Entry
         LedgerEntry({
-            ledgerType: uint8(LedgerType.Debit),
             ledgerAction: uint8(ledgerAction),
+            ledgerType: uint8(LedgerType.Debit),
             ledgerAccount: uint8(ledgerAccount),
             customer: customer,
             asset: asset,
@@ -98,8 +98,8 @@ contract Ledger is Owned, Interest {
 
         // Credit Entry
         LedgerEntry({
-            ledgerType: uint8(LedgerType.Credit),
             ledgerAction: uint8(ledgerAction),
+            ledgerType: uint8(LedgerType.Credit),
             ledgerAccount: uint8(ledgerAccount),
             customer: customer,
             asset: asset,
