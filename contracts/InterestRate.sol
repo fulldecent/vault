@@ -9,7 +9,7 @@ import "./base/Owned.sol";
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
 
-contract Interest is InterestHelper, Owned {
+contract InterestRate is InterestHelper, Owned {
 
 	// Track assets -> rates
 	mapping(address => uint64) rates;

@@ -9,7 +9,7 @@ const LedgerType = {
   Credit: web3.toBigNumber(1)
 };
 
-const LedgerAction = {
+const LedgerReason = {
   CustomerDeposit: web3.toBigNumber(0),
   CustomerWithdrawal: web3.toBigNumber(1),
   Interest: web3.toBigNumber(2)
@@ -59,8 +59,8 @@ contract('Savings', function(accounts) {
       {
         event: "LedgerEntry",
         args: {
+          ledgerReason: LedgerReason.CustomerDeposit,
           ledgerType: LedgerType.Debit,
-          ledgerAction: LedgerAction.CustomerDeposit,
           ledgerAccount: LedgerAccount.Cash,
           customer: web3.eth.accounts[1],
           asset: etherToken.address,
@@ -71,8 +71,8 @@ contract('Savings', function(accounts) {
       {
         event: "LedgerEntry",
         args: {
+          ledgerReason: LedgerReason.CustomerDeposit,
           ledgerType: LedgerType.Credit,
-          ledgerAction: LedgerAction.CustomerDeposit,
           ledgerAccount: LedgerAccount.Deposit,
           customer: web3.eth.accounts[1],
           asset: etherToken.address,
@@ -115,6 +115,7 @@ contract('Savings', function(accounts) {
         assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 100);
 
         await savings.customerWithdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+        console.log(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address));
         assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
@@ -154,8 +155,8 @@ contract('Savings', function(accounts) {
         {
           event: "LedgerEntry",
           args: {
+              ledgerReason: LedgerReason.CustomerDeposit,
               ledgerType: LedgerType.Debit,
-              ledgerAction: LedgerAction.CustomerDeposit,
               ledgerAccount: LedgerAccount.Cash,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -166,8 +167,8 @@ contract('Savings', function(accounts) {
           {
             event: "LedgerEntry",
             args: {
+              ledgerReason: LedgerReason.CustomerDeposit,
               ledgerType: LedgerType.Credit,
-              ledgerAction: LedgerAction.CustomerDeposit,
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -179,8 +180,8 @@ contract('Savings', function(accounts) {
           {
           event: "LedgerEntry",
           args: {
+              ledgerReason: LedgerReason.Interest,
               ledgerType: LedgerType.Debit,
-              ledgerAction: LedgerAction.Interest,
               ledgerAccount: LedgerAccount.InterestExpense,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -191,8 +192,8 @@ contract('Savings', function(accounts) {
           {
             event: "LedgerEntry",
             args: {
+              ledgerReason: LedgerReason.Interest,
               ledgerType: LedgerType.Credit,
-              ledgerAction: LedgerAction.Interest,
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -204,8 +205,8 @@ contract('Savings', function(accounts) {
           {
           event: "LedgerEntry",
           args: {
+              ledgerReason: LedgerReason.CustomerWithdrawal,
               ledgerType: LedgerType.Debit,
-              ledgerAction: LedgerAction.CustomerWithdrawal,
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -216,8 +217,8 @@ contract('Savings', function(accounts) {
           {
             event: "LedgerEntry",
             args: {
+              ledgerReason: LedgerReason.CustomerWithdrawal,
               ledgerType: LedgerType.Credit,
-              ledgerAction: LedgerAction.CustomerWithdrawal,
               ledgerAccount: LedgerAccount.Cash,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -244,8 +245,8 @@ contract('Savings', function(accounts) {
         {
           event: "LedgerEntry",
           args: {
+              ledgerReason: LedgerReason.CustomerWithdrawal,
               ledgerType: LedgerType.Debit,
-              ledgerAction: LedgerAction.CustomerWithdrawal,
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
@@ -256,8 +257,8 @@ contract('Savings', function(accounts) {
           {
             event: "LedgerEntry",
             args: {
+              ledgerReason: LedgerReason.CustomerWithdrawal,
               ledgerType: LedgerType.Credit,
-              ledgerAction: LedgerAction.CustomerWithdrawal,
               ledgerAccount: LedgerAccount.Cash,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
