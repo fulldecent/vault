@@ -1,6 +1,7 @@
 pragma solidity ^0.4.18;
 
-import "./InterestBearingBalanceSheet.sol";
+import "./InterestRate.sol";
+import "./Ledger.sol";
 import "./base/Owned.sol";
 
 /**
@@ -8,7 +9,7 @@ import "./base/Owned.sol";
   * @author Compound
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
-contract Savings is Owned, InterestBearingBalanceSheet {
+contract Savings is Owned, InterestRate, Ledger {
 
 	/**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
@@ -84,6 +85,26 @@ contract Savings is Owned, InterestBearingBalanceSheet {
       * @param asset The asset to accrue savings interest on
       */
     function accrueDepositInterest(address customer, address asset) public returns (uint256) {
-        return accrueInterestAndSaveCheckpoint(LedgerAccount.Deposit, customer, asset);
+        uint balance;
+        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset];
+
+        uint interest = compoundedInterest(
+            checkpoint.balance,
+            checkpoint.timestamp,
+            now,
+            rates[asset]);
+
+        if (interest == 0) {
+            saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
+
+            balance = checkpoint.balance;
+        } else {
+          debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
+
+          // Credit Deposit and return new balance
+          balance = credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
+        }
+        saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
+        return balance;
     }
 }
