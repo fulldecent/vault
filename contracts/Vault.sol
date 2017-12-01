@@ -11,9 +11,8 @@ import "./Loaner.sol";
   * @notice The Compound Vault Contract in the core contract governing
   *         all accounts in Compound.
   */
-contract Vault is Oracle, Ledger, Savings, Loaner {
+contract Vault is Ledger, Savings, Loaner {
   uint minimumCollateralRatio;
-  address[] loanableAssets;
 
   struct Loan {
         uint balance;
@@ -29,14 +28,6 @@ contract Vault is Oracle, Ledger, Savings, Loaner {
       */
     function Vault (uint minimumCollateralRatio_) public {
         minimumCollateralRatio = minimumCollateralRatio_;
-    }
-
-    /**
-      * @notice `addLoanableAsset` adds an asset to the list of loanable assets
-      * @param asset The address of the assets to add
-      */
-    function addLoanableAsset(address asset) public onlyOwner {
-      loanableAssets.push(asset);
     }
 
     /**

@@ -2,6 +2,7 @@ pragma solidity ^0.4.18;
 
 import "./InterestRate.sol";
 import "./Ledger.sol";
+import "./Oracle.sol";
 import "./base/Owned.sol";
 
 /**
@@ -9,13 +10,26 @@ import "./base/Owned.sol";
   * @author Compound
   * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
   */
-contract Loaner is Owned, InterestRate, Ledger {
-    // function customerBorrow(address ) {
- 	//     if allow(....) {
- 	//         debit(LedgerAction.CustomerLoan, LedgerAccount.Loan, from, asset, amount);
- 	//         credit(LedgerAction.CustomerLoan, LedgerAccount.Deposit, from, asset, amount);
- 	//     }
- 	// }
+contract Loaner is Owned, InterestRate, Ledger, Oracle {
+  address[] loanableAssets;
+    /**
+      * @notice `addLoanableAsset` adds an asset to the list of loanable assets
+      * @param asset The address of the assets to add
+      */
+
+    function addLoanableAsset(address asset) public onlyOwner {
+      loanableAssets.push(asset);
+    }
+
+    /**
+      * @notice `customerBorrow` creates a new loan and deposits ether into the user's account.
+      * @param asset The asset to borrow
+      * @param amount The amount to borrow
+      */
+    function customerBorrow(address asset, uint amount) returns (uint){
+        debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
+        return credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
+    }
 
     /**
       * @notice `getLoanBalance` returns the balance (with interest) for

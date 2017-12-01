@@ -2,7 +2,6 @@ pragma solidity ^0.4.18;
 
 import "./base/Token.sol";
 import "./base/Owned.sol";
-import "./BalanceSheet.sol";
 
 /**
   * @title The Compound Ledger
@@ -10,7 +9,37 @@ import "./BalanceSheet.sol";
   * @notice Ledger keeps track of all balances of all asset types in Compound,
   *         as well as calculating Compound interest.
   */
-contract Ledger is Owned, BalanceSheet {
+contract Ledger is Owned {
+    enum LedgerReason {
+      CustomerDeposit,
+      CustomerWithdrawal,
+      Interest,
+      CustomerBorrow
+    }
+    enum LedgerType { Debit, Credit }
+    enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
+
+    struct BalanceCheckpoint {
+        uint256 balance;
+        uint256 timestamp;
+        uint64  interestRateBPS;
+        uint256 nextPaymentDate;
+    }
+
+    // A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
+    mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
+
+    function saveCheckpoint(
+      address customer,
+      LedgerReason ledgerReason,
+      LedgerAccount ledgerAccount,
+      address asset
+    ) {
+      BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+      require(ledgerReason == LedgerReason.Interest ||
+              checkpoint.timestamp == now);
+      checkpoint.timestamp = now;
+    }
     event LedgerEntry(
         LedgerReason    ledgerReason,     // Ledger reason
         LedgerType      ledgerType,       // Credit or Debit
@@ -41,13 +70,13 @@ contract Ledger is Owned, BalanceSheet {
         uint256 finalBalance;
 
         if(isBalanceAccount(ledgerAccount)) {
-          finalBalance = debitBalance(
-            customer,
-            ledgerReason,
-            LedgerType.Debit,
-            ledgerAccount,
-            asset,
-            amount);
+          BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+          if(ledgerAccount == LedgerAccount.Loan) {
+            checkpoint.balance += amount;
+          } else {
+            checkpoint.balance -= amount;
+          }
+          finalBalance = checkpoint.balance;
         }
 
         // Debit Entry
@@ -78,13 +107,9 @@ contract Ledger is Owned, BalanceSheet {
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
         uint256 finalBalance;
         if(isBalanceAccount(ledgerAccount)) {
-          finalBalance = creditBalance(
-            customer,
-            ledgerReason,
-            LedgerType.Credit,
-            ledgerAccount,
-            asset,
-            amount);
+          BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+          checkpoint.balance += amount;
+          finalBalance = checkpoint.balance;
         }
 
         // Credit Entry
