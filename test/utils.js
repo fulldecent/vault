@@ -93,13 +93,13 @@ module.exports = {
     await etherToken.deposit({from: account, value: amount});
     await etherToken.transfer(transferrable, 100, {from: account});
   },
-  depositEth: async function(ledger, etherToken, amount, account) {
-    await createAndApproveWeth(ledger, etherToken, amount, account);
-    await ledger.deposit(etherToken.address, amount, account);
+  depositEth: async function(savings, etherToken, amount, account) {
+    await createAndApproveWeth(savings, etherToken, amount, account);
+    await savings.customerDeposit(etherToken.address, amount, account);
   },
 
   ledgerAccountBalance: async (ledger, account, token) =>
-    await ledger.getBalanceAtLastCheckpoint.call(account, token).valueOf()
+    await ledger.getDepositBalance.call(account, token).valueOf()
   ,
 
   tokenBalance: async function(token, account) {
