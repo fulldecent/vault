@@ -4,6 +4,26 @@ const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
+const LedgerType = {
+  Debit: web3.toBigNumber(0),
+  Credit: web3.toBigNumber(1)
+};
+
+const LedgerReason = {
+  CustomerDeposit: web3.toBigNumber(0),
+  CustomerWithdrawal: web3.toBigNumber(1),
+  Interest: web3.toBigNumber(2),
+  CustomerBorrow: web3.toBigNumber(3),
+};
+
+const LedgerAccount = {
+  Cash: web3.toBigNumber(0),
+  Loan: web3.toBigNumber(1),
+  Deposit: web3.toBigNumber(2),
+  InterestExpense: web3.toBigNumber(3),
+  InterestIncome: web3.toBigNumber(4)
+};
+
 contract('Vault', function(accounts) {
   var vault;
   var etherToken;
@@ -12,6 +32,45 @@ contract('Vault', function(accounts) {
     [vault, etherToken] = await Promise.all([Vault.new(2), EtherToken.new()]);
     await vault.setAssetValue(etherToken.address, 1);
     await vault.addLoanableAsset(etherToken.address);
+  });
+
+  describe('#customerBorrow', () => {
+    it("pays out the amount requested", async () => {
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      const amountLoaned = await vault.customerBorrow.call(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      assert.equal(amountLoaned.valueOf(), 120);
+      await utils.assertEvents(vault, [
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.CustomerBorrow,
+            ledgerType: LedgerType.Debit,
+            ledgerAccount: LedgerAccount.Loan,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('20'),
+            balance: web3.toBigNumber('20'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.CustomerBorrow,
+            ledgerType: LedgerType.Credit,
+            ledgerAccount: LedgerAccount.Deposit,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('20'),
+            balance: web3.toBigNumber('120'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        }
+      ]);
+    });
   });
 
   describe('#setMinimumCollateralRatio', () => {
