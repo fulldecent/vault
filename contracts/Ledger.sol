@@ -188,6 +188,8 @@ contract Ledger is Owned, Interesting {
       * @return whether or not this ledger account tracks a balance
       */
     function isBalanceAccount(LedgerAccount ledgerAccount) private returns (bool) {
-        return ledgerAccount == LedgerAccount.Loan || ledgerAccount == LedgerAccount.Deposit;
+        return (
+            ledgerAccount == LedgerAccount.Loan ||
+            ledgerAccount == LedgerAccount.Deposit);
     }
 }
