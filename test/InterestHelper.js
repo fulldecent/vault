@@ -19,12 +19,12 @@ contract('InterestHelper', function(accounts) {
       const principal = new BigNumber(5000);
       const startTime = new BigNumber(moment().add(0, 'years').unix());
       const endTime = new BigNumber(moment().add(durationInYears, 'years').unix());
-      const interestRate = new BigNumber(0.05);
+      const interestRateBPS = new BigNumber(500);
       const payoutsPerYear = new BigNumber(12);
 
       const expectedBalance = utils.compoundedInterest({
         principal: principal,
-        interestRate: interestRate,
+        interestRate: interestRateBPS.dividedBy(10000),
         payoutsPerTimePeriod: payoutsPerYear,
         duration: durationInYears,
       }).toFixed(6);
@@ -33,8 +33,7 @@ contract('InterestHelper', function(accounts) {
         principal.times(multiplyer),
         startTime,
         endTime,
-        interestRate * 100,
-        payoutsPerYear);
+        interestRateBPS);
 
       balance = (balance.valueOf()/multiplyer).toFixed(6)
 
