@@ -14,6 +14,7 @@ contract BalanceSheet is Ledger {
         uint256 balance;
         uint256 timestamp;
         uint64  interestRateBPS;
+        uint256 nextPaymentDate;
     }
 
     // A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
@@ -28,9 +29,9 @@ contract BalanceSheet is Ledger {
       * @param asset The asset to adjust
       * @param amount The amount to adjust that asset
       */
-    function adjustBalance(address customer, LedgerReason ledgerReason, LedgerType ledgerType, LedgerAccount ledgerAccount, address asset, uint256 amount) internal returns (uint256) {
+    function adjustBalance(address customer, LedgerReason ledgerReason, LedgerType ledgerType, LedgerAccount ledgerAccount, address asset, uint256 amount) internal returns (uint256, uint64, uint256) {
         if (!isBalanceAccount(ledgerAccount)) {
-            return 0;
+            return (0, 0, 0);
         }
 
         uint256 delta;
@@ -61,11 +62,12 @@ contract BalanceSheet is Ledger {
             // TODO: Adjust interest rate to weighted average for additional principal
             uint64 newRate = 0;
             checkpoint.interestRateBPS = newRate;
+            // checkpoint.nextPaymentDate = ; // probably shouldn't change unless unset
         }
 
         checkpoint.balance += delta;
 
-        return checkpoint.balance;
+        return (checkpoint.balance, checkpoint.interestRateBPS, checkpoint.nextPaymentDate);
     }
 
     /**

@@ -65,7 +65,9 @@ contract('Savings', function(accounts) {
           customer: web3.eth.accounts[1],
           asset: etherToken.address,
           amount: web3.toBigNumber('100'),
-          finalBalance: web3.toBigNumber('0')
+          balance: web3.toBigNumber('0'),
+          interestRateBPS: web3.toBigNumber('0'),
+          nextPaymentDate: web3.toBigNumber('0')
         }
       },
       {
@@ -77,7 +79,9 @@ contract('Savings', function(accounts) {
           customer: web3.eth.accounts[1],
           asset: etherToken.address,
           amount: web3.toBigNumber('100'),
-          finalBalance: web3.toBigNumber('100')
+          balance: web3.toBigNumber('100'),
+          interestRateBPS: web3.toBigNumber('0'),
+          nextPaymentDate: web3.toBigNumber('0')
         }
       }
       ]);
@@ -115,7 +119,6 @@ contract('Savings', function(accounts) {
         assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 100);
 
         await savings.customerWithdraw(etherToken.address, 40, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-        console.log(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address));
         assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
@@ -161,7 +164,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: depositAmountBigNumber,
-              finalBalance: web3.toBigNumber('0')
+              balance: web3.toBigNumber('0'),
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           },
           {
@@ -173,7 +178,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: depositAmountBigNumber,
-              finalBalance: depositAmountBigNumber
+              balance: depositAmountBigNumber,
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           },
           // InterestExpense
@@ -186,7 +193,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: actualInterest,
-              finalBalance: web3.toBigNumber('0')
+              balance: web3.toBigNumber('0'),
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           },
           {
@@ -198,7 +207,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: actualInterest,
-              finalBalance: actualInterest.plus(depositAmountBigNumber)
+              balance: actualInterest.plus(depositAmountBigNumber),
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           },
           // Withdrawal
@@ -211,7 +222,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: withdrawalAmountBigNumber,
-              finalBalance: actualBalance
+              balance: actualBalance,
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           },
           {
@@ -223,7 +236,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: withdrawalAmountBigNumber,
-              finalBalance: web3.toBigNumber('0')
+              balance: web3.toBigNumber('0'),
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           }
         ], {fromBlock: startingBlock, toBlock: 'latest'});
@@ -251,7 +266,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: withdrawalAmountBigNumber,
-              finalBalance: initialBalanceBigNumber.minus(withdrawalAmountBigNumber)
+              balance: initialBalanceBigNumber.minus(withdrawalAmountBigNumber),
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           },
           {
@@ -263,7 +280,9 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: withdrawalAmountBigNumber,
-              finalBalance: web3.toBigNumber('0')
+              balance: web3.toBigNumber('0'),
+              interestRateBPS: web3.toBigNumber('0'),
+              nextPaymentDate: web3.toBigNumber('0')
             }
           }
         ]);
