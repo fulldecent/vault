@@ -70,7 +70,7 @@ contract Wallet is Owned {
       */
     function withdrawEth(uint256 amount, address to) public onlyOwner {
         // Withdraw from Compound Vault contract to EtherToken
-        vault.withdraw(address(etherToken), amount, address(this));
+        vault.customerWithdraw(address(etherToken), amount, address(this));
 
         // Now we have EtherTokens, let's withdraw them to Eth
         etherToken.withdraw(amount);
@@ -91,7 +91,7 @@ contract Wallet is Owned {
       */
     function withdrawAsset(address asset, uint256 amount, address to) public onlyOwner {
         // Withdraw the asset
-        vault.withdraw(asset, amount, to);
+        vault.customerWithdraw(asset, amount, to);
 
         // Log event
         Withdrawal(msg.sender, asset, amount);
@@ -110,7 +110,7 @@ contract Wallet is Owned {
       * @return Asset balance from Vault Contract
       */
     function balance(address asset) public view returns (uint256) {
-      return vault.getBalanceAtLastCheckpoint(address(this), asset);
+      return vault.getDepositBalance(address(this), asset);
     }
 
     /**
