@@ -11,6 +11,7 @@ import "./base/Interesting.sol";
   *         as well as calculating Compound interest.
   */
 contract Ledger is Owned, Interesting {
+    enum LedgerType { Debit, Credit }
     enum LedgerAction { CustomerDeposit, CustomerWithdrawal, Interest }
     enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
 
@@ -24,6 +25,7 @@ contract Ledger is Owned, Interesting {
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
     event LedgerEntry(
+        uint8   ledgerType,    // Credit or Debit
         uint8   ledgerAction,  // Ledger action
         uint8   ledgerAccount, // Ledger account
         address customer,      // Customer associated with entry
@@ -43,24 +45,33 @@ contract Ledger is Owned, Interesting {
       * @param customer The customer associated with this debit
       * @param asset The asset which is being debited
       * @param amount The amount to debit
+      * @return final balance if applicable
       */
-    function debit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
-        uint256 finalBalance = adjustBalance(
-            customer,
-            ledgerAccount,
-            asset,
-            amount,
-            ledgerAccount == LedgerAccount.Loan);
+    function debit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
+        uint256 finalBalance;
+
+        if (isBalanceAccount(ledgerAccount)) {
+            finalBalance = adjustBalance(
+                customer,
+                ledgerAction,
+                ledgerAccount,
+                asset,
+                amount,
+                ledgerAccount == LedgerAccount.Loan);
+        }
 
         // Debit Entry
         LedgerEntry({
-          ledgerAction: uint8(ledgerAction),
-          ledgerAccount: uint8(ledgerAccount),
-          customer: customer,
-          asset: asset,
-          amount: amount,
-          finalBalance: finalBalance
+            ledgerType: uint8(LedgerType.Debit),
+            ledgerAction: uint8(ledgerAction),
+            ledgerAccount: uint8(ledgerAccount),
+            customer: customer,
+            asset: asset,
+            amount: amount,
+            finalBalance: finalBalance
         });
+
+        return finalBalance;
     }
 
     /**
@@ -70,39 +81,51 @@ contract Ledger is Owned, Interesting {
       * @param customer The customer associated with this credit
       * @param asset The asset which is being credited
       * @param amount The amount to credit
+      * @return final balance if applicable
       */
-    function credit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
-        uint256 finalBalance = adjustBalance(
-            customer,
-            ledgerAccount,
-            asset,
-            amount,
-            ledgerAccount == LedgerAccount.Deposit);
+    function credit(LedgerAction ledgerAction, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
+        uint256 finalBalance;
+
+        if (isBalanceAccount(ledgerAccount)) {
+            finalBalance = adjustBalance(
+                customer,
+                ledgerAction,
+                ledgerAccount,
+                asset,
+                amount,
+                ledgerAccount == LedgerAccount.Deposit);
+        }
 
         // Credit Entry
         LedgerEntry({
-          ledgerAction: uint8(ledgerAction),
-          ledgerAccount: uint8(ledgerAccount),
-          customer: customer,
-          asset: asset,
-          amount: amount,
-          finalBalance: finalBalance
+            ledgerType: uint8(LedgerType.Credit),
+            ledgerAction: uint8(ledgerAction),
+            ledgerAccount: uint8(ledgerAccount),
+            customer: customer,
+            asset: asset,
+            amount: amount,
+            finalBalance: finalBalance
         });
+
+        return finalBalance;
     }
 
     /**
       * @notice Adjusts the balance on a given account
       * @param customer the customer
+      * @param ledgerAction which caused this adjustment
       * @param ledgerAccount which account to adjust
       * @param asset The asset to adjust
       * @param amount The amount to adjust that asset
       * @param isPositive Should the amount go up or down?
       */
-    function adjustBalance(address customer, LedgerAccount ledgerAccount, address asset, uint256 amount, bool isPositive) private returns (uint256) {
+    function adjustBalance(address customer, LedgerAction ledgerAction, LedgerAccount ledgerAccount, address asset, uint256 amount, bool isPositive) private returns (uint256) {
         uint256 delta;
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
 
-        if (checkpoint.timestamp != now) {
+        if (ledgerAction == LedgerAction.Interest) {
+          checkpoint.timestamp = now;
+        } else if (checkpoint.timestamp != now) {
             // We always need to accrue interest before updating balance!
             revert();
         }
@@ -120,18 +143,8 @@ contract Ledger is Owned, Interesting {
         }
 
         checkpoint.balance += delta;
-        return checkpoint.balance;
-    }
 
-    /**
-      * @notice `getBalanceAtLastCheckpoint` returns the balance (without interest) for
-      *         the given customer in the given asset (e.g. W-Eth or OMG)
-      * @param customer The customer to get the balance of
-      * @param asset The address of the asset
-      * @return balance The balance (without interest) of the asset in given customer account
-      */
-    function getBalanceAtLastCheckpoint(LedgerAccount ledgerAccount, address customer, address asset) private returns (uint256) {
-        return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
+        return checkpoint.balance;
     }
 
     /**
@@ -151,16 +164,30 @@ contract Ledger is Owned, Interesting {
             now,
             rates[asset]) - checkpoint.balance;
 
-        if (interest > 0) {
+        if (interest == 0) {
+            checkpoint.timestamp = now; // we're up to date
+
+            return checkpoint.balance;
+        } else {
             if (ledgerAccount == LedgerAccount.Deposit) {
                 debit(LedgerAction.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
-                credit(LedgerAction.Interest, LedgerAccount.Deposit, customer, asset, interest);
+                return credit(LedgerAction.Interest, LedgerAccount.Deposit, customer, asset, interest);
             } else if (ledgerAccount == LedgerAccount.Loan) {
-                debit(LedgerAction.Interest, LedgerAccount.Loan, customer, asset, interest);
                 credit(LedgerAction.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
+                return debit(LedgerAction.Interest, LedgerAccount.Loan, customer, asset, interest);
             }
-        }
 
-        return getBalanceAtLastCheckpoint(ledgerAccount, customer, asset);
+            // Should never happen
+            revert();
+        }
+    }
+
+    /**
+      * @notice `isBalanceAccount` indicates if this account is the type that has an associated balance
+      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @return whether or not this ledger account tracks a balance
+      */
+    function isBalanceAccount(LedgerAccount ledgerAccount) private returns (bool) {
+        return ledgerAccount == LedgerAccount.Loan || ledgerAccount == LedgerAccount.Deposit;
     }
 }
