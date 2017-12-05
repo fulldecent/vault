@@ -10,7 +10,6 @@ import "./base/Owned.sol";
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
 contract Savings is Owned, InterestRate, Ledger {
-
 	/**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
       * @param asset Asset to deposit

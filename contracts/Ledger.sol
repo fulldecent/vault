@@ -14,7 +14,8 @@ contract Ledger is Owned {
       CustomerDeposit,
       CustomerWithdrawal,
       Interest,
-      CustomerBorrow
+      CustomerBorrow,
+      CustomerPayLoan
     }
     enum LedgerType { Debit, Credit }
     enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
@@ -36,8 +37,8 @@ contract Ledger is Owned {
       address asset
     ) {
       BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
-      require(ledgerReason == LedgerReason.Interest ||
-              checkpoint.timestamp == now);
+      // require(ledgerReason == LedgerReason.Interest ||
+      //         checkpoint.timestamp == now);
       checkpoint.timestamp = now;
     }
     event LedgerEntry(
