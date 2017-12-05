@@ -14,6 +14,7 @@ const LedgerReason = {
   CustomerWithdrawal: web3.toBigNumber(1),
   Interest: web3.toBigNumber(2),
   CustomerBorrow: web3.toBigNumber(3),
+  CustomerPayLoan: web3.toBigNumber(4),
 };
 
 const LedgerAccount = {
@@ -63,6 +64,74 @@ contract('Vault', function(accounts) {
             asset: etherToken.address,
             amount: web3.toBigNumber('20'),
             balance: web3.toBigNumber('120'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        }
+      ]);
+    });
+  });
+
+  describe('#customerPayLoan', () => {
+    it("accrues interest and reduces the balance", async () => {
+      await vault.setInterestRate(etherToken.address, 50000, {from: web3.eth.accounts[0]});
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
+      await vault.customerPayLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await utils.assertEvents(vault, [
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.Interest,
+            ledgerType: LedgerType.Credit,
+            ledgerAccount: LedgerAccount.InterestIncome,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('80785'),
+            balance: web3.toBigNumber('0'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.Interest,
+            ledgerType: LedgerType.Debit,
+            ledgerAccount: LedgerAccount.Loan,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('80785'),
+            balance: web3.toBigNumber('80805'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.CustomerPayLoan,
+            ledgerType: LedgerType.Credit,
+            ledgerAccount: LedgerAccount.Loan,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('20'),
+            balance: web3.toBigNumber('80785'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.CustomerPayLoan,
+            ledgerType: LedgerType.Debit,
+            ledgerAccount: LedgerAccount.Deposit,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('20'),
+            balance: web3.toBigNumber('100'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
