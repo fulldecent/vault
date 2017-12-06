@@ -29,8 +29,6 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
     function customerBorrow(address asset, uint amount) public {
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
-        saveCheckpoint(msg.sender, LedgerReason.CustomerBorrow, LedgerAccount.Deposit, asset);
-        saveCheckpoint(msg.sender, LedgerReason.CustomerBorrow, LedgerAccount.Loan, asset);
     }
 
     /**

@@ -87,6 +87,7 @@ contract Ledger is Owned {
             nextPaymentDate: 0
         });
 
+        saveCheckpoint(customer, ledgerReason, ledgerAccount, asset);
         return getBalance(customer, ledgerAccount, asset);
     }
 
@@ -106,7 +107,6 @@ contract Ledger is Owned {
           balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
         }
 
-
         // Credit Entry
         LedgerEntry({
             ledgerReason: ledgerReason,
@@ -120,6 +120,7 @@ contract Ledger is Owned {
             nextPaymentDate: 0
         });
 
+        saveCheckpoint(customer, ledgerReason, ledgerAccount, asset);
         return getBalance(customer, ledgerAccount, asset);
     }
 
