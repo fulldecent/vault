@@ -75,7 +75,7 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
       * @param customer The customer
       * @param asset The asset to accrue loan interest on
       */
-    function accrueLoanInterest(address customer, address asset) public returns (uint256) {
+    function accrueLoanInterest(address customer, address asset) public {
         uint balance;
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Loan)][asset];
 
@@ -85,16 +85,11 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
             now,
             rates[asset]);
 
-        if (interest == 0) {
-            balance = checkpoint.balance;
-        } else {
+        if (interest != 0) {
           credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
 
-          balance = debit(LedgerReason.Interest, LedgerAccount.Loan, customer, asset, interest);
+          debit(LedgerReason.Interest, LedgerAccount.Loan, customer, asset, interest);
+          saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Loan, asset);
         }
-
-        saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Loan, asset);
-
-        return balance;
     }
 }

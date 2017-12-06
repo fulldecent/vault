@@ -67,11 +67,13 @@ contract Ledger is Owned {
       * @param amount The amount to debit
       * @return final balance if applicable
       */
-    function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
+    function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
           balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
         } else if(isLiability(ledgerAccount)) {
           balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
+        } else {
+          // Untracked ledger account
         }
 
         // Debit Entry
@@ -88,7 +90,6 @@ contract Ledger is Owned {
         });
 
         saveCheckpoint(customer, ledgerReason, ledgerAccount, asset);
-        return getBalance(customer, ledgerAccount, asset);
     }
 
     /**
@@ -100,11 +101,13 @@ contract Ledger is Owned {
       * @param amount The amount to credit
       * @return final balance if applicable
       */
-    function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
+    function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
           balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
         } else if(isLiability(ledgerAccount)) {
           balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
+        } else {
+          // Untracked ledger account
         }
 
         // Credit Entry
@@ -121,7 +124,6 @@ contract Ledger is Owned {
         });
 
         saveCheckpoint(customer, ledgerReason, ledgerAccount, asset);
-        return getBalance(customer, ledgerAccount, asset);
     }
 
     /**
@@ -130,7 +132,7 @@ contract Ledger is Owned {
       * @param ledgerAccount the ledger account
       * @return true if the account is an asset false otherwise
       */
-    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) private returns (uint) {
+    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal returns (uint) {
       return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
     }
 
