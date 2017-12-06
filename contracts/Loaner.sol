@@ -26,9 +26,9 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
       * @param asset The asset to borrow
       * @param amount The amount to borrow
       */
-    function customerBorrow(address asset, uint amount) returns (uint){
+    function customerBorrow(address asset, uint amount) {
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
-        return credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
+        credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
     }
 
     /**
