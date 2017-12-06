@@ -37,8 +37,8 @@ contract Savings is Owned, InterestRate, Ledger {
       * @param to address to withdraw to
       */
     function customerWithdraw(address asset, uint256 amount, address to) public {
-        uint256 balance = accrueDepositInterest(msg.sender, asset);
-        assert(amount <= balance);
+        accrueDepositInterest(msg.sender, asset);
+        assert(amount <= getBalance(msg.sender, LedgerAccount.Deposit, asset));
 
         debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
         credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
@@ -83,7 +83,7 @@ contract Savings is Owned, InterestRate, Ledger {
       * @param customer The customer
       * @param asset The asset to accrue savings interest on
       */
-    function accrueDepositInterest(address customer, address asset) public returns (uint256) {
+    function accrueDepositInterest(address customer, address asset) public  {
         uint balance;
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset];
 
@@ -93,17 +93,10 @@ contract Savings is Owned, InterestRate, Ledger {
             now,
             rates[asset]);
 
-        if (interest == 0) {
-            saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
-
-            balance = checkpoint.balance;
-        } else {
+        if (interest != 0) {
           debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
-
-          // Credit Deposit and return new balance
-          balance = credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
+          credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
+          saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
         }
-        saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
-        return balance;
     }
 }
