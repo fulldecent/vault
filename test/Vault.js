@@ -37,9 +37,7 @@ contract('Vault', function(accounts) {
   describe('#customerBorrow', () => {
     it("pays out the amount requested", async () => {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
-      const amountLoaned = await vault.customerBorrow.call(etherToken.address, 20, {from: web3.eth.accounts[1]});
       await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      assert.equal(amountLoaned.valueOf(), 120);
       await utils.assertEvents(vault, [
         {
           event: "LedgerEntry",
