@@ -26,7 +26,7 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
       * @param asset The asset to borrow
       * @param amount The amount to borrow
       */
-    function customerBorrow(address asset, uint amount) {
+    function customerBorrow(address asset, uint amount) public {
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
         saveCheckpoint(msg.sender, LedgerReason.CustomerBorrow, LedgerAccount.Deposit, asset);
@@ -38,10 +38,10 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
       * @param asset The asset to pay down
       * @param amount The amount to pay down
       */
-    function customerPayLoan(address asset, uint amount) returns (uint){
+    function customerPayLoan(address asset, uint amount) public {
         accrueLoanInterest(msg.sender, asset);
         credit(LedgerReason.CustomerPayLoan, LedgerAccount.Loan, msg.sender, asset, amount);
-        return debit(LedgerReason.CustomerPayLoan, LedgerAccount.Deposit, msg.sender, asset, amount);
+        debit(LedgerReason.CustomerPayLoan, LedgerAccount.Deposit, msg.sender, asset, amount);
     }
 
     /**
