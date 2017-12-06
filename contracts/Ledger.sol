@@ -67,16 +67,10 @@ contract Ledger is Owned {
       * @return final balance if applicable
       */
     function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
-        uint256 finalBalance;
-
-        if(isBalanceAccount(ledgerAccount)) {
-          BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
-          if(ledgerAccount == LedgerAccount.Loan) {
-            checkpoint.balance += amount;
-          } else {
-            checkpoint.balance -= amount;
-          }
-          finalBalance = checkpoint.balance;
+        if(isAsset(ledgerAccount)) {
+          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
+        } else if(isLiability(ledgerAccount)) {
+          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
         }
 
         // Debit Entry
@@ -87,12 +81,12 @@ contract Ledger is Owned {
             customer: customer,
             asset: asset,
             amount: amount,
-            balance: finalBalance,
+            balance: getBalance(customer, ledgerAccount, asset),
             interestRateBPS: 0,
             nextPaymentDate: 0
         });
 
-        return finalBalance;
+        return getBalance(customer, ledgerAccount, asset);
     }
 
     /**
@@ -105,12 +99,12 @@ contract Ledger is Owned {
       * @return final balance if applicable
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal returns (uint256) {
-        uint256 finalBalance;
-        if(isBalanceAccount(ledgerAccount)) {
-          BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
-          checkpoint.balance += amount;
-          finalBalance = checkpoint.balance;
+        if(isAsset(ledgerAccount)) {
+          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
+        } else if(isLiability(ledgerAccount)) {
+          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
         }
+
 
         // Credit Entry
         LedgerEntry({
@@ -120,22 +114,43 @@ contract Ledger is Owned {
             customer: customer,
             asset: asset,
             amount: amount,
-            balance: finalBalance,
+            balance: getBalance(customer, ledgerAccount, asset),
             interestRateBPS: 0,
             nextPaymentDate: 0
         });
 
-        return finalBalance;
+        return getBalance(customer, ledgerAccount, asset);
     }
 
     /**
-      * @notice `isBalanceAccount` indicates if this account is the type that has an associated balance
-      * @param ledgerAccount the account type (e.g. Deposit or Loan)
-      * @return whether or not this ledger account tracks a balance
+      * @notice `getBalance` gets a customer's balance
+      * @param customer the customer
+      * @param ledgerAccount the ledger account
+      * @return true if the account is an asset false otherwise
       */
-    function isBalanceAccount(LedgerAccount ledgerAccount) private returns (bool) {
+    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) private returns (uint) {
+      return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
+    }
+
+    /**
+      * @notice `isAsset` indicates if this account is the type that has an associated balance
+      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @return true if the account is an asset false otherwise
+      */
+    function isAsset(LedgerAccount ledgerAccount) private returns (bool) {
         return (
-            ledgerAccount == LedgerAccount.Loan ||
-            ledgerAccount == LedgerAccount.Deposit);
+            ledgerAccount == LedgerAccount.Loan
+        );
+    }
+
+    /**
+      * @notice `isLiability` indicates if this account is the type that has an associated balance
+      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @return true if the account is an asset false otherwise
+      */
+    function isLiability(LedgerAccount ledgerAccount) private returns (bool) {
+        return (
+            ledgerAccount == LedgerAccount.Deposit
+        );
     }
 }
