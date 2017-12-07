@@ -26,6 +26,14 @@ async function withdrawAsset(wallet, token, amount, account, to) {
   await wallet.withdrawAsset(token.address, amount, to, {from: account});
 }
 
+async function borrowAsset(wallet, token, amount, to, account) {
+  await wallet.borrowAsset(token, amount, to, {from: account});
+}
+
+async function borrowEth(wallet, amount, to, account) {
+  await wallet.borrowEth(amount, to, {from: account});
+}
+
 contract('Wallet', function(accounts) {
   var wallet;
   var vault;
@@ -130,6 +138,58 @@ contract('Wallet', function(accounts) {
 
       // Withdraw to different address
       await wallet.withdrawAsset(pigToken.address, 33, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+
+      // verify balances in PigToken
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), 22);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[2]), 33);
+    });
+
+    it('should log Withdrawal event');
+    it('should fail on third party calls');
+  });
+
+  describe('#borrowAsset', () => {
+    it('should borrow assets from vault', async () => {
+      // fill initial balance
+      await wallet.sendTransaction({value: 55});
+
+      // verify balance in ledger
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+
+      await utils.assertDifference(assert, 22, async () => {
+        // get eth balance
+        return await utils.ethBalance(web3.eth.accounts[2]);
+      }, async () => {
+        // withdraw eth
+        return await wallet.withdrawEth(22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+      });
+
+      // verify balance in ledger
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 33);
+
+      // verify balances in W-Eth
+      assert.equal(await utils.tokenBalance(etherToken, vault.address), 33);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
+    });
+
+    it('should log Withdrawal event');
+    it('should fail on third party calls');
+  });
+
+  describe('#borrowEth', () => {
+    it('should borrow assets from vault', async () => {
+      // Allocate 100 pig tokens to account 1
+      await pigToken.allocate(web3.eth.accounts[1], 100);
+
+      // Approve wallet for 55 tokens
+      await pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
+
+      // Deposit those tokens
+      await wallet.depositAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
+
+      // Borrow eth to different address
+      await wallet.borrowEth(33, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
 
       // verify balances in PigToken
       assert.equal(await utils.tokenBalance(pigToken, vault.address), 22);
