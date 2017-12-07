@@ -16,6 +16,7 @@ contract Wallet is Owned {
 
     event Deposit(address acct, address asset, uint256 amount);
     event Withdrawal(address acct, address asset, uint256 amount);
+    event Borrow(address acct, address asset, uint256 amount);
 
     /**
       * @notice Creates a new Wallet.
@@ -95,6 +96,39 @@ contract Wallet is Owned {
 
         // Log event
         Withdrawal(msg.sender, asset, amount);
+    }
+
+    /**
+      * @notice Borrows eth from Compound Vault contract
+      * @param amount Amount to borrow
+      * @param to Address to withdraw to
+      */
+    function borrowEth(uint256 amount, address to) public onlyOwner {
+        // Borrow the ether asset
+        vault.customerBorrow(address(etherToken), amount);
+
+        // Log borrow event
+        Borrow(msg.sender, address(etherToken), amount);
+
+        // Now withdraw the ether asset
+        withdrawEth(amount, to);
+    }
+
+    /**
+      * @notice Borrows asset from Compound Vault contract
+      * @param asset Asset to borrow
+      * @param amount Amount to borrow
+      * @param to Address to withdraw to
+      */
+    function borrowAsset(address asset, uint256 amount, address to) public onlyOwner {
+        // Borrow the asset
+        vault.customerBorrow(asset, amount);
+
+        // Log borrow event
+        Borrow(msg.sender, asset, amount);
+
+        // Now withdraw the asset
+        withdrawAsset(asset, amount, to);
     }
 
     /**
