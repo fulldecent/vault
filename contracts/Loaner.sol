@@ -12,6 +12,13 @@ import "./base/Owned.sol";
   */
 contract Loaner is Owned, InterestRate, Ledger, Oracle {
   address[] loanableAssets;
+  uint minimumCollateralRatio;
+
+    function Loaner (uint minimumCollateralRatio_) public {
+        minimumCollateralRatio = minimumCollateralRatio_;
+    }
+
+
     /**
       * @notice `addLoanableAsset` adds an asset to the list of loanable assets
       * @param asset The address of the assets to add
@@ -27,8 +34,11 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
       * @param amount The amount to borrow
       */
     function customerBorrow(address asset, uint amount) public {
+        require(validCollateralRatio(amount));
+        require(loanableAsset(asset));
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
+        transfer(asset, msg.sender, amount);
     }
 
     /**
@@ -91,5 +101,52 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
           debit(LedgerReason.Interest, LedgerAccount.Loan, customer, asset, interest);
           saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Loan, asset);
         }
+    }
+
+    /**
+      * @notice `setMinimumCollateralRatio` sets the minimum collateral ratio
+      * @param minimumCollateralRatio_ the minimum collateral ratio to be set
+          t is valid and false otherwise
+      */
+    function setMinimumCollateralRatio(uint minimumCollateralRatio_) public onlyOwner {
+      minimumCollateralRatio = minimumCollateralRatio_;
+    }
+
+    /**
+      * @notice `validCollateralRatio` determines if a the requested amount is valid based on the minimum collateral ratio
+      * @param requestedAmount the requested loan amount
+      * @return boolean true if the requested amoun
+          t is valid and false otherwise
+      */
+    function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
+        return (getValueEquivalent(msg.sender) * minimumCollateralRatio) > requestedAmount;
+    }
+
+    /**
+     * @notice `getValueEquivalent` returns the value of the account based on
+     * Oracle prices of assets. Note: this includes the Eth value itself.
+     * @param acct The account to view value balance
+     * @return value The value of the acct in Eth equivalancy
+     */
+    function getValueEquivalent(address acct) public returns (uint256) {
+        address[] memory assets = getSupportedAssets(); // from Oracle
+        uint256 balance = 0;
+
+        for (uint64 i = 0; i < assets.length; i++) {
+          address asset = assets[i];
+
+          balance += getAssetValue(asset) * getBalance(acct, LedgerAccount.Deposit, asset);
+        }
+
+        return balance;
+    }
+
+    /**
+      * @notice `loanableAsset` determines if the asset is loanable
+      * @param asset the assets to query
+      * @return boolean true if the asset is loanable, false if not
+      */
+    function loanableAsset(address asset) view internal returns (bool) {
+      return arrayContainsAddress(loanableAssets, asset);
     }
 }

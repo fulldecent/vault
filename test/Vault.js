@@ -152,32 +152,12 @@ contract('Vault', function(accounts) {
     });
   });
 
-  describe('#getLoan', () => {
-    it("returns a loan", async () => {
-      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
-      await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
 
-      const loan = await vault.getLoan.call(web3.eth.accounts[1]);
-
-      utils.assertMatchingArray(loan, [
-        20,
-        20,
-        etherToken.address,
-        web3.eth.accounts[1],
-      ]);
-    });
-  });
-
-  describe('#newLoan', () => {
+  describe('#customerBorrow', () => {
     describe('when the loan is valid', () => {
       it("pays out the amount requested", async () => {
         await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
-        // Check return value
-        const amountLoaned = await vault.newLoan.call(etherToken.address, 20, {from: web3.eth.accounts[1]});
-        assert.equal(amountLoaned.valueOf(), 20);
-
-        // Call actual function
-        await vault.newLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+        await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
 
         // verify balances in W-Eth
         assert.equal(await utils.tokenBalance(etherToken, vault.address), 80);
@@ -190,7 +170,7 @@ contract('Vault', function(accounts) {
         await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[0]);
 
         await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-          await vault.newLoan(etherToken.address, 201, {from: web3.eth.accounts[0]});
+          await vault.customerBorrow(etherToken.address, 201, {from: web3.eth.accounts[0]});
         });
       });
     });
@@ -201,7 +181,7 @@ contract('Vault', function(accounts) {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[0]);
 
       await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-        await vault.newLoan(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
+        await vault.customerBorrow(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
       });
     });
   });
@@ -216,6 +196,7 @@ contract('Vault', function(accounts) {
 
       // get value of acct 1
       const eqValue = await vault.getValueEquivalent.call(web3.eth.accounts[1]);
+      await vault.getValueEquivalent(web3.eth.accounts[1]);
 
       assert.equal(eqValue.valueOf(), 200);
     });
