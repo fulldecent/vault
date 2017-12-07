@@ -37,8 +37,6 @@ contract Ledger is Owned {
       address asset
     ) {
       BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
-      // require(ledgerReason == LedgerReason.Interest ||
-      //         checkpoint.timestamp == now);
       checkpoint.timestamp = now;
     }
     event LedgerEntry(
@@ -156,5 +154,18 @@ contract Ledger is Owned {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );
+    }
+
+    /**
+      * @notice `transfer` transfers an asset from the vault to another address.
+      * @param asset the address of the asset
+      * @param to the address to transfer to
+      * @param amount the amount to transfer
+      * @return true if the account is an asset false otherwise
+      */
+    function transfer(address asset, address to, uint amount) {
+        if (!Token(asset).transfer(to, amount)) {
+            revert();
+        }
     }
 }
