@@ -50,7 +50,6 @@ contract Ledger is Owned {
         uint64          interestRateBPS,  // Interest rate in basis point if fixed
         uint256         nextPaymentDate); // Nexy payment date if associated with loan
 
-
     /**
       * @notice `Ledger` tracks balances for a given customer by asset with interest
       */

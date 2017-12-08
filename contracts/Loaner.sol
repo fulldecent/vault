@@ -106,7 +106,6 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
     /**
       * @notice `setMinimumCollateralRatio` sets the minimum collateral ratio
       * @param minimumCollateralRatio_ the minimum collateral ratio to be set
-          t is valid and false otherwise
       */
     function setMinimumCollateralRatio(uint minimumCollateralRatio_) public onlyOwner {
       minimumCollateralRatio = minimumCollateralRatio_;
@@ -136,6 +135,11 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
           address asset = assets[i];
 
           balance += getAssetValue(asset) * getBalance(acct, LedgerAccount.Deposit, asset);
+        }
+
+        for (uint64 j = 0; j < assets.length; j++) {
+          asset = assets[j];
+          balance -= getAssetValue(asset) * getBalance(acct, LedgerAccount.Loan, asset);
         }
 
         return balance;

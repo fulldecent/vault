@@ -1,5 +1,6 @@
 const BigNumber = require('bignumber.js');
 const Vault = artifacts.require("./Vault.sol");
+const PigToken = artifacts.require("./token/PigToken.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
@@ -30,7 +31,7 @@ contract('Vault', function(accounts) {
   var etherToken;
 
   beforeEach(async () => {
-    [vault, etherToken] = await Promise.all([Vault.new(2), EtherToken.new()]);
+    [vault, etherToken, pigToken] = await Promise.all([Vault.new(2), EtherToken.new(), PigToken.new()]);
     await vault.setAssetValue(etherToken.address, 1);
     await vault.addLoanableAsset(etherToken.address);
   });
@@ -189,16 +190,25 @@ contract('Vault', function(accounts) {
   describe('#getValueEquivalent', () => {
     it('should get value of assets', async () => {
       // deposit Ether tokens for acct 1
-      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      await vault.addLoanableAsset(pigToken.address);
+      await pigToken.allocate(web3.eth.accounts[0], 100);
 
+      // // Approve wallet for 55 tokens
+      await pigToken.approve(vault.address, 100, {from: web3.eth.accounts[0]});
+      await vault.customerDeposit(pigToken.address, 100, web3.eth.accounts[0], {from: web3.eth.accounts[0]});
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      //
       // set Oracle value (each Eth is now worth two Eth!)
       await vault.setAssetValue(etherToken.address, 2);
+      await vault.setAssetValue(pigToken.address, 2);
+      await vault.customerBorrow(pigToken.address, 1, {from: web3.eth.accounts[1]});
+      await vault.customerWithdraw(pigToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
       // get value of acct 1
       const eqValue = await vault.getValueEquivalent.call(web3.eth.accounts[1]);
       await vault.getValueEquivalent(web3.eth.accounts[1]);
 
-      assert.equal(eqValue.valueOf(), 200);
+      assert.equal(eqValue.valueOf(), 198);
     });
   });
 
