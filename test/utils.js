@@ -113,8 +113,12 @@ module.exports = {
     return web3.toBigNumber((await web3.eth.getBalance(account)).valueOf());
   },
 
-  setAssetValue: async function(oracle, asset, amountInEther, web3) {
-    return await oracle.setAssetValue(asset.address, web3.toWei(amountInEther, "ether"), {from: web3.eth.accounts[0]});
+  setAssetValue: async function(oracle, asset, amountInWei, web3) {
+    return await oracle.setAssetValue(asset.address, amountInWei, {from: web3.eth.accounts[0]});
+  },
+
+  addLoanableAsset: async function(loaner, asset, web3) {
+    return await loaner.addLoanableAsset(asset.address, {from: web3.eth.accounts[0]});
   },
 
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php

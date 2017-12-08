@@ -152,21 +152,26 @@ contract('Wallet', function(accounts) {
   describe('#borrowAsset', () => {
     it('should borrow assets from vault', async () => {
       // fill initial balance
-      await wallet.sendTransaction({value: 55});
+      await wallet.sendTransaction({value: web3.toWei(55, "finney")});
       // give the vault tokens to lend
-      await pigToken.allocate(vault.address, 100);
-      // set oracle value of pig token to 1 eth, which means we can borrow 27.5 pig token
+      await pigToken.allocate(vault.address, web3.toWei(100, "finney"));
+      // set oracle value of pig token to 1 finney, which means we can borrow 27.5 pig token
+      await utils.addLoanableAsset(vault, pigToken, web3);
+      await utils.setAssetValue(vault, etherToken, 1, web3);
       await utils.setAssetValue(vault, pigToken, 1, web3);
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(0, "finney"));
 
-      await utils.assertDifference(assert, 22, async () => {
+      assert.equal((await vault.getValueEquivalent.call(wallet.address)).valueOf(), web3.toWei(55, "finney"));
+
+      await utils.assertDifference(assert, web3.toWei(22, "finney"), async () => {
         // get asset balance
         return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
       }, async () => {
         // withdraw pig token
-        return await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+        return await wallet.borrowAsset(pigToken.address, web3.toWei(22, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[2]});
       });
 
       // verify balance in ledger (still has eth, pig token was withdrawn)
@@ -182,26 +187,27 @@ contract('Wallet', function(accounts) {
       assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
     });
 
-    it.only('should not let you borrow too much', async () => {
+    it('should not let you borrow too much', async () => {
       // fill initial balance
-      await wallet.sendTransaction({value: 55});
+      await wallet.sendTransaction({value: web3.toWei(55, "finney")});
       // give the vault tokens to lend
       await pigToken.allocate(vault.address, 100);
-      // set oracle value of pig token to 2 eth, which means we can borrow 13.75
+      // set oracle value of pig token to 2 finney, which means we can borrow 13.75
+      await utils.setAssetValue(vault, etherToken, 1, web3);
       await utils.setAssetValue(vault, pigToken, 2, web3);
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
 
-      await utils.assertDifference(assert, 0, async () => {
-        // get asset balance
-        return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
-      }, async () => {
-        // withdraw pig token
-        await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-          await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
-        });
-      });
+      // await utils.assertDifference(assert, 0, async () => {
+      //   // get asset balance
+      //   return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
+      // }, async () => {
+      //   // withdraw pig token
+      //   await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+      //     await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+      //   });
+      // });
 
       await utils.assertDifference(assert, 10, async () => {
         // get asset balance
