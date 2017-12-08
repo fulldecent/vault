@@ -153,24 +153,75 @@ contract('Wallet', function(accounts) {
     it('should borrow assets from vault', async () => {
       // fill initial balance
       await wallet.sendTransaction({value: 55});
+      // give the vault tokens to lend
+      await pigToken.allocate(vault.address, 100);
+      // set oracle value of pig token to 1 eth, which means we can borrow 27.5 pig token
+      await utils.setAssetValue(vault, pigToken, 1, web3);
 
       // verify balance in ledger
       assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
 
       await utils.assertDifference(assert, 22, async () => {
-        // get eth balance
-        return await utils.ethBalance(web3.eth.accounts[2]);
+        // get asset balance
+        return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
       }, async () => {
-        // withdraw eth
-        return await wallet.withdrawEth(22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+        // withdraw pig token
+        return await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
       });
 
-      // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 33);
+      // verify balance in ledger (still has eth, pig token was withdrawn)
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 0);
 
       // verify balances in W-Eth
-      assert.equal(await utils.tokenBalance(etherToken, vault.address), 33);
+      assert.equal(await utils.tokenBalance(etherToken, vault.address), 55);
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
+
+      // verify balances in PigToken
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), 78);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
+    });
+
+    it.only('should not let you borrow too much', async () => {
+      // fill initial balance
+      await wallet.sendTransaction({value: 55});
+      // give the vault tokens to lend
+      await pigToken.allocate(vault.address, 100);
+      // set oracle value of pig token to 2 eth, which means we can borrow 13.75
+      await utils.setAssetValue(vault, pigToken, 2, web3);
+
+      // verify balance in ledger
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+
+      await utils.assertDifference(assert, 0, async () => {
+        // get asset balance
+        return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
+      }, async () => {
+        // withdraw pig token
+        await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+          await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+        });
+      });
+
+      await utils.assertDifference(assert, 10, async () => {
+        // get asset balance
+        return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
+      }, async () => {
+        // withdraw pig token
+        return await wallet.borrowAsset(pigToken.address, 10, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+      });
+
+      // verify balance in ledger (still has eth, pig token was withdrawn)
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 0);
+
+      // verify balances in W-Eth
+      assert.equal(await utils.tokenBalance(etherToken, vault.address), 55);
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
+
+      // verify balances in PigToken
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), 78);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
     });
 
     it('should log Withdrawal event');

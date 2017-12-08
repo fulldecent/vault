@@ -70,6 +70,8 @@ module.exports = {
 
     const end = await checkFn();
 
+    console.log(start);
+    console.log(end);
     return assert.equal(end.minus(start), difference);
   },
 
@@ -104,11 +106,15 @@ module.exports = {
   ,
 
   tokenBalance: async function(token, account) {
-    return (await token.balanceOf(account)).valueOf();
+    return web3.toBigNumber((await token.balanceOf(account)).valueOf());
   },
 
   ethBalance: async function(account) {
     return web3.toBigNumber((await web3.eth.getBalance(account)).valueOf());
+  },
+
+  setAssetValue: async function(oracle, asset, amountInEther, web3) {
+    return await oracle.setAssetValue(asset.address, web3.toWei(amountInEther, "ether"), {from: web3.eth.accounts[0]});
   },
 
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php
