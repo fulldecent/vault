@@ -38,7 +38,6 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
         require(loanableAsset(asset));
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
-        transfer(asset, msg.sender, amount);
     }
 
     /**
