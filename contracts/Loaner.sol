@@ -117,7 +117,7 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
           t is valid and false otherwise
       */
     function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
-        return (getValueEquivalent(msg.sender) * minimumCollateralRatio) > requestedAmount;
+        return (getValueEquivalent(msg.sender) * minimumCollateralRatio) >= requestedAmount;
     }
 
     /**
