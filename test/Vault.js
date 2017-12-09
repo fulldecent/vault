@@ -159,6 +159,7 @@ contract('Vault', function(accounts) {
       it("pays out the amount requested", async () => {
         await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
         await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
+        await vault.customerWithdraw(etherToken.address, 20, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
         // verify balances in W-Eth
         assert.equal(await utils.tokenBalance(etherToken, vault.address), 80);
