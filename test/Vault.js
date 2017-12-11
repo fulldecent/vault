@@ -189,6 +189,18 @@ contract('Vault', function(accounts) {
     });
   });
 
+  describe('#getMaxLoanAvailable', () => {
+    it('gets the maximum loan available', async () => {
+      await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
+      await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await vault.customerWithdraw(etherToken.address, 20, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+
+      const eqValue = await vault.getMaxLoanAvailable(web3.eth.accounts[1]);
+
+      assert.equal(eqValue.valueOf(), 160);
+    });
+  });
+
   describe('#getValueEquivalent', () => {
     it('should get value of assets', async () => {
       // deposit Ether tokens for acct 1

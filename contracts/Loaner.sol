@@ -111,10 +111,18 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
     }
 
     /**
+      * @notice `getMaxLoanAvailable` gets the maximum loan availble
+      * @param account the address of the account
+      * @return uint the maximum loan amout available
+      */
+    function getMaxLoanAvailable(address account) view public returns (uint) {
+        return getValueEquivalent(account) * minimumCollateralRatio;
+    }
+
+    /**
       * @notice `validCollateralRatio` determines if a the requested amount is valid based on the minimum collateral ratio
       * @param requestedAmount the requested loan amount
-      * @return boolean true if the requested amoun
-          t is valid and false otherwise
+      * @return boolean true if the requested amount is valid and false otherwise
       */
     function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
         return (getValueEquivalent(msg.sender) * minimumCollateralRatio) >= requestedAmount;
