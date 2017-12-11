@@ -150,42 +150,43 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#borrowAsset', () => {
-    it.skip('should borrow assets from vault', async () => {
+    it('should borrow assets from vault', async () => {
       // fill initial balance
       await wallet.sendTransaction({value: web3.toWei(55, "finney")});
       // give the vault tokens to lend
-      await pigToken.allocate(vault.address, web3.toWei(100, "finney"));
-      // set oracle value of pig token to 1 finney, which means we can borrow 27.5 pig token
-      await wallet.depositAsset(pigToken.address, web3.toWei(100, "finney"), {from: web3.eth.accounts[1]});
-      await utils.addLoanableAsset(wallet, pigToken, web3);
-      await utils.setAssetValue(wallet, etherToken, 1, web3);
-      await utils.setAssetValue(wallet, pigToken, 1, web3);
+      // Approve wallet for 55 tokens
+      await pigToken.allocate(web3.eth.accounts[1], web3.toWei(55, "finney"));
+
+      // Approve wallet for 55 tokens
+      await pigToken.approve(wallet.address, web3.toWei(55, "finney"), {from: web3.eth.accounts[1]});
+
+      // Deposit those tokens
+      await wallet.depositAsset(pigToken.address, web3.toWei(55, "finney"), {from: web3.eth.accounts[1]});
+      await utils.addLoanableAsset(vault, pigToken, web3);
+      await utils.setAssetValue(vault, etherToken, 1, web3);
+      await utils.setAssetValue(vault, pigToken, 1, web3);
 
       // verify balance in ledger
       assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(0, "finney"));
+      console.log((await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address)).toNumber())
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(55, "finney"));
 
-      assert.equal((await vault.getValueEquivalent.call(wallet.address)).valueOf(), web3.toWei(55, "finney"));
-      //
-      // await utils.assertDifference(assert, web3.toWei(22, "finney"), async () => {
-      //   // get asset balance
-      //   return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
-      // }, async () => {
-      //   // withdraw pig token
-      //   return await wallet.borrowAsset(pigToken.address, web3.toWei(22, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[2]});
-      // });
-      //
-      // // verify balance in ledger (still has eth, pig token was withdrawn)
-      // assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
-      // assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 0);
-      //
-      // // verify balances in W-Eth
-      // assert.equal(await utils.tokenBalance(etherToken, vault.address), 55);
-      // assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
-      //
-      // // verify balances in PigToken
-      // assert.equal(await utils.tokenBalance(pigToken, vault.address), 78);
-      // assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
+      assert.equal((await vault.getValueEquivalent.call(wallet.address)).valueOf(), web3.toWei(110, "finney"));
+
+      await wallet.borrowAsset(pigToken.address, web3.toWei(22, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+
+
+      // verify balance in ledger (still has eth, pig token was withdrawn)
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(55, "finney"));
+
+      // verify balances in W-Eth
+      assert.equal(await utils.tokenBalance(etherToken, vault.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
+
+      // verify balances in PigToken
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), web3.toWei(33, "finney"));
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), web3.toWei(0, "finney"));
     });
 
     it('should not let you borrow too much', async () => {
