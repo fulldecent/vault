@@ -89,9 +89,9 @@ workflows:
       - deploy-to-kovan:
           requires:
             - test
-      - deploy-to-mission:
-          requires:
-            - test
+      # - deploy-to-mission:
+      #     requires:
+      #       - test
       - deploy-to-ropsten:
           requires:
             - test
