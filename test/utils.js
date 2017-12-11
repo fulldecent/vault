@@ -70,8 +70,6 @@ module.exports = {
 
     const end = await checkFn();
 
-    console.log(start);
-    console.log(end);
     return assert.equal(end.minus(start), difference);
   },
 

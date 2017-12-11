@@ -168,7 +168,6 @@ contract('Wallet', function(accounts) {
 
       // verify balance in ledger
       assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
-      console.log((await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address)).toNumber())
       assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(55, "finney"));
 
       assert.equal((await vault.getValueEquivalent.call(wallet.address)).valueOf(), web3.toWei(110, "finney"));
@@ -205,25 +204,17 @@ contract('Wallet', function(accounts) {
         await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
       });
 
-      // await utils.assertDifference(assert, 10, async () => {
-      //   // get asset balance
-      //   return await utils.tokenBalance(pigToken, web3.eth.accounts[2]);
-      // }, async () => {
-      //   // withdraw pig token
-      //   return await wallet.borrowAsset(pigToken.address, 10, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
-      // });
-      //
       // verify balance in ledger (still has eth, pig token was withdrawn)
-      // assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
-      // assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 0);
-      //
-      // // verify balances in W-Eth
-      // assert.equal(await utils.tokenBalance(etherToken, vault.address), 55);
-      // assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
-      //
-      // // verify balances in PigToken
-      // assert.equal(await utils.tokenBalance(pigToken, vault.address), 78);
-      // assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 0);
+
+      // verify balances in W-Eth
+      assert.equal(await utils.tokenBalance(etherToken, vault.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
+
+      // verify balances in PigToken
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), 100);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
     });
 
     it('should log Withdrawal event');
