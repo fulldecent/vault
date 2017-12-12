@@ -18,5 +18,6 @@ contract PigToken is StandardToken {
 	function allocate(address _owner, uint256 value) public {
 		balances[_owner] += value;
 		totalSupply += value;
+		Transfer(address(this), _owner, value);
 	}
 }
