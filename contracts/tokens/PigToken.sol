@@ -9,6 +9,10 @@ import "./../base/StandardToken.sol";
   */
 contract PigToken is StandardToken {
 
+    string constant public name = "Pig Token";
+    string constant public symbol = "PIG";
+    uint8 constant public decimals = 16;
+
 	/**
 	  * @notice Arbitrarily adds tokens to account
 	  * @dev This is just for testing!
