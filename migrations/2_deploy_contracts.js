@@ -11,10 +11,9 @@ module.exports = function(deployer, network) {
     return deployer.deploy(EtherToken).then(function() {
       return deployer.deploy(WalletFactory, Vault.address, EtherToken.address).then(function() {
         if (network == "development" || network == "mission") {
-          return Promise.all([
-            deployer.deploy(PigToken),
-            deployer.deploy(TokenFactory)
-          ]);
+          return deployer.deploy(PigToken).then(function() {
+            return deployer.deploy(TokenFactory)
+          });
         } else {
           return true;
         }
