@@ -36,7 +36,7 @@ contract Wallet is Owned {
         // Transfer eth into EtherToken
         etherToken.deposit.value(msg.value)();
 
-        depositInteral(address(etherToken), msg.value);
+        depositDirect(address(etherToken), msg.value);
     }
 
     /**
@@ -50,10 +50,11 @@ contract Wallet is Owned {
             revert();
         }
 
-        depositInteral(asset, amount);
+        depositDirect(asset, amount);
     }
 
-    function depositInteral(address asset, uint256 amount) private {
+    // TODO: Consider if this should be `public` and add tests.
+    function depositDirect(address asset, uint256 amount) public {
         // Approve the vault to pull in this asset
         Token(asset).approve(address(vault), amount);
 

@@ -97,6 +97,34 @@ contract('Wallet', function(accounts) {
     it('should accept deposits from third party');
   });
 
+  describe('#depositDirect', () => {
+    it('should deposit assets owned by wallet into vault', async () => {
+      // Allocate 100 pig tokens to account 1
+      await pigToken.allocate(web3.eth.accounts[1], 100);
+
+      // Transfer wallet for 55 tokens
+      await pigToken.transfer(wallet.address, 55, {from: web3.eth.accounts[1]});
+
+      // Verify initial state
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), 0);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
+      assert.equal(await utils.tokenBalance(pigToken, wallet.address), 55);
+
+      // Deposit those tokens (any account can call)
+      await wallet.depositDirect(pigToken.address, 55, {from: web3.eth.accounts[2]});
+
+      // verify balance in ledger
+      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 55);
+
+      // verify balances in PigToken
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), 55);
+      assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
+    });
+
+    it('should leave a Deposit event');
+    it('should accept deposits from third party');
+  });
+
   describe('#withdrawEth', () => {
     it('should withdraw assets from vault', async () => {
       // fill initial balance
