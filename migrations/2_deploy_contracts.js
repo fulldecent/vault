@@ -10,7 +10,7 @@ module.exports = function(deployer, network) {
   return deployer.deploy(Vault, MINIMUM_COLLATERAL_RATIO).then(function() {
     return deployer.deploy(EtherToken).then(function() {
       return deployer.deploy(WalletFactory, Vault.address, EtherToken.address).then(function() {
-        if (network == "development" || network == "mission") {
+        if (network == "development" || network == "mission" || network == "rinkeby") {
           return deployer.deploy(PigToken).then(function() {
             return deployer.deploy(TokenFactory)
           });
