@@ -11,11 +11,12 @@ import "./base/ArrayHelper.sol";
   * 		fair terms for loan contracts in Compound.
   */
 contract Oracle is Owned, ArrayHelper {
-	mapping(address => uint64) values;
+	int public assetMultiplier = 10 ** 9;
+	mapping(address => uint) values;
 	address[] assets;
 
 	event NewAsset(address indexed asset);
-	event AssetValueUpdate(address indexed asset, uint64 valueInWei);
+	event AssetValueUpdate(address indexed asset, uint valueInWei);
 
 	/**
 	  * @notice Constructs a new Oracle object
@@ -35,10 +36,11 @@ contract Oracle is Owned, ArrayHelper {
 	  * value of a given asset, or zero if unknown.
 
 	  * @param asset The address of the asset to query
+	  * @param amount The amount in base units of the asset
 	  * @return value The value in wei of the asset, or zero.
 	  */
-	function getAssetValue(address asset) public view returns(uint64) {
-		return values[asset];
+	function getAssetValue(address asset, uint amount) public view returns(uint) {
+		return (values[asset] * amount) / uint(assetMultiplier);
 	}
 
 	/**
@@ -47,7 +49,7 @@ contract Oracle is Owned, ArrayHelper {
 	  * @param asset The address of the asset to set
 	  * @param valueInWei The value in wei of the asset per unit
 	  */
-	function setAssetValue(address asset, uint64 valueInWei) public onlyOwner {
+	function setAssetValue(address asset, uint valueInWei) public onlyOwner {
 		if (!arrayContainsAddress(assets, asset)) {
 			assets.push(asset);
 			NewAsset(asset);

@@ -133,12 +133,12 @@ contract Loaner is Owned, InterestRate, Ledger, Oracle {
         for (uint64 i = 0; i < assets.length; i++) {
           address asset = assets[i];
 
-          balance += getAssetValue(asset) * getBalance(acct, LedgerAccount.Deposit, asset);
+          balance += getAssetValue(asset, getBalance(acct, LedgerAccount.Deposit, asset));
         }
 
         for (uint64 j = 0; j < assets.length; j++) {
           asset = assets[j];
-          balance -= getAssetValue(asset) * getBalance(acct, LedgerAccount.Loan, asset);
+          balance -= getAssetValue(asset, getBalance(acct, LedgerAccount.Loan, asset));
         }
 
         return balance;

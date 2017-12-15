@@ -2,6 +2,7 @@ var _ = require("lodash");
 var Promise = require("bluebird");
 var BigNumber = require('bignumber.js');
 var one = new BigNumber(1);
+const toAssetValue = (value) => (value * 10 ** 9);
 
 async function createAndApproveWeth(ledger, etherToken, amount, account, approvalAmount) {
   await etherToken.deposit({from: account, value: amount});
@@ -112,7 +113,7 @@ module.exports = {
   },
 
   setAssetValue: async function(oracle, asset, amountInWei, web3) {
-    return await oracle.setAssetValue(asset.address, amountInWei, {from: web3.eth.accounts[0]});
+    return await oracle.setAssetValue(asset.address, toAssetValue(amountInWei), {from: web3.eth.accounts[0]});
   },
 
   addLoanableAsset: async function(loaner, asset, web3) {

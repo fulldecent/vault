@@ -4,6 +4,7 @@ const PigToken = artifacts.require("./token/PigToken.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
+const toAssetValue = (value) => (value * 10 ** 9);
 
 const LedgerType = {
   Debit: web3.toBigNumber(0),
@@ -32,7 +33,7 @@ contract('Vault', function(accounts) {
 
   beforeEach(async () => {
     [vault, etherToken, pigToken] = await Promise.all([Vault.new(2), EtherToken.new(), PigToken.new()]);
-    await vault.setAssetValue(etherToken.address, 1);
+    await utils.setAssetValue(vault, etherToken, 1, web3);
     await vault.addLoanableAsset(etherToken.address);
   });
 
@@ -200,8 +201,8 @@ contract('Vault', function(accounts) {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
       //
       // set Oracle value (each Eth is now worth two Eth!)
-      await vault.setAssetValue(etherToken.address, 2);
-      await vault.setAssetValue(pigToken.address, 2);
+      await utils.setAssetValue(vault, etherToken, 2, web3);
+      await utils.setAssetValue(vault, pigToken, 2, web3);
       await vault.customerBorrow(pigToken.address, 1, {from: web3.eth.accounts[1]});
       await vault.customerWithdraw(pigToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
