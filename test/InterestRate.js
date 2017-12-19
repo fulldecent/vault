@@ -34,7 +34,7 @@ contract('InterestRate', function(accounts) {
     });
 
     it("should be owner only", async () => {
-      await utils.assertOnlyOwner(interestRate.setInterestRate.bind(null, etherToken.address, 500), web3);
+      await utils.assertOnlyOwner(interestRate, interestRate.setInterestRate.bind(null, etherToken.address, 500), web3);
     });
   });
 });

@@ -87,15 +87,12 @@ contract('Savings', function(accounts) {
       ]);
     });
 
-    it("should only work if ERC20 properly authorized", async () => {
+    it("should only work if ERC20 properly authorized amount", async () => {
       await utils.createAndApproveWeth(savings, etherToken, 100, web3.eth.accounts[1], 99);
 
-      try {
+      await utils.assertGracefulFailure(savings, "Savings::TokenTransferFromFail", [null, 100, null], async () => {
         await savings.customerDeposit(etherToken.address, 100, web3.eth.accounts[1]);
-        assert.fail('should have thrown');
-      } catch(error) {
-        assert.equal(error.message, "VM Exception while processing transaction: revert")
-      }
+      });
 
       // works okay for 99
       await savings.customerDeposit(etherToken.address, 99, web3.eth.accounts[1]);
@@ -293,16 +290,18 @@ contract('Savings', function(accounts) {
       it("throws an error", async () => {
         await utils.depositEth(savings, etherToken, 100, web3.eth.accounts[1]);
 
-        try {
-          // withdrawing 101 throws
+        // Withdrawing 101 is an error
+        await utils.assertGracefulFailure(savings, "Savings::InsufficientBalance", [null, 101, null, 100], async () => {
           await savings.customerWithdraw(etherToken.address, 101, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-          assert.fail('should have thrown');
-        } catch (error) {
-          assert.equal(error.message, "VM Exception while processing transaction: invalid opcode")
-        }
+        });
 
         // but withdrawing 100 is okay
         await savings.customerWithdraw(etherToken.address, 100, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+
+        // Withdrawing any more is an error
+        await utils.assertGracefulFailure(savings, "Savings::InsufficientBalance", [null, 1, null, 0], async () => {
+          await savings.customerWithdraw(etherToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+        });
       });
     });
   });

@@ -8,7 +8,7 @@ contract('Oracle', function(accounts) {
   var oracle;
 
   beforeEach(async () => {
-    oracle = await Oracle.new(null, {from: accounts[0]});
+    oracle = await Oracle.new();
   });
 
   describe('#setAssetValue', () => {
@@ -22,19 +22,19 @@ contract('Oracle', function(accounts) {
       assert.equal(assets.valueOf()[0], tokenAddrs.OMG);
 
       await utils.assertEvents(oracle, [
-      {
-        event: "NewAsset",
-        args: {
-          asset: tokenAddrs.OMG
-        }
-      },
-      {
-        event: "AssetValueUpdate",
-        args: {
-          asset: tokenAddrs.OMG,
-          valueInWei: web3.toBigNumber('15000000000')
-        }
-      },
+        {
+          event: "NewAsset",
+          args: {
+            asset: tokenAddrs.OMG
+          }
+        },
+        {
+          event: "AssetValueUpdate",
+          args: {
+            asset: tokenAddrs.OMG,
+            valueInWei: web3.toBigNumber('15000000000')
+          }
+        },
       ]);
 
       await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(0.01) , {from: web3.eth.accounts[0]});
@@ -47,12 +47,7 @@ contract('Oracle', function(accounts) {
     });
 
     it("should only allow owner to set asset value", async () => {
-      try {
-        await oracle.setAssetValue(tokenAddrs.OMG, web3.toWei(15, "ether"), {from: web3.eth.accounts[1]});
-        assert.fail('should have thrown');
-      } catch(error) {
-        assert.equal(error.message, "VM Exception while processing transaction: revert")
-      }
+      await utils.assertOnlyOwner(oracle, oracle.setAssetValue.bind(null, tokenAddrs.OMG, web3.toWei(15, "ether")), web3);
     });
   });
 

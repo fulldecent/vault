@@ -144,16 +144,15 @@ contract('Vault', function(accounts) {
 
   describe('#setMinimumCollateralRatio', () => {
     it('only can be called by the contract owner', async () => {
-      await utils.assertOnlyOwner(vault.setMinimumCollateralRatio.bind(null, 1), web3);
+      await utils.assertOnlyOwner(vault, vault.setMinimumCollateralRatio.bind(null, 1), web3);
     });
   });
 
   describe('#addLoanableAsset', () => {
     it('only can be called by the contract owner', async () => {
-      await utils.assertOnlyOwner(vault.addLoanableAsset.bind(null, 1), web3);
+      await utils.assertOnlyOwner(vault, vault.addLoanableAsset.bind(null, 1), web3);
     });
   });
-
 
   describe('#customerBorrow', () => {
     describe('when the loan is valid', () => {
@@ -172,7 +171,7 @@ contract('Vault', function(accounts) {
       it("fails", async () => {
         await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[0]);
 
-        await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+        await utils.assertGracefulFailure(vault, "Loaner::InvalidCollateralRatio", [null, 201, 100], async () => {
           await vault.customerBorrow(etherToken.address, 201, {from: web3.eth.accounts[0]});
         });
       });
@@ -183,7 +182,7 @@ contract('Vault', function(accounts) {
     it("fails", async () => {
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[0]);
 
-      await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
+      await utils.assertGracefulFailure(vault, "Loaner::AssetNotLoanable", [null], async () => {
         await vault.customerBorrow(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
       });
     });

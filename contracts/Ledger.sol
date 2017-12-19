@@ -2,6 +2,7 @@ pragma solidity ^0.4.18;
 
 import "./base/Token.sol";
 import "./base/Owned.sol";
+import "./base/Graceful.sol";
 
 /**
   * @title The Compound Ledger
@@ -9,16 +10,27 @@ import "./base/Owned.sol";
   * @notice Ledger keeps track of all balances of all asset types in Compound,
   *         as well as calculating Compound interest.
   */
-contract Ledger is Owned {
+contract Ledger is Graceful, Owned {
     enum LedgerReason {
-      CustomerDeposit,
-      CustomerWithdrawal,
-      Interest,
-      CustomerBorrow,
-      CustomerPayLoan
+        CustomerDeposit,
+        CustomerWithdrawal,
+        Interest,
+        CustomerBorrow,
+        CustomerPayLoan
     }
     enum LedgerType { Debit, Credit }
     enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
+
+    event LedgerEntry(
+        LedgerReason    ledgerReason,     // Ledger reason
+        LedgerType      ledgerType,       // Credit or Debit
+        LedgerAccount   ledgerAccount,    // Ledger account
+        address         customer,         // Customer associated with entry
+        address         asset,            // Asset associated with this entry
+        uint256         amount,           // Amount of asset associated with this entry
+        uint256         balance,          // Ledger account is Deposit or Loan, the new balance
+        uint64          interestRateBPS,  // Interest rate in basis point if fixed
+        uint256         nextPaymentDate); // Next payment date if associated with loan
 
     struct BalanceCheckpoint {
         uint256 balance;
@@ -30,25 +42,23 @@ contract Ledger is Owned {
     // A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
+    /**
+      * @notice Saves a balance checkpoint
+      * @param customer The customer to checkpoint
+      * @param ledgerReason The reason for this checkpoint
+      * @param ledgerAccount Which ledger account to checkpoint
+      * @param asset The asset which is being checkpointed
+      * @dev This throws on any error
+      */
     function saveCheckpoint(
-      address customer,
-      LedgerReason ledgerReason,
-      LedgerAccount ledgerAccount,
-      address asset
-    ) {
-      BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
-      checkpoint.timestamp = now;
+        address customer,
+        LedgerReason ledgerReason,
+        LedgerAccount ledgerAccount,
+        address asset
+    ) internal {
+        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
+        checkpoint.timestamp = now;
     }
-    event LedgerEntry(
-        LedgerReason    ledgerReason,     // Ledger reason
-        LedgerType      ledgerType,       // Credit or Debit
-        LedgerAccount   ledgerAccount,    // Ledger account
-        address         customer,         // Customer associated with entry
-        address         asset,            // Asset associated with this entry
-        uint256         amount,           // Amount of asset associated with this entry
-        uint256         balance,          // Ledger account is Deposit or Loan, the new balance
-        uint64          interestRateBPS,  // Interest rate in basis point if fixed
-        uint256         nextPaymentDate); // Nexy payment date if associated with loan
 
     /**
       * @notice `Ledger` tracks balances for a given customer by asset with interest
@@ -62,15 +72,15 @@ contract Ledger is Owned {
       * @param customer The customer associated with this debit
       * @param asset The asset which is being debited
       * @param amount The amount to debit
-      * @return final balance if applicable
+      * @dev This throws on any error
       */
     function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
-          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
+            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
         } else if(isLiability(ledgerAccount)) {
-          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
+            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
         } else {
-          // Untracked ledger account
+            // Untracked ledger account
         }
 
         // Debit Entry
@@ -96,15 +106,15 @@ contract Ledger is Owned {
       * @param customer The customer associated with this credit
       * @param asset The asset which is being credited
       * @param amount The amount to credit
-      * @return final balance if applicable
+      * @dev This throws on any error
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
-          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
+            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
         } else if(isLiability(ledgerAccount)) {
-          balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
+            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
         } else {
-          // Untracked ledger account
+            // Untracked ledger account
         }
 
         // Credit Entry
@@ -130,7 +140,7 @@ contract Ledger is Owned {
       * @return true if the account is an asset false otherwise
       */
     function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal returns (uint) {
-      return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
+        return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
     }
 
     /**
@@ -160,11 +170,14 @@ contract Ledger is Owned {
       * @param asset the address of the asset
       * @param to the address to transfer to
       * @param amount the amount to transfer
-      * @return true if the account is an asset false otherwise
+      * @return success or failure
       */
-    function transfer(address asset, address to, uint amount) {
+    function transfer(address asset, address to, uint amount) internal returns (bool) {
         if (!Token(asset).transfer(to, amount)) {
-            revert();
+            failure("Ledger::TransferFailed", uint256(asset), uint256(to), uint256(amount));
+            return false;
         }
+
+        return true;
     }
 }

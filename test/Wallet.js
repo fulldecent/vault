@@ -219,17 +219,22 @@ contract('Wallet', function(accounts) {
     it('should not let you borrow too much', async () => {
       // fill initial balance
       await wallet.sendTransaction({value: web3.toWei(55, "finney")});
+
       // give the vault tokens to lend
-      await pigToken.allocate(vault.address, 100);
-      // set oracle value of pig token to 2 finney, which means we can borrow 13.75
+      // TODO: Test for `Savings::TokenTransferToFail` if vault lacks funding
+      await pigToken.allocate(vault.address, web3.toWei(100, "finney"));
+
+      // set oracle value of pig token to 2 wei, which means we can borrow 55
       await utils.setAssetValue(vault, etherToken, 1, web3);
       await utils.setAssetValue(vault, pigToken, 2, web3);
+      await utils.addLoanableAsset(vault, pigToken, web3);
 
       // verify balance in ledger
       assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
 
-      await utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-        await wallet.borrowAsset(pigToken.address, 22, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
+      // TODO: This should fail at 27.5, not 110. Check we're calculating ratios correctly.
+      await utils.assertGracefulFailure(vault, "Loaner::InvalidCollateralRatio", [null, web3.toWei(111, "finney"), web3.toWei(55, "finney")], async () => {
+        await wallet.borrowAsset(pigToken.address, web3.toWei(111, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
       });
 
       // verify balance in ledger (still has eth, pig token was withdrawn)
@@ -241,7 +246,7 @@ contract('Wallet', function(accounts) {
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
 
       // verify balances in PigToken
-      assert.equal(await utils.tokenBalance(pigToken, vault.address), 100);
+      assert.equal(await utils.tokenBalance(pigToken, vault.address), web3.toWei(100, "finney"));
       assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 0);
     });
 

@@ -1,6 +1,8 @@
 pragma solidity ^0.4.18;
 
-contract Owned {
+import "./Graceful.sol";
+
+contract Owned is Graceful {
     function Owned() internal { owner = msg.sender; }
     address owner;
 
@@ -9,14 +11,26 @@ contract Owned {
     // The function body is inserted where the special symbol
     // "_;" in the definition of a modifier appears.
     // This means that if the owner calls this function, the
-    // function is executed and otherwise, an exception is
+    // function is executed and otherwise, a graceful exception is
     // thrown.
     modifier onlyOwner {
-        require(msg.sender == owner);
-        _;
+        if (msg.sender == owner) {
+            _;
+        } else {
+            revert();
+        }
     }
 
     function getOwner() public view returns(address) {
       return owner;
+    }
+
+    function checkOwner() internal returns (bool) {
+        if (msg.sender == owner) {
+            return true;
+        } else {
+            failure("Unauthorized", uint256(msg.sender), uint256(owner));
+            return false;
+        }
     }
 }

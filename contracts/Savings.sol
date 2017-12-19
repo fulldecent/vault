@@ -3,31 +3,39 @@ pragma solidity ^0.4.18;
 import "./InterestRate.sol";
 import "./Ledger.sol";
 import "./base/Owned.sol";
+import "./base/Graceful.sol";
 
 /**
   * @title The Compound Savings Account
   * @author Compound
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
-contract Savings is Owned, InterestRate, Ledger {
+contract Savings is Graceful, Owned, InterestRate, Ledger {
+
 	/**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
       * @param asset Asset to deposit
       * @param amount The amount of asset to deposit
       * @param from The customer's account which is pre-authorized for transfer
+      * @return success or failure
       */
-    function customerDeposit(address asset, uint256 amount, address from) public {
+    function customerDeposit(address asset, uint256 amount, address from) public returns (bool) {
         // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
 
         // Transfer ourselves the asset from `from`
         if (!Token(asset).transferFrom(from, address(this), amount)) {
-            return revert();
+            failure("Savings::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
+            return false;
         }
 
-        accrueDepositInterest(from, asset);
+        if (!accrueDepositInterest(from, asset)) {
+            return false;
+        }
 
         debit(LedgerReason.CustomerDeposit, LedgerAccount.Cash, from, asset, amount);
         credit(LedgerReason.CustomerDeposit, LedgerAccount.Deposit, from, asset, amount);
+
+        return true;
     }
 
     /**
@@ -35,18 +43,30 @@ contract Savings is Owned, InterestRate, Ledger {
       * @param asset Asset type to withdraw
       * @param amount amount to withdraw
       * @param to address to withdraw to
+      * @return success or failure
       */
-    function customerWithdraw(address asset, uint256 amount, address to) public {
-        accrueDepositInterest(msg.sender, asset);
-        assert(amount <= getBalance(msg.sender, LedgerAccount.Deposit, asset));
+    function customerWithdraw(address asset, uint256 amount, address to) public returns (bool) {
+        if (!accrueDepositInterest(msg.sender, asset)) {
+            return false;
+        }
+
+        uint256 balance = getBalance(msg.sender, LedgerAccount.Deposit, asset);
+        if (amount > balance) {
+            failure("Savings::InsufficientBalance", uint256(asset), uint256(amount), uint256(to), uint256(balance));
+            return false;
+        }
 
         debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
         credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
 
         // Transfer asset out to `to` address
         if (!Token(asset).transfer(to, amount)) {
-            revert();
+            // TODO: We've marked the debits and credits, maybe we should reverse those?
+            failure("Savings::TokenTransferToFail", uint256(asset), uint256(amount), uint256(to), uint256(balance));
+            return false;
         }
+
+        return true;
     }
 
     /**
@@ -54,6 +74,7 @@ contract Savings is Owned, InterestRate, Ledger {
       *         the given account in the given asset (e.g. W-Eth or OMG)
       * @param customer The customer
       * @param asset The asset to check the balance of
+      * @return The balance (with interest)
       */
     function getDepositBalance(address customer, address asset) public view returns (uint256) {
         return getDepositBalanceAt(
@@ -68,6 +89,7 @@ contract Savings is Owned, InterestRate, Ledger {
       * @param customer The customer
       * @param asset The asset to check the balance of
       * @param timestamp The timestamp at which to check the value.
+      * @return The balance (with interest)
       */
     function getDepositBalanceAt(address customer, address asset, uint256 timestamp) public view returns (uint256) {
         return balanceWithInterest(
@@ -82,9 +104,9 @@ contract Savings is Owned, InterestRate, Ledger {
       *         savings account.
       * @param customer The customer
       * @param asset The asset to accrue savings interest on
+      * @return success or failure
       */
-    function accrueDepositInterest(address customer, address asset) public  {
-        uint balance;
+    function accrueDepositInterest(address customer, address asset) public returns (bool) {
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset];
 
         uint interest = compoundedInterest(
@@ -94,9 +116,11 @@ contract Savings is Owned, InterestRate, Ledger {
             rates[asset]);
 
         if (interest != 0) {
-          debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
-          credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
-          saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
+            debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
+            credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
+            saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
         }
+
+        return true;
     }
 }

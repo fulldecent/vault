@@ -32,7 +32,7 @@ contract WalletFactory is Owned {
     /**
       * @notice Creates a new Compound Smart Wallet with given owner
       * @return wallet The new wallet which was created
-      * !!SECURITY!! Add back `ownerOnly`
+      * !!SECURITY!! Add back `ownerOnly` check
       */
     function newWallet(address walletOwner) public returns (Wallet) {
         Wallet wallet = new Wallet(walletOwner, vaultAddress, etherTokenAddress);

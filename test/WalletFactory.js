@@ -41,10 +41,8 @@ contract('WalletFactory', function(accounts) {
       assert.equal((await wallet.balanceEth.call()).valueOf(), 33);
     });
 
-    it("should only work if by wallet factory owner", async () => {
-      utils.assertFailure(async () => {
-        await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-      });
+    it.skip("should only work if by wallet factory owner", async () => {
+      await utils.assertOnlyOwner(wallet, wallet.newWallet.bind(null, web3.eth.accounts[1]), web3);
     });
 
     it("should be owned by set owner", async () => {
@@ -60,13 +58,7 @@ contract('WalletFactory', function(accounts) {
       // Deposit eth into wallet
       await wallet.depositEth({from: web3.eth.accounts[1], value: 55});
 
-      // Withdraw non-owner
-      utils.assertFailure("VM Exception while processing transaction: revert", async () => {
-        await wallet.withdrawEth(22, web3.eth.accounts[1], {from: web3.eth.accounts[2]});
-      });
-
-      // Withdraw owner
-      await wallet.withdrawEth(22, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+      await utils.assertOnlyOwner(wallet, wallet.withdrawEth.bind(null, 22, web3.eth.accounts[1]), web3.eth.accounts[1], web3.eth.accounts[2]);
     });
 
     it("should emit new wallet event", async () => {

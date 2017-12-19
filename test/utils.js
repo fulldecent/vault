@@ -11,11 +11,62 @@ async function createAndApproveWeth(ledger, etherToken, amount, account, approva
 
 async function assertFailure(msg, execFn) {
   try {
-    await execFn()
+    await execFn();
     assert.fail('should have thrown');
   } catch (error) {
     await assert.equal(error.message, msg);
   }
+}
+
+async function assertGracefulFailure(contract, failure, failureParamsOrExecFn, maybeExecFn) {
+  var failureParams;
+  var execFn;
+
+  // Allow failureParams to be optional.
+  if (maybeExecFn) {
+    execFn = maybeExecFn;
+    failureParams = failureParamsOrExecFn;
+  } else {
+    failureParams = null;
+    execFn = failureParamsOrExecFn;
+  }
+
+  await execFn();
+
+  return new Promise((resolve, reject) => {
+    var event = contract.allEvents();
+    event.get((error, events) => {
+      var found = false;
+
+      for (event of events) {
+        if (event.event === 'GracefulFailure') {
+          if (event.args.errorMessage === failure) {
+            if (failureParams) {
+              for (var i = 0; i < failureParams.length; i++) {
+                var expected = failureParams[i];
+                var actual = event.args.values[i];
+
+                if (failureParams[i] && expected != actual) {
+                  throw new Error(`GracefulFailure parameter mismatch #${i+1}, "${expected}" expected, got "${actual}"`);
+                }
+              }
+            }
+
+            found = true;
+            resolve(event);
+          } else {
+            throw new Error(`GracefulFailure "${failure}" expected, got "${event.args.errorMessage}"`);
+          }
+        }
+      }
+
+      if (!found) {
+        throw new Error(`GracefulFailure "${failure}" not detected`);
+      }
+    });
+
+    event.stopWatching();
+  });
 }
 
 async function increaseTime(web3, seconds) {
@@ -83,11 +134,23 @@ module.exports = {
     await increaseTime(web3, seconds);
     await mineBlock(web3);
   },
-  assertOnlyOwner: async function(f, web3) {
-    await assertFailure("VM Exception while processing transaction: revert", async () => {
-      await  f({from: web3.eth.accounts[1]});
-    })
-    await  f({from: web3.eth.accounts[0]});
+  assertOnlyOwner: async function(contract, f, ownerAccountOrWeb3, nonOwnerAccountOrNull) {
+    var ownerAccount, nonOwnerAccount;
+
+    if (nonOwnerAccountOrNull) {
+      ownerAccount = ownerAccountOrWeb3;
+      nonOwnerAccount = nonOwnerAccountOrNull;
+    } else {
+      const web3 = ownerAccountOrWeb3;
+      ownerAccount = web3.eth.accounts[0];
+      nonOwnerAccount = web3.eth.accounts[1];
+    }
+
+    await f({from: ownerAccount});
+
+    await assertGracefulFailure(contract, "Unauthorized", async () => {
+      await f({from: nonOwnerAccount});
+    });
   },
 
   createAndTransferWeth: async function(transferrable, etherToken, amount, account) {
@@ -149,5 +212,6 @@ module.exports = {
     BAT: "0x0000000000000000000000000000000000000002"
   },
   assertFailure,
+  assertGracefulFailure,
   createAndApproveWeth,
 }
