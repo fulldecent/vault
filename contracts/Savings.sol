@@ -109,16 +109,18 @@ contract Savings is Graceful, Owned, InterestRate, Ledger {
     function accrueDepositInterest(address customer, address asset) public returns (bool) {
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset];
 
-        uint interest = compoundedInterest(
-            checkpoint.balance,
-            checkpoint.timestamp,
-            now,
-            rates[asset]);
+        if(checkpoint.timestamp != 0) {
+          uint interest = compoundedInterest(
+              checkpoint.balance,
+              checkpoint.timestamp,
+              now,
+              rates[asset]);
 
-        if (interest != 0) {
-            debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
-            credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
-            saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
+          if (interest != 0) {
+              debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
+              credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
+              saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
+          }
         }
 
         return true;

@@ -76,7 +76,7 @@ contract('Vault', function(accounts) {
 
   describe('#customerPayLoan', () => {
     it("accrues interest and reduces the balance", async () => {
-      await vault.setInterestRate(etherToken.address, 50000, {from: web3.eth.accounts[0]});
+      await vault.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
       await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
       await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
@@ -90,7 +90,7 @@ contract('Vault', function(accounts) {
             ledgerAccount: LedgerAccount.InterestIncome,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('80785'),
+            amount: web3.toBigNumber('2'),
             balance: web3.toBigNumber('0'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
@@ -104,8 +104,8 @@ contract('Vault', function(accounts) {
             ledgerAccount: LedgerAccount.Loan,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('80785'),
-            balance: web3.toBigNumber('80805'),
+            amount: web3.toBigNumber('2'),
+            balance: web3.toBigNumber('22'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -119,7 +119,7 @@ contract('Vault', function(accounts) {
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
             amount: web3.toBigNumber('20'),
-            balance: web3.toBigNumber('80785'),
+            balance: web3.toBigNumber('2'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }

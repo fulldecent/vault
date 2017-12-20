@@ -12,32 +12,23 @@ contract('InterestHelper', function(accounts) {
 
   describe('#balanceWithInterest', () => {
     it('should have correct interest', async () => {
-      const precision = 10;
-      const multiplyer = Math.pow(10, precision);
-
       const durationInYears = 10;
-      const principal = new BigNumber(5000);
-      const startTime = new BigNumber(moment().add(0, 'years').unix());
-      const endTime = new BigNumber(moment().add(durationInYears, 'years').unix());
-      const interestRateBPS = new BigNumber(500);
-      const payoutsPerYear = new BigNumber(12);
+      const principal = web3.toWei("5", "ether");
+      const startTime = moment().add(0, 'years').unix();
+      const endTime = moment().add(durationInYears, 'years').unix();
+      const interestRateBPS = 500;
+      const oneYear = moment(0).add(1, 'years');
+      const exponent = (endTime-startTime) * 50 / oneYear;
+      const expectedBalance = principal*(Math.E ** (exponent))
 
-      const expectedBalance = utils.compoundedInterest({
-        principal: principal,
-        interestRate: interestRateBPS.dividedBy(10000),
-        payoutsPerTimePeriod: payoutsPerYear,
-        duration: durationInYears,
-      }).toFixed(6);
-
-      var balance = await interestHelper.balanceWithInterest.call(
-        principal.times(multiplyer),
+      const balance = await interestHelper.balanceWithInterest.call(
+        principal,
         startTime,
         endTime,
         interestRateBPS);
 
-      balance = (balance.valueOf()/multiplyer).toFixed(6)
 
-      assert.equal(balance, expectedBalance);
+      assert.closeTo(balance.toNumber(), expectedBalance, parseInt(web3.toWei(0.001, "ether")));
     });
   });
 });

@@ -1,13 +1,17 @@
 pragma solidity ^0.4.18;
 
+import "./Exponents.sol";
+
 /**
   * @title Interest Helper Contract
   * @author Compound
   * @notice This contract holds the compound interest calculation functions
   *			to be used by Compound contracts.
   */
-contract InterestHelper {
-
+contract InterestHelper is Exponents {
+    uint256 public constant E_NUMERATOR = 271828182846;
+    uint256 public constant E_DENOMINATOR = 100000000000;
+    uint32 public constant BASIS_POINTS_PER_UNIT = 10000;
 	/**
       * @notice `balanceWithInterest` returns the balance with
       *			compound interest over the given period.
@@ -16,16 +20,25 @@ contract InterestHelper {
       * @param endTime The time (as an epoch) when interest stopped accruing (e.g. now)
       * @param interestRateBPS The annual interest rate (APR)
       */
-    function balanceWithInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public pure returns (uint256) {
-uint256 duration = (endTime - beginTime) / (1 years);
-    uint256 payouts = duration * 12;
-    uint256 amortization = principal;
+    function balanceWithInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public view returns (uint256) {
+    if((endTime - beginTime) > 0) {
+      uint256 multiplier;
+      uint8 precision;
 
-    for (uint64 _i = 0; _i < payouts; _i++) {
-        amortization = amortization + ((amortization * interestRateBPS / 100) / 100 / 12);
+      // e^rt
+      // where
+      // r = (interest in basis points / basis points per unit)
+      // t = (time in seconds / seconds in a year)
+      (multiplier, precision) = power(
+        E_NUMERATOR,
+        E_DENOMINATOR,
+        uint32((endTime-beginTime) * interestRateBPS / 1 years),
+        BASIS_POINTS_PER_UNIT
+      );
+      return uint256((principal * multiplier) >> precision);
+    } else {
+      return principal;
     }
-
-    return amortization;
   }
 
   /**
@@ -35,7 +48,7 @@ uint256 duration = (endTime - beginTime) / (1 years);
       * @param endTime The time (as an epoch) when interest stopped accruing (e.g. now)
       * @param interestRateBPS The annual interest rate (APR)
       */
-    function compoundedInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public pure returns (uint256) {
+    function compoundedInterest(uint256 principal, uint256 beginTime, uint256 endTime, uint64 interestRateBPS) public view returns (uint256) {
         return balanceWithInterest(principal, beginTime, endTime, interestRateBPS) - principal;
     }
 }

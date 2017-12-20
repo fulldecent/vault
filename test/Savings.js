@@ -45,7 +45,7 @@ contract('Savings', function(accounts) {
       await savings.customerDeposit(etherToken.address, 100, web3.eth.accounts[1]);
 
       // verify balance in savings
-      assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 100);
+      assert.equal((await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address)).toNumber(), 100);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, savings.address), 100);
@@ -125,30 +125,20 @@ contract('Savings', function(accounts) {
 
       it("should update the user's balance with interest since the last checkpoint", async () => {
         const startingBlock = web3.eth.blockNumber;
-        const depositAmount = web3.toWei("1", "ether");
+        const durationInYears = 10;
+        const interestRateBPS = 500;
+        const depositAmount = web3.toWei("5", "ether");
         const depositAmountBigNumber = new BigNumber(depositAmount);
         const withdrawAmount = web3.toWei(".5", "ether");
         const withdrawalAmountBigNumber = new BigNumber(withdrawAmount);
+        const exponent = durationInYears * (interestRateBPS/10000);
+        const expectedBalance = depositAmount * (Math.E ** (exponent))
 
-        await savings.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
+        await savings.setInterestRate(etherToken.address, interestRateBPS, {from: web3.eth.accounts[0]});
         await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 
-        await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
+        await utils.increaseTime(web3, moment(0).add(durationInYears, 'years').unix());
         await savings.customerWithdraw(etherToken.address, withdrawAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
-
-        const balanceWithInterest = utils.compoundedInterest({
-          principal: depositAmountBigNumber,
-          interestRate: new BigNumber(0.05),
-          payoutsPerTimePeriod: new BigNumber(12),
-          duration: 2,
-        }).toFixed(6);
-
-        const expectedBalance = balanceWithInterest - withdrawalAmountBigNumber;
-        const actualBalance = await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address)
-
-        assert.equal(actualBalance, expectedBalance);
-
-        const actualInterest = actualBalance.plus(withdrawalAmountBigNumber).minus(depositAmountBigNumber);
 
         await utils.assertEvents(savings, [
         // Deposit
@@ -189,7 +179,7 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.InterestExpense,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: actualInterest,
+              amount: web3.toBigNumber('3245255239655908560'),
               balance: web3.toBigNumber('0'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
@@ -203,8 +193,8 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: actualInterest,
-              balance: actualInterest.plus(depositAmountBigNumber),
+              amount: web3.toBigNumber('3245255239655908560'),
+              balance: web3.toBigNumber('8245255239655908560'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -218,8 +208,8 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: withdrawalAmountBigNumber,
-              balance: actualBalance,
+              amount: web3.toBigNumber(withdrawAmount),
+              balance: web3.toBigNumber('7745255239655908560'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }

@@ -22,7 +22,7 @@ const infuraNetworks = _.fromPairs(_.compact(networks.map((network) => {
         host: "localhost",
         port: 8545,
         network_id: "*",
-        gas: 4612388,
+        gas: 50000000,
         gasPrice: web3.toWei(13, "gwei"),
         provider,
       }
