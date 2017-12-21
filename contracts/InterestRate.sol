@@ -12,7 +12,7 @@ import "./base/Graceful.sol";
 
 contract InterestRate is Graceful, Owned, InterestHelper {
 	// Track assets -> rates
-	mapping(address => uint64) rates;
+	mapping(address => uint64) public rates;
 
 	event InterestRateChange(address asset, uint64 interestRateBPS);
 
