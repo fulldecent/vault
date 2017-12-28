@@ -30,7 +30,10 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
             return false;
         }
 
-        loanableAssets.push(asset);
+        // Don't add if already added
+        if (!loanableAsset(asset)) {
+          loanableAssets.push(asset);
+        }
 
         return true;
     }
@@ -182,6 +185,22 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
         }
 
         return balance;
+    }
+
+    /**
+      * @notice `getLoanableAssets` returns all loanable assets
+      * @return array of loanable assets
+      */
+    function getLoanableAssets() view public returns (address[]) {
+      return loanableAssets;
+    }
+
+    /**
+      * @notice `getMinimumCollateralRatio` returns the minimum collateral ratio
+      * @return uint256 minimum collateral ratio
+      */
+    function getMinimumCollateralRatio() view public returns (uint256) {
+      return minimumCollateralRatio;
     }
 
     /**

@@ -152,6 +152,41 @@ contract('Vault', function(accounts) {
     it('only can be called by the contract owner', async () => {
       await utils.assertOnlyOwner(vault, vault.addLoanableAsset.bind(null, 1), web3);
     });
+
+    it('does not add the same asset twice', async () => {
+      var loanableAssets = (await vault.getLoanableAssets()).valueOf();
+      assert.equal(loanableAssets.length, 1);
+      assert.equal(loanableAssets[0], etherToken.address);
+
+      await vault.addLoanableAsset(1);
+      loanableAssets = (await vault.getLoanableAssets()).valueOf();
+      assert.equal(loanableAssets.length, 2);
+      assert.equal(loanableAssets[0], etherToken.address);
+      assert.equal(loanableAssets[1], 1);
+
+      await vault.addLoanableAsset(1);
+      loanableAssets = (await vault.getLoanableAssets()).valueOf();
+      assert.equal(loanableAssets.length, 2);
+      assert.equal(loanableAssets[0], etherToken.address);
+      assert.equal(loanableAssets[1], 1);
+    });
+  });
+
+  describe('#getLoanableAssets', () => {
+    it('returns loanable assets', async () => {
+      const loanableAssets = (await vault.getLoanableAssets()).valueOf();
+
+      assert.equal(loanableAssets.length, 1);
+      assert.equal(loanableAssets[0], etherToken.address);
+    });
+  });
+
+  describe('#getMinimumCollateralRatio', () => {
+    it('returns minimum collateral ratio', async () => {
+      const minimumCollateralRatio = await vault.getMinimumCollateralRatio();
+
+      assert.equal(minimumCollateralRatio.valueOf(), 2);
+    });
   });
 
   describe('#customerBorrow', () => {
