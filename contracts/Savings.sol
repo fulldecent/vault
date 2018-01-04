@@ -4,6 +4,8 @@ import "./Ledger.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
 import "./base/InterestHelper.sol";
+import "./base/Token.sol";
+import "./storage/TokenStore.sol";
 
 /**
   * @title The Compound Savings Account
@@ -11,6 +13,36 @@ import "./base/InterestHelper.sol";
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
 contract Savings is Graceful, Owned, Ledger, InterestHelper {
+    TokenStore tokenStore;
+
+    /**
+      * @notice `setTokenStore` sets the token store contract
+      * @dev This is for long-term token storage (TODO: Test)
+      * @param tokenStore_ The contract which acts as the long-term token store
+      * @return Success of failure of operation
+      */
+    function setTokenStore(TokenStore tokenStore_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        tokenStore = tokenStore_;
+
+        return true;
+    }
+
+    /**
+      * @notice `checkTokenStore` verifies token store has been set
+      * @return True if token store is initialized, false otherwise
+      */
+    function checkTokenStore() internal returns (bool) {
+        if (tokenStore == address(0)) {
+            failure("Savings::TokenStoreUnitialized");
+            return false;
+        }
+
+        return true;
+    }
 
     /**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
@@ -21,9 +53,12 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       */
     function customerDeposit(address asset, uint256 amount, address from) public returns (bool) {
         // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
+        if (!checkTokenStore()) {
+            return false;
+        }
 
-        // Transfer ourselves the asset from `from`
-        if (!Token(asset).transferFrom(from, address(this), amount)) {
+        // Transfer `tokenStore` the asset from `from`
+        if (!Token(asset).transferFrom(from, address(tokenStore), amount)) {
             failure("Savings::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
             return false;
         }
@@ -46,6 +81,10 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       * @return success or failure
       */
     function customerWithdraw(address asset, uint256 amount, address to) public returns (bool) {
+        if (!checkTokenStore()) {
+            return false;
+        }
+
         if (!accrueDepositInterest(msg.sender, asset)) {
             return false;
         }
@@ -60,7 +99,7 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
         credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
 
         // Transfer asset out to `to` address
-        if (!Token(asset).transfer(to, amount)) {
+        if (!tokenStore.transferAssetOut(asset, to, amount)) {
             // TODO: We've marked the debits and credits, maybe we should reverse those?
             failure("Savings::TokenTransferToFail", uint256(asset), uint256(amount), uint256(to), uint256(balance));
             return false;

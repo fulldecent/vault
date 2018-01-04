@@ -1,6 +1,5 @@
 pragma solidity ^0.4.18;
 
-import "./base/Token.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
 import "./storage/LedgerStorage.sol";
@@ -43,8 +42,10 @@ contract Ledger is Graceful, Owned {
     function Ledger() public {}
 
     /**
-      * @dev Sets the ledger storage location
-      * TODO: Test
+      * @notice `setLedgerStorage` sets the ledger storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param ledgerStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
       */
     function setLedgerStorage(LedgerStorage ledgerStorage_) public returns (bool) {
         if (!checkOwner()) {
@@ -57,8 +58,10 @@ contract Ledger is Graceful, Owned {
     }
 
     /**
-      * @dev Sets the interest rate storage location
-      * TODO: Test
+      * @notice `setInterestRateStorage` sets the interest rate storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param interestRateStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
       */
     function setInterestRateStorage(InterestRateStorage interestRateStorage_) public returns (bool) {
         if (!checkOwner()) {
@@ -180,21 +183,5 @@ contract Ledger is Graceful, Owned {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );
-    }
-
-    /**
-      * @notice `transfer` transfers an asset from the vault to another address.
-      * @param asset the address of the asset
-      * @param to the address to transfer to
-      * @param amount the amount to transfer
-      * @return success or failure
-      */
-    function transfer(address asset, address to, uint amount) internal returns (bool) {
-        if (!Token(asset).transfer(to, amount)) {
-            failure("Ledger::TransferFailed", uint256(asset), uint256(to), uint256(amount));
-            return false;
-        }
-
-        return true;
     }
 }

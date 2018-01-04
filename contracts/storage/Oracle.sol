@@ -33,6 +33,11 @@ contract Oracle is Owned, Allowed, ArrayHelper {
         return assets;
     }
 
+    /**
+     * @dev `getAssetsLength` returns length of assets for iteration
+     *
+     * @return assetLength Length of list of supported asset addresses
+     */
     function getAssetsLength() public view returns(uint256) {
         return assets.length;
     }

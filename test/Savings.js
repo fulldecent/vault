@@ -1,6 +1,8 @@
 const BigNumber = require('bignumber.js');
 const Savings = artifacts.require("./Savings.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
@@ -29,10 +31,17 @@ contract('Savings', function(accounts) {
   var etherToken;
 
   beforeEach(async () => {
-    ledgerStorage = await LedgerStorage.new();
+    const ledgerStorage = await LedgerStorage.new();
+    const tokenStore = await TokenStore.new();
+    const interestRateStorage = await InterestRateStorage.new();
+
     [savings, etherToken] = await Promise.all([Savings.new(), EtherToken.new()]);
     await ledgerStorage.allow(savings.address);
+    await tokenStore.allow(savings.address);
+    await interestRateStorage.allow(savings.address);
     await savings.setLedgerStorage(ledgerStorage.address);
+    await savings.setInterestRateStorage(interestRateStorage.address);
+    await savings.setTokenStore(tokenStore.address);
   });
 
   describe('#customerDeposit', () => {

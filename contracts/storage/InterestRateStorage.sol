@@ -8,7 +8,6 @@ import "../base/Owned.sol";
   * @author Compound
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
-
 contract InterestRateStorage is Owned, Allowed {
 	// Track assets -> rates
 	mapping(address => uint64) public rates;

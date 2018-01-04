@@ -19,8 +19,10 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     function Loaner () public {}
 
     /**
-      * @dev Sets the oracle location
-      * TODO: Test
+      * @notice `setOracle` sets the oracle storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param oracle_ The contract which acts as the long-term Oracle store
+      * @return Success of failure of operation
       */
     function setOracle(Oracle oracle_) public returns (bool) {
         if (!checkOwner()) {
@@ -33,8 +35,10 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     }
 
     /**
-      * @dev Sets the loaner storage location
-      * TODO: Test
+      * @notice `setLoanerStorage` sets the loaner storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param loanerStorage_ The contract which acts as the long-term store
+      * @return Success of failure of operation
       */
     function setLoanerStorage(LoanerStorage loanerStorage_) public returns (bool) {
         if (!checkOwner()) {

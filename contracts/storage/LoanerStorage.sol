@@ -4,6 +4,11 @@ import "../base/Allowed.sol";
 import "../base/ArrayHelper.sol";
 import "../base/Owned.sol";
 
+/**
+  * @title The Compound Loaner Storage Contract
+  * @author Compound
+  * @notice The Loaner Storage contract is a simple contract to keep track of loaner information (e.g. which assets are lendable).
+  */
 contract LoanerStorage is Owned, Allowed, ArrayHelper {
 	address[] public loanableAssets;
     uint public minimumCollateralRatio;
@@ -13,7 +18,6 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
       * @param asset The address of the assets to add
       * @return success or failure
       */
-
     function addLoanableAsset(address asset) public returns (bool) {
         if (!checkOwner()) {
             return false;
