@@ -1,18 +1,18 @@
 pragma solidity ^0.4.18;
 
-import "./InterestRate.sol";
 import "./Ledger.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
+import "./base/InterestHelper.sol";
 
 /**
   * @title The Compound Savings Account
   * @author Compound
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
-contract Savings is Graceful, Owned, InterestRate, Ledger {
+contract Savings is Graceful, Owned, Ledger, InterestHelper {
 
-	/**
+    /**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
       * @param asset Asset to deposit
       * @param amount The amount of asset to deposit
@@ -93,10 +93,10 @@ contract Savings is Graceful, Owned, InterestRate, Ledger {
       */
     function getDepositBalanceAt(address customer, address asset, uint256 timestamp) public view returns (uint256) {
         return balanceWithInterest(
-            balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset].balance,
-            balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset].timestamp,
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset),
+            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Deposit), asset),
             timestamp,
-            rates[asset]);
+            interestRateStorage.getInterestRate(asset));
     }
 
     /**
@@ -107,18 +107,18 @@ contract Savings is Graceful, Owned, InterestRate, Ledger {
       * @return success or failure
       */
     function accrueDepositInterest(address customer, address asset) public returns (bool) {
-        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Deposit)][asset];
-
         uint interest = compoundedInterest(
-            checkpoint.balance,
-            checkpoint.timestamp,
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset),
+            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Deposit), asset),
             now,
-            rates[asset]);
+            interestRateStorage.getInterestRate(asset));
 
         if (interest != 0) {
             debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
             credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
-            saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Deposit, asset);
+            if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Deposit), asset)) {
+                revert();
+            }
         }
 
         return true;

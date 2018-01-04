@@ -1,5 +1,6 @@
 const BigNumber = require('bignumber.js');
 const Vault = artifacts.require("./Vault.sol");
+const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const PigToken = artifacts.require("./token/PigToken.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const Wallet = artifacts.require("./Wallet.sol");
@@ -41,7 +42,11 @@ contract('Wallet', function(accounts) {
   var pigToken;
 
   beforeEach(async () => {
+    ledgerStorage = await LedgerStorage.new();
     [vault, etherToken, pigToken] = await Promise.all([Vault.new(2), EtherToken.new(), PigToken.new()]);
+
+    await ledgerStorage.allow(vault.address);
+    await vault.setLedgerStorage(ledgerStorage.address);
 
     wallet = await Wallet.new(web3.eth.accounts[1], vault.address, etherToken.address);
   });
