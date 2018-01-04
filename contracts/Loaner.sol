@@ -127,6 +127,10 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
       * @return success or failure
       */
     function accrueLoanInterest(address customer, address asset) public returns (bool) {
+        if (!checkInterestRateStorage()) {
+            return false;
+        }
+
         uint interest = compoundedInterest(
             ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset),
             ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Loan), asset),
@@ -180,47 +184,5 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
         }
 
         return balance;
-    }
-
-    /**
-      * @notice `validOracle` verifies that the Oracle is correct initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validOracle() public returns (bool) {
-        bool result = true;
-
-        if (oracle == address(0)) {
-            failure("Vault::OracleInitialized");
-            result = false;
-        }
-
-        if (oracle.allowed() != address(this)) {
-            failure("Vault::OracleNotAllowed");
-            result = false;
-        }
-
-        return result;
-    }
-
-    /**
-      * @notice `validLoanerStorage` verifies that the LoanerStorage is correct initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validLoanerStorage() public returns (bool) {
-        bool result = true;
-
-        if (loanerStorage == address(0)) {
-            failure("Vault::LoanerStorageInitialized");
-            result = false;
-        }
-
-        if (loanerStorage.allowed() != address(this)) {
-            failure("Vault::LoanerStorageNotAllowed");
-            result = false;
-        }
-
-        return result;
     }
 }

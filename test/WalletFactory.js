@@ -4,6 +4,7 @@ const Wallet = artifacts.require("./Wallet.sol");
 const Vault = artifacts.require("./Vault.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
@@ -17,6 +18,7 @@ contract('WalletFactory', function(accounts) {
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
     ledgerStorage = await LedgerStorage.new();
+    interestRateStorage = await InterestRateStorage.new();
     [vault, etherToken] = await Promise.all([Vault.new(), EtherToken.new()]);
 
     await tokenStore.allow(vault.address);
@@ -25,11 +27,14 @@ contract('WalletFactory', function(accounts) {
     await ledgerStorage.allow(vault.address);
     await vault.setLedgerStorage(ledgerStorage.address);
 
+    await interestRateStorage.allow(vault.address);
+    await vault.setInterestRateStorage(interestRateStorage.address);
+
     walletFactory = await WalletFactory.new(vault.address, etherToken.address);
   });
 
   describe("#newWallet", () => {
-    it.only("should create a new wallet", async () => {
+    it("should create a new wallet", async () => {
       // Find out where wallet will be created
       const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
 

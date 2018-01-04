@@ -146,6 +146,10 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       * @return success or failure
       */
     function accrueDepositInterest(address customer, address asset) public returns (bool) {
+        if (!checkInterestRateStorage()) {
+            return false;
+        }
+
         uint interest = compoundedInterest(
             ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset),
             ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Deposit), asset),
@@ -161,26 +165,5 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
         }
 
         return true;
-    }
-
-    /**
-      * @notice `validTokenStore` verifies that the TokenStore is correct initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validTokenStore() public returns (bool) {
-        bool result = true;
-
-        if (tokenStore == address(0)) {
-            failure("Vault::TokenStoreInitialized");
-            result = false;
-        }
-
-        if (tokenStore.allowed() != address(this)) {
-            failure("Vault::TokenStoreNotAllowed");
-            result = false;
-        }
-
-        return result;
     }
 }

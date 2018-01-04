@@ -74,7 +74,7 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#depositEth / fallback', () => {
-    it.only('#fallback should deposit assets in vault', async () => {
+    it('#fallback should deposit assets in vault', async () => {
       await wallet.sendTransaction({value: 55});
 
       // verify balance in ledger

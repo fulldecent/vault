@@ -74,6 +74,19 @@ contract Ledger is Graceful, Owned {
     }
 
     /**
+      * @notice `checkInterestRateStorage` verifies interest rate store has been set
+      * @return True if interest rate store is initialized, false otherwise
+      */
+    function checkInterestRateStorage() internal returns (bool) {
+        if (interestRateStorage == address(0)) {
+            failure("Ledger::InterestRateStorageUnitialized");
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
       * @notice Debit a ledger account.
       * @param ledgerReason What caused this debit?
       * @param ledgerAccount Which ledger account to adjust (e.g. Deposit or Loan)
@@ -183,47 +196,5 @@ contract Ledger is Graceful, Owned {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );
-    }
-
-    /**
-      * @notice `validLedgerStorage` verifies that the LedgerStorage is correct initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validLedgerStorage() public returns (bool) {
-        bool result = true;
-
-        if (ledgerStorage == address(0)) {
-            failure("Vault::LedgerStorageInitialized");
-            result = false;
-        }
-
-        if (ledgerStorage.allowed() != address(this)) {
-            failure("Vault::LedgerStorageNotAllowed");
-            result = false;
-        }
-
-        return result;
-    }
-
-    /**
-      * @notice `validInterestRateStorage` verifies that the InterestRateStorage is correct initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validInterestRateStorage() public returns (bool) {
-        bool result = true;
-
-        if (interestRateStorage == address(0)) {
-            failure("Vault::InterestRateStorageInitialized");
-            result = false;
-        }
-
-        if (interestRateStorage.allowed() != address(this)) {
-            failure("Vault::InterestRateStorageNotAllowed");
-            result = false;
-        }
-
-        return result;
     }
 }

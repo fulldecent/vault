@@ -3,36 +3,51 @@ var EtherToken = artifacts.require("EtherToken.sol");
 var PigToken = artifacts.require("PigToken.sol");
 var WalletFactory = artifacts.require("WalletFactory.sol");
 var TokenFactory = artifacts.require("TokenFactory.sol");
+var InterestRateStorage = artifacts.require("InterestRateStorage.sol");
 var LedgerStorage = artifacts.require("LedgerStorage.sol");
+var LoanerStorage = artifacts.require("LoanerStorage.sol");
+var Oracle = artifacts.require("Oracle.sol");
+var TokenStore = artifacts.require("TokenStore.sol");
 
 const MINIMUM_COLLATERAL_RATIO = 2;
 
 module.exports = function(deployer, network) {
   return deployer.deploy([
-    [Vault, MINIMUM_COLLATERAL_RATIO],
-    [EtherToken],
-    [WalletFactory]
+    Vault,
+    EtherToken,
+    WalletFactory
   ]).then(() => {
-    LedgerStorage.deployed().then(ledgerStorage => {
-      Vault.deployed(vault => {
-        console.log("vault");
-        console.log(vault);
+    InterestRateStorage.deployed().then(interestRateStorage => {
+      LedgerStorage.deployed().then(ledgerStorage => {
+        LoanerStorage.deployed().then(loanerStorage => {
+          Oracle.deployed().then(oracle => {
+            TokenStore.deployed().then(tokenStore => {
+              Vault.deployed(vault => {
+                const contracts = [];
 
-        console.log("ledgerStorage");
-        console.log(ledgerStorage);
+                if (network == "development" || network == "mission" || network == "rinkeby") {
+                  contracts.push(PigToken);
+                  contracts.push(TokenFactory);
+                }
 
-        const contracts = [];
-
-        if (network == "development" || network == "mission" || network == "rinkeby") {
-          contracts.push(PigToken);
-          contracts.push(TokenFactory);
-        }
-
-        return deployer.deploy(contracts).then(() => {
-          return Promise.all([
-            vault.setLedgerStorage(ledgerStorage.address),
-            ledgerStorage.allow(vault.address)
-          ]);
+                return deployer.deploy(contracts).then(() => {
+                  return Promise.all([
+                    loanerStorage.setMinimumCollateralRatio(MINIMUM_COLLATERAL_RATIO),
+                    interestRateStorage.allow(vault.address),
+                    ledgerStorage.allow(vault.address),
+                    loanerStorage.allow(vault.address),
+                    oracle.allow(vault.address),
+                    tokenStore.allow(vault.address),
+                    vault.setInterestRateStorage(interestRateStorage.address),
+                    vault.setLedgerStorage(ledgerStorage.address),
+                    vault.setLoanerStorage(loanerStorage.address),
+                    vault.setOracle(oracle.address),
+                    vault.setTokenStore(tokenStore.address),
+                  ]);
+                });
+              });
+            });
+          });
         });
       });
     });
