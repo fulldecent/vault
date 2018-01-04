@@ -4,7 +4,7 @@ import "./Graceful.sol";
 import "./Owned.sol";
 
 contract Allowed is Graceful, Owned {
-	address allowed = address(0);
+	address public allowed = address(0);
 
 	// TODO: Test
 	function allow(address _allowed) returns (bool) {
@@ -20,7 +20,7 @@ contract Allowed is Graceful, Owned {
 	// TODO: Test
 	function checkAllowed() returns (bool) {
 		if (msg.sender != allowed) {
-			failure("Not allowed", uint256(msg.sender), uint256(allowed));
+			failure("Allowed::NotAllowed", uint256(msg.sender), uint256(allowed));
 			return false;
 		}
 

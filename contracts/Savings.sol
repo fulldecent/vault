@@ -162,4 +162,25 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
 
         return true;
     }
+
+    /**
+      * @notice `validTokenStore` verifies that the TokenStore is correct initialized
+      * @dev This is just for sanity checking.
+      * @return true if successfully initialized, false otherwise
+      */
+    function validTokenStore() public returns (bool) {
+        bool result = true;
+
+        if (tokenStore == address(0)) {
+            failure("Vault::TokenStoreInitialized");
+            result = false;
+        }
+
+        if (tokenStore.allowed() != address(this)) {
+            failure("Vault::TokenStoreNotAllowed");
+            result = false;
+        }
+
+        return result;
+    }
 }

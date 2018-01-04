@@ -11,7 +11,6 @@ import "../base/Token.sol";
   */
 contract TokenStore is Owned, Allowed {
 
-	event TransferIn(address indexed asset, address indexed from, uint256 amount);
 	event TransferOut(address indexed asset, address indexed to, uint256 amount);
 
 	/**
@@ -20,29 +19,6 @@ contract TokenStore is Owned, Allowed {
     function TokenStore() public {}
 
     /**
-      * @notice `transferAssetIn` transfer an asset from a given asset to ourselves
-      * @dev This is current unused as approvals are given to Vault, not TokenStore
-      * @param asset Asset to transfer
-      * @param from Address to transfer from
-      * @param amount Amount to transfer of asset
-      * @return success or failure of operation
-      */
-	function transferAssetIn(address asset, address from, uint256 amount) public returns (bool) {
-		if (!checkAllowed()) {
-			return false;
-		}
-
-		if (!Token(asset).transferFrom(from, address(this), amount)) {
-			failure("TokenStore::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
-            return false;
-		}
-
-		TransferIn(asset, from, amount);
-
-		return true;
-	}
-
-	/**
       * @notice `transferAssetOut` transfer an asset from this contract to a destination
       * @param asset Asset to transfer
       * @param to Address to transfer to

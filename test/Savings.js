@@ -29,11 +29,13 @@ const LedgerAccount = {
 contract('Savings', function(accounts) {
   var savings;
   var etherToken;
+  var tokenStore;
+  var interestRateStorage;
 
   beforeEach(async () => {
     const ledgerStorage = await LedgerStorage.new();
-    const tokenStore = await TokenStore.new();
-    const interestRateStorage = await InterestRateStorage.new();
+    tokenStore = await TokenStore.new();
+    interestRateStorage = await InterestRateStorage.new();
 
     [savings, etherToken] = await Promise.all([Savings.new(), EtherToken.new()]);
     await ledgerStorage.allow(savings.address);
@@ -61,7 +63,7 @@ contract('Savings', function(accounts) {
       assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 100);
 
       // verify balances in W-Eth
-      assert.equal(await utils.tokenBalance(etherToken, savings.address), 100);
+      assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 100);
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
@@ -132,7 +134,7 @@ contract('Savings', function(accounts) {
         assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
-        assert.equal(await utils.tokenBalance(etherToken, savings.address), 60);
+        assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 60);
         assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
       });
 
@@ -143,7 +145,7 @@ contract('Savings', function(accounts) {
         const withdrawAmount = web3.toWei(".5", "ether");
         const withdrawalAmountBigNumber = new BigNumber(withdrawAmount);
 
-        await savings.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
+        await interestRateStorage.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
         await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 
         await utils.increaseTime(web3, moment(0).add(2, 'years').unix());

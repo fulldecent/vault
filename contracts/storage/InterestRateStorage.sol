@@ -1,7 +1,7 @@
 pragma solidity ^0.4.18;
 
-import "../base/Allowed.sol";
 import "../base/Owned.sol";
+import "../base/Allowed.sol";
 
 /**
   * @title The Compound Interest Storage Rate Contract
@@ -40,4 +40,5 @@ contract InterestRateStorage is Owned, Allowed {
 	function getInterestRate(address asset) public view returns (uint64) {
 		return rates[asset];
 	}
+
 }

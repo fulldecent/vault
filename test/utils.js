@@ -153,6 +153,29 @@ module.exports = {
     });
   },
 
+  assertOnlyAllowed: async function(contract, f, web3) {
+    const ownerAccount = web3.eth.accounts[0];
+    const existingAllowedAccount = await contract.allowed.call();
+    const allowedAccount = web3.eth.accounts[1];
+    const nonAllowedAccount = web3.eth.accounts[2];
+
+    await contract.allow(allowedAccount);
+
+    await f({from: allowedAccount});
+
+    // Don't allow rando account
+    await assertGracefulFailure(contract, "Allowed::NotAllowed", async () => {
+      await f({from: nonAllowedAccount});
+    });
+
+    // Not even owner
+    await assertGracefulFailure(contract, "Allowed::NotAllowed", async () => {
+      await f({from: ownerAccount});
+    });
+
+    await contract.allow(existingAllowedAccount);
+  },
+
   createAndTransferWeth: async function(transferrable, etherToken, amount, account) {
     await etherToken.deposit({from: account, value: amount});
     await etherToken.transfer(transferrable, 100, {from: account});

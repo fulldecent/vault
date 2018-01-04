@@ -1,8 +1,8 @@
 pragma solidity ^0.4.18;
 
+import "../base/Owned.sol";
 import "../base/Allowed.sol";
 import "../base/ArrayHelper.sol";
-import "../base/Owned.sol";
 
 /**
  * @title The Compound Oracle

@@ -1,5 +1,6 @@
 pragma solidity ^0.4.18;
 
+import "../base/Owned.sol";
 import "../base/Allowed.sol";
 import "../base/ArrayHelper.sol";
 import "../base/Owned.sol";
@@ -13,6 +14,9 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
 	address[] public loanableAssets;
     uint public minimumCollateralRatio;
 
+    event NewLoanableAsset(address asset);
+    event MinimumCollateralRatioChange(uint newMinimumCollateralRatio);
+
     /**
       * @notice `addLoanableAsset` adds an asset to the list of loanable assets
       * @param asset The address of the assets to add
@@ -24,6 +28,8 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
         }
 
         loanableAssets.push(asset);
+
+        NewLoanableAsset(asset);
 
         return true;
     }
@@ -39,6 +45,8 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
         }
 
         minimumCollateralRatio = minimumCollateralRatio_;
+
+        MinimumCollateralRatioChange(minimumCollateralRatio_);
 
         return true;
     }

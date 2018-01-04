@@ -88,7 +88,7 @@ contract Ledger is Graceful, Owned {
                 revert();
             }
         } else if(isLiability(ledgerAccount)) {
-            if (!ledgerStorage.reduceBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+            if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
                 revert();
             }
         } else {
@@ -124,7 +124,7 @@ contract Ledger is Graceful, Owned {
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
-            if (!ledgerStorage.reduceBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+            if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
                 revert();
             }
         } else if(isLiability(ledgerAccount)) {
@@ -183,5 +183,47 @@ contract Ledger is Graceful, Owned {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );
+    }
+
+    /**
+      * @notice `validLedgerStorage` verifies that the LedgerStorage is correct initialized
+      * @dev This is just for sanity checking.
+      * @return true if successfully initialized, false otherwise
+      */
+    function validLedgerStorage() public returns (bool) {
+        bool result = true;
+
+        if (ledgerStorage == address(0)) {
+            failure("Vault::LedgerStorageInitialized");
+            result = false;
+        }
+
+        if (ledgerStorage.allowed() != address(this)) {
+            failure("Vault::LedgerStorageNotAllowed");
+            result = false;
+        }
+
+        return result;
+    }
+
+    /**
+      * @notice `validInterestRateStorage` verifies that the InterestRateStorage is correct initialized
+      * @dev This is just for sanity checking.
+      * @return true if successfully initialized, false otherwise
+      */
+    function validInterestRateStorage() public returns (bool) {
+        bool result = true;
+
+        if (interestRateStorage == address(0)) {
+            failure("Vault::InterestRateStorageInitialized");
+            result = false;
+        }
+
+        if (interestRateStorage.allowed() != address(this)) {
+            failure("Vault::InterestRateStorageNotAllowed");
+            result = false;
+        }
+
+        return result;
     }
 }

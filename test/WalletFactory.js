@@ -2,6 +2,7 @@ const BigNumber = require('bignumber.js');
 const WalletFactory = artifacts.require("./WalletFactory.sol");
 const Wallet = artifacts.require("./Wallet.sol");
 const Vault = artifacts.require("./Vault.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
@@ -11,10 +12,15 @@ contract('WalletFactory', function(accounts) {
   var walletFactory;
   var vault;
   var etherToken;
+  var tokenStore;
 
   beforeEach(async () => {
+    tokenStore = await TokenStore.new();
     ledgerStorage = await LedgerStorage.new();
     [vault, etherToken] = await Promise.all([Vault.new(), EtherToken.new()]);
+
+    await tokenStore.allow(vault.address);
+    await vault.setTokenStore(tokenStore.address);
 
     await ledgerStorage.allow(vault.address);
     await vault.setLedgerStorage(ledgerStorage.address);
@@ -23,7 +29,7 @@ contract('WalletFactory', function(accounts) {
   });
 
   describe("#newWallet", () => {
-    it("should create a new wallet", async () => {
+    it.only("should create a new wallet", async () => {
       // Find out where wallet will be created
       const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
 

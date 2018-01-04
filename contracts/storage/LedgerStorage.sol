@@ -1,19 +1,23 @@
 pragma solidity ^0.4.18;
 
 import "../base/Allowed.sol";
+import "../base/Graceful.sol";
 
 /**
   * @title The Compound Ledger Storage Contract
   * @author Compound
   * @notice The Ledger Storage contract is a simple contract to keep track of ledger entries.
   */
-contract LedgerStorage is Allowed {
+contract LedgerStorage is Graceful, Allowed {
     struct BalanceCheckpoint {
         uint256 balance;
         uint256 timestamp;
         uint64  interestRateBPS;
         uint256 nextPaymentDate;
     }
+
+    event BalanceIncrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
+    event BalanceDecrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
 
 	// A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
@@ -32,26 +36,42 @@ contract LedgerStorage is Allowed {
         }
 
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
+
+        if (checkpoint.balance + amount < checkpoint.balance) {
+            failure("LedgerStorage::BalanceOverflow", uint256(customer), uint256(asset), checkpoint.balance, amount);
+            return false;
+        }
+
         checkpoint.balance += amount;
+
+        BalanceIncrease(customer, ledgerAccount, asset, amount);
 
         return true;
     }
 
     /**
-      * @notice `reduceBalanceByAmount` reduces a balances account by a given amount
+      * @notice `decreaseBalanceByAmount` reduces a balances account by a given amount
       * @param customer The customer whose account to reduce
       * @param ledgerAccount An integer representing a ledger account to reduce
       * @param asset The asset to reduce the balance of
       * @param amount The amount to reduce the balance
       * @return success or failure of operation
       */
-    function reduceBalanceByAmount(address customer, uint8 ledgerAccount, address asset, uint256 amount) public returns (bool) {
+    function decreaseBalanceByAmount(address customer, uint8 ledgerAccount, address asset, uint256 amount) public returns (bool) {
         if (!checkAllowed()) {
             return false;
         }
 
     	BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
+
+        if (checkpoint.balance - amount > checkpoint.balance) {
+            failure("LedgerStorage::InsufficientBalance", uint256(customer), uint256(asset), checkpoint.balance, amount);
+            return false;
+        }
+
         checkpoint.balance -= amount;
+
+        BalanceDecrease(customer, ledgerAccount, asset, amount);
 
         return true;
     }
