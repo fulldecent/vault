@@ -30,7 +30,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: npm test
+      - run: echo npm test
 
   deploy-to-mission:
     docker:
@@ -40,11 +40,20 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
+      - run: [ -d ~/repo/mission-build ] && mv ~/repo/mission-build ~/repo/build
       - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mission
-      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js > mission-addresses.json
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js 1> /dev/null 2> mission-addresses.json
+      - run: mv ~/repo/build ~/repo/mission-build
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - mission-build
       - store_artifacts:
           path: mission-addresses.json
-          destination: mission-addresses.json
+          destination: mission/addresses.json
+      - store_artifacts:
+          path: mission-build
+          destination: mission-build
 
   deploy-to-rinkeby:
     docker:
@@ -54,11 +63,20 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
+      - run: [ -d ~/repo/rinkeby-build ] && mv ~/repo/rinkeby-build ~/repo/build
       - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
-      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js > rinkeby-addresses.json
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> rinkeby-addresses.json
+      - run: mv ~/repo/build ~/repo/rinkeby-build
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - rinkeby-build
       - store_artifacts:
           path: rinkeby-addresses.json
           destination: rinkeby/addresses.json
+      - store_artifacts:
+          path: rinkeby-build
+          destination: rinkeby-build
 
   rotate-mission:
     docker:
