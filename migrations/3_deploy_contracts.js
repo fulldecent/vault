@@ -17,12 +17,12 @@ module.exports = function(deployer, network) {
     EtherToken,
     WalletFactory
   ]).then(() => {
-    InterestRateStorage.deployed().then(interestRateStorage => {
-      LedgerStorage.deployed().then(ledgerStorage => {
-        LoanerStorage.deployed().then(loanerStorage => {
-          Oracle.deployed().then(oracle => {
-            TokenStore.deployed().then(tokenStore => {
-              Vault.deployed(vault => {
+    return InterestRateStorage.deployed().then(interestRateStorage => {
+      return LedgerStorage.deployed().then(ledgerStorage => {
+        return LoanerStorage.deployed().then(loanerStorage => {
+          return Oracle.deployed().then(oracle => {
+            return TokenStore.deployed().then(tokenStore => {
+              return Vault.deployed(vault => {
                 const contracts = [];
 
                 if (network == "development" || network == "mission" || network == "rinkeby") {
