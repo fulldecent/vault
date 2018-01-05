@@ -70,6 +70,8 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
+      - restore_cache:
+          key: deploy-to-rinkeby
       - run: "[ -d ~/repo/rinkeby-build ] && mv ~/repo/rinkeby-build ~/repo/build || echo 'No existing build dir'"
       - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> rinkeby-addresses.json
