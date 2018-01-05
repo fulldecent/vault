@@ -30,7 +30,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: echo npm test
+      - run: npm test
 
   deploy-to-mission:
     docker:
