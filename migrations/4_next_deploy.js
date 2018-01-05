@@ -14,11 +14,6 @@ module.exports = function(deployer, network) {
             TokenStore.deployed().then(tokenStore => {
               Vault.deployed(vault => {
                 return Promise.all([
-                  interestRateStorage.allow(vault.address),
-                  ledgerStorage.allow(vault.address),
-                  loanerStorage.allow(vault.address),
-                  oracle.allow(vault.address),
-                  tokenStore.allow(vault.address),
                   vault.setInterestRateStorage(interestRateStorage.address),
                   vault.setLedgerStorage(ledgerStorage.address),
                   vault.setLoanerStorage(loanerStorage.address),

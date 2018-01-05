@@ -20,6 +20,7 @@ jobs:
           root: ~/repo
           paths:
             - node_modules
+
   test:
     docker:
       - image: circleci/node:8.8.1
@@ -30,42 +31,7 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: npm test
-  deploy-to-mainnet:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mainnet
-  deploy-to-ropsten:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network ropsten
-  deploy-to-rinkeby:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
-  deploy-to-kovan:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network kovan
+
   deploy-to-mission:
     docker:
       - image: circleci/node:8.8.1
@@ -75,6 +41,45 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mission
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js > mission-addresses.json
+      - store_artifacts:
+          path: mission-addresses.json
+          destination: mission-addresses.json
+
+  deploy-to-rinkeby:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js > rinkeby-addresses.json
+      - store_artifacts:
+          path: rinkeby-addresses.json
+          destination: rinkeby/addresses.json
+
+  rotate-mission:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./allow.js
+
+  rotate-rinkeby:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./allow.js
+
 workflows:
   version: 2
   build-test-and-deploy:
@@ -83,27 +88,29 @@ workflows:
       - test:
           requires:
             - build
+      - deploy-to-mission:
+          requires:
+            - test
+          filters:
+            branches:
+              only: /(^master$)|(.*deploy$)/
       - deploy-to-rinkeby:
           requires:
             - test
-      - deploy-to-kovan:
+          filters:
+            branches:
+              only: /(^master$)|(.*deploy$)/
+      - hold-mission:
+          type: approval
           requires:
-            - test
-      # - deploy-to-mission:
-      #     requires:
-      #       - test
-      - deploy-to-ropsten:
+            - deploy-to-mission
+      - rotate-mission:
           requires:
-            - test
-      # - wait-for-approval:
-      #     type: approval
-      #     filters:
-      #       branches:
-      #         only: master
-      # - deploy-to-mainnet:
-      #     requires:
-      #       - wait-for-approval
-      #       - test
-      #     filters:
-      #       branches:
-      #         only: master
+            - hold-mission
+      - hold-rinkeby:
+          type: approval
+          requires:
+            - deploy-to-rinkeby
+      - rotate-rinkeby:
+          requires:
+            - hold-rinkeby
