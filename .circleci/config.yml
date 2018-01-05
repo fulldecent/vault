@@ -86,6 +86,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
+      - run: mv ~/repo/mission-build ~/repo/build
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./allow.js
 
   rotate-rinkeby:
@@ -96,6 +97,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
+      - run: mv ~/repo/rinkeby-build ~/repo/build
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./allow.js
 
 workflows:
