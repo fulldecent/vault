@@ -47,8 +47,7 @@ jobs:
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js 1> /dev/null 2> mission-addresses.json
       - run: mv ~/repo/build ~/repo/mission-build
       - save_cache:
-          key:
-            - deploy-to-mission-{{ epoch }}
+          key: deploy-to-mission-{{ epoch }}
           paths:
             - ~/repo/mission-build
           when: on_success
@@ -78,8 +77,7 @@ jobs:
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> rinkeby-addresses.json
       - run: mv ~/repo/build ~/repo/rinkeby-build
       - save_cache:
-          key:
-            - deploy-to-rinkeby-{{ epoch }}
+          key: deploy-to-rinkeby-{{ epoch }}
           paths:
             - ~/repo/rinkeby-build
           when: on_success
