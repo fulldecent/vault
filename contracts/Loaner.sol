@@ -1,36 +1,51 @@
 pragma solidity ^0.4.18;
 
-import "./InterestRate.sol";
 import "./Ledger.sol";
-import "./Oracle.sol";
+import "./storage/Oracle.sol";
+import "./storage/LoanerStorage.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
+import "./base/InterestHelper.sol";
 
 /**
   * @title The Compound Loan Account
   * @author Compound
   * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
   */
-contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
-    address[] loanableAssets;
-    uint minimumCollateralRatio;
+contract Loaner is Graceful, Owned, Ledger, InterestHelper {
+    Oracle oracle;
+    LoanerStorage loanerStorage;
 
-    function Loaner (uint minimumCollateralRatio_) public {
-        minimumCollateralRatio = minimumCollateralRatio_;
-    }
+    function Loaner () public {}
 
     /**
-      * @notice `addLoanableAsset` adds an asset to the list of loanable assets
-      * @param asset The address of the assets to add
-      * @return success or failure
+      * @notice `setOracle` sets the oracle storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param oracle_ The contract which acts as the long-term Oracle store
+      * @return Success of failure of operation
       */
-
-    function addLoanableAsset(address asset) public returns (bool) {
+    function setOracle(Oracle oracle_) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        loanableAssets.push(asset);
+        oracle = oracle_;
+
+        return true;
+    }
+
+    /**
+      * @notice `setLoanerStorage` sets the loaner storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param loanerStorage_ The contract which acts as the long-term store
+      * @return Success of failure of operation
+      */
+    function setLoanerStorage(LoanerStorage loanerStorage_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        loanerStorage = loanerStorage_;
 
         return true;
     }
@@ -47,7 +62,7 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
             return false;
         }
 
-        if (!loanableAsset(asset)) {
+        if (!loanerStorage.loanableAsset(asset)) {
             failure("Loaner::AssetNotLoanable", uint256(asset));
             return false;
         }
@@ -99,10 +114,10 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
       */
     function getLoanBalanceAt(address customer, address asset, uint256 timestamp) public view returns (uint256) {
         return balanceWithInterest(
-            balanceCheckpoints[customer][uint8(LedgerAccount.Loan)][asset].balance,
-            balanceCheckpoints[customer][uint8(LedgerAccount.Loan)][asset].timestamp,
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset),
+            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Loan), asset),
             timestamp,
-            rates[asset]);
+            interestRateStorage.getInterestRate(asset));
     }
 
     /**
@@ -112,34 +127,25 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
       * @return success or failure
       */
     function accrueLoanInterest(address customer, address asset) public returns (bool) {
-        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(LedgerAccount.Loan)][asset];
+        if (!checkInterestRateStorage()) {
+            return false;
+        }
 
         uint interest = compoundedInterest(
-            checkpoint.balance,
-            checkpoint.timestamp,
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset),
+            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Loan), asset),
             now,
-            rates[asset]);
+            interestRateStorage.getInterestRate(asset));
 
         if (interest != 0) {
             credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
             debit(LedgerReason.Interest, LedgerAccount.Loan, customer, asset, interest);
-            saveCheckpoint(customer, LedgerReason.Interest, LedgerAccount.Loan, asset);
+            if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Loan), asset)) {
+                revert();
+            }
         }
 
         return true;
-    }
-
-    /**
-      * @notice `setMinimumCollateralRatio` sets the minimum collateral ratio
-      * @param minimumCollateralRatio_ the minimum collateral ratio to be set
-      * @return success or failure
-      */
-    function setMinimumCollateralRatio(uint minimumCollateralRatio_) public returns (bool) {
-        if (!checkOwner()) {
-            return false;
-        }
-
-        minimumCollateralRatio = minimumCollateralRatio_;
     }
 
     /**
@@ -148,7 +154,7 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
       * @return uint the maximum loan amout available
       */
     function getMaxLoanAvailable(address account) view public returns (uint) {
-        return getValueEquivalent(account) * minimumCollateralRatio;
+        return getValueEquivalent(account) * loanerStorage.minimumCollateralRatio();
     }
 
     /**
@@ -157,7 +163,7 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
       * @return boolean true if the requested amount is valid and false otherwise
       */
     function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
-        return (getValueEquivalent(msg.sender) * minimumCollateralRatio) >= requestedAmount;
+        return (getValueEquivalent(msg.sender) * loanerStorage.minimumCollateralRatio()) >= requestedAmount;
     }
 
     /**
@@ -167,29 +173,58 @@ contract Loaner is Graceful, Owned, InterestRate, Ledger, Oracle {
      * @return value The value of the acct in Eth equivalancy
      */
     function getValueEquivalent(address acct) public returns (uint256) {
-        address[] memory assets = getSupportedAssets(); // from Oracle
+        uint256 assetCount = oracle.getAssetsLength(); // from Oracle
         uint256 balance = 0;
 
-        for (uint64 i = 0; i < assets.length; i++) {
-          address asset = assets[i];
+        for (uint64 i = 0; i < assetCount; i++) {
+          address asset = oracle.assets(i);
 
-          balance += getAssetValue(asset, getBalance(acct, LedgerAccount.Deposit, asset));
-        }
-
-        for (uint64 j = 0; j < assets.length; j++) {
-          asset = assets[j];
-          balance -= getAssetValue(asset, getBalance(acct, LedgerAccount.Loan, asset));
+          balance += oracle.getAssetValue(asset, getBalance(acct, LedgerAccount.Deposit, asset));
+          balance -= oracle.getAssetValue(asset, getBalance(acct, LedgerAccount.Loan, asset));
         }
 
         return balance;
     }
 
     /**
-      * @notice `loanableAsset` determines if the asset is loanable
-      * @param asset the assets to query
-      * @return boolean true if the asset is loanable, false if not
+      * @notice `validOracle` verifies that the Oracle is correct initialized
+      * @dev This is just for sanity checking.
+      * @return true if successfully initialized, false otherwise
       */
-    function loanableAsset(address asset) view internal returns (bool) {
-        return arrayContainsAddress(loanableAssets, asset);
+    function validOracle() public returns (bool) {
+        bool result = true;
+
+        if (oracle == address(0)) {
+            failure("Vault::OracleInitialized");
+            result = false;
+        }
+
+        if (oracle.allowed() != address(this)) {
+            failure("Vault::OracleNotAllowed");
+            result = false;
+        }
+
+        return result;
+    }
+
+    /**
+      * @notice `validLoanerStorage` verifies that the LoanerStorage is correct initialized
+      * @dev This is just for sanity checking.
+      * @return true if successfully initialized, false otherwise
+      */
+    function validLoanerStorage() public returns (bool) {
+        bool result = true;
+
+        if (loanerStorage == address(0)) {
+            failure("Vault::LoanerStorageInitialized");
+            result = false;
+        }
+
+        if (loanerStorage.allowed() != address(this)) {
+            failure("Vault::LoanerStorageNotAllowed");
+            result = false;
+        }
+
+        return result;
     }
 }

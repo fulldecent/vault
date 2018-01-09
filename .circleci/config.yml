@@ -20,6 +20,7 @@ jobs:
           root: ~/repo
           paths:
             - node_modules
+
   test:
     docker:
       - image: circleci/node:8.8.1
@@ -29,43 +30,8 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: npm test
-  deploy-to-mainnet:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mainnet
-  deploy-to-ropsten:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network ropsten
-  deploy-to-rinkeby:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
-  deploy-to-kovan:
-    docker:
-      - image: circleci/node:8.8.1
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network kovan
+      - run: unset MISSION_PRIVATE_KEY && npm test
+
   deploy-to-mission:
     docker:
       - image: circleci/node:8.8.1
@@ -74,7 +40,80 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mission
+      - restore_cache:
+          key: deploy-to-mission
+      - run: "[ -d ~/repo/mission-build ] && mv ~/repo/mission-build ~/repo/build || echo 'No existing build dir'"
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --reset --network mission
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js 1> /dev/null 2> mission-addresses.json
+      - run: mv ~/repo/build ~/repo/mission-build
+      - save_cache:
+          key: deploy-to-mission-{{ epoch }}
+          paths:
+            - ~/repo/mission-build
+          when: on_success
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - mission-build
+      - store_artifacts:
+          path: mission-addresses.json
+          destination: mission/addresses.json
+      - store_artifacts:
+          path: mission-build
+          destination: mission-build
+
+  deploy-to-rinkeby:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - restore_cache:
+          key: deploy-to-rinkeby
+      - run: "[ -d ~/repo/rinkeby-build ] && mv ~/repo/rinkeby-build ~/repo/build || echo 'No existing build dir'"
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --reset --network rinkeby
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> rinkeby-addresses.json
+      - run: mv ~/repo/build ~/repo/rinkeby-build
+      - save_cache:
+          key: deploy-to-rinkeby-{{ epoch }}
+          paths:
+            - ~/repo/rinkeby-build
+          when: on_success
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - rinkeby-build
+      - store_artifacts:
+          path: rinkeby-addresses.json
+          destination: rinkeby/addresses.json
+      - store_artifacts:
+          path: rinkeby-build
+          destination: rinkeby-build
+
+  rotate-mission:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: mv ~/repo/mission-build ~/repo/build
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./allow.js
+
+  rotate-rinkeby:
+    docker:
+      - image: circleci/node:8.8.1
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/repo
+      - run: mv ~/repo/rinkeby-build ~/repo/build
+      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./allow.js
+
 workflows:
   version: 2
   build-test-and-deploy:
@@ -83,27 +122,29 @@ workflows:
       - test:
           requires:
             - build
+      - deploy-to-mission:
+          requires:
+            - test
+          filters:
+            branches:
+              only: /(^master$)|(.*deploy$)/
       - deploy-to-rinkeby:
           requires:
             - test
-      - deploy-to-kovan:
+          filters:
+            branches:
+              only: /(^master$)|(.*deploy$)/
+      - hold-mission:
+          type: approval
           requires:
-            - test
-      # - deploy-to-mission:
-      #     requires:
-      #       - test
-      - deploy-to-ropsten:
+            - deploy-to-mission
+      - rotate-mission:
           requires:
-            - test
-      # - wait-for-approval:
-      #     type: approval
-      #     filters:
-      #       branches:
-      #         only: master
-      # - deploy-to-mainnet:
-      #     requires:
-      #       - wait-for-approval
-      #       - test
-      #     filters:
-      #       branches:
-      #         only: master
+            - hold-mission
+      - hold-rinkeby:
+          type: approval
+          requires:
+            - deploy-to-rinkeby
+      - rotate-rinkeby:
+          requires:
+            - hold-rinkeby

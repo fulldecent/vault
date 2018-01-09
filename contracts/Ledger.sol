@@ -1,8 +1,9 @@
 pragma solidity ^0.4.18;
 
-import "./base/Token.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
+import "./storage/LedgerStorage.sol";
+import "./storage/InterestRateStorage.sol";
 
 /**
   * @title The Compound Ledger
@@ -11,6 +12,9 @@ import "./base/Graceful.sol";
   *         as well as calculating Compound interest.
   */
 contract Ledger is Graceful, Owned {
+    LedgerStorage ledgerStorage;
+    InterestRateStorage interestRateStorage;
+
     enum LedgerReason {
         CustomerDeposit,
         CustomerWithdrawal,
@@ -32,38 +36,55 @@ contract Ledger is Graceful, Owned {
         uint64          interestRateBPS,  // Interest rate in basis point if fixed
         uint256         nextPaymentDate); // Next payment date if associated with loan
 
-    struct BalanceCheckpoint {
-        uint256 balance;
-        uint256 timestamp;
-        uint64  interestRateBPS;
-        uint256 nextPaymentDate;
-    }
-
-    // A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
-    mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
-
-    /**
-      * @notice Saves a balance checkpoint
-      * @param customer The customer to checkpoint
-      * @param ledgerReason The reason for this checkpoint
-      * @param ledgerAccount Which ledger account to checkpoint
-      * @param asset The asset which is being checkpointed
-      * @dev This throws on any error
-      */
-    function saveCheckpoint(
-        address customer,
-        LedgerReason ledgerReason,
-        LedgerAccount ledgerAccount,
-        address asset
-    ) internal {
-        BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][uint8(ledgerAccount)][asset];
-        checkpoint.timestamp = now;
-    }
-
     /**
       * @notice `Ledger` tracks balances for a given customer by asset with interest
       */
     function Ledger() public {}
+
+    /**
+      * @notice `setLedgerStorage` sets the ledger storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param ledgerStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
+      */
+    function setLedgerStorage(LedgerStorage ledgerStorage_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        ledgerStorage = ledgerStorage_;
+
+        return true;
+    }
+
+    /**
+      * @notice `setInterestRateStorage` sets the interest rate storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param interestRateStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
+      */
+    function setInterestRateStorage(InterestRateStorage interestRateStorage_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        interestRateStorage = interestRateStorage_;
+
+        return true;
+    }
+
+    /**
+      * @notice `checkInterestRateStorage` verifies interest rate store has been set
+      * @return True if interest rate store is initialized, false otherwise
+      */
+    function checkInterestRateStorage() internal returns (bool) {
+        if (interestRateStorage == address(0)) {
+            failure("Ledger::InterestRateStorageUnitialized");
+            return false;
+        }
+
+        return true;
+    }
 
     /**
       * @notice Debit a ledger account.
@@ -76,9 +97,13 @@ contract Ledger is Graceful, Owned {
       */
     function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
-            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
+            if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                revert();
+            }
         } else if(isLiability(ledgerAccount)) {
-            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
+            if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                revert();
+            }
         } else {
             // Untracked ledger account
         }
@@ -96,7 +121,9 @@ contract Ledger is Graceful, Owned {
             nextPaymentDate: 0
         });
 
-        saveCheckpoint(customer, ledgerReason, ledgerAccount, asset);
+        if (!ledgerStorage.saveCheckpoint(customer, uint8(ledgerAccount), asset)) {
+            revert();
+        }
     }
 
     /**
@@ -110,9 +137,13 @@ contract Ledger is Graceful, Owned {
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
         if(isAsset(ledgerAccount)) {
-            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance -= amount;
+            if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                revert();
+            }
         } else if(isLiability(ledgerAccount)) {
-            balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance += amount;
+            if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                revert();
+            }
         } else {
             // Untracked ledger account
         }
@@ -130,7 +161,9 @@ contract Ledger is Graceful, Owned {
             nextPaymentDate: 0
         });
 
-        saveCheckpoint(customer, ledgerReason, ledgerAccount, asset);
+        if (!ledgerStorage.saveCheckpoint(customer, uint8(ledgerAccount), asset)) {
+            revert();
+        }
     }
 
     /**
@@ -140,7 +173,7 @@ contract Ledger is Graceful, Owned {
       * @return true if the account is an asset false otherwise
       */
     function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal returns (uint) {
-        return balanceCheckpoints[customer][uint8(ledgerAccount)][asset].balance;
+        return ledgerStorage.getBalance(customer, uint8(ledgerAccount), asset);
     }
 
     /**
@@ -163,21 +196,5 @@ contract Ledger is Graceful, Owned {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );
-    }
-
-    /**
-      * @notice `transfer` transfers an asset from the vault to another address.
-      * @param asset the address of the asset
-      * @param to the address to transfer to
-      * @param amount the amount to transfer
-      * @return success or failure
-      */
-    function transfer(address asset, address to, uint amount) internal returns (bool) {
-        if (!Token(asset).transfer(to, amount)) {
-            failure("Ledger::TransferFailed", uint256(asset), uint256(to), uint256(amount));
-            return false;
-        }
-
-        return true;
     }
 }

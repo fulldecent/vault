@@ -1,16 +1,14 @@
 pragma solidity ^0.4.18;
 
-import "./base/InterestHelper.sol";
-import "./base/Owned.sol";
-import "./base/Graceful.sol";
+import "../base/Owned.sol";
+import "../base/Allowed.sol";
 
 /**
-  * @title The Compound Interest Rate Contract
+  * @title The Compound Interest Storage Rate Contract
   * @author Compound
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
-
-contract InterestRate is Graceful, Owned, InterestHelper {
+contract InterestRateStorage is Owned, Allowed {
 	// Track assets -> rates
 	mapping(address => uint64) public rates;
 
@@ -27,9 +25,9 @@ contract InterestRate is Graceful, Owned, InterestHelper {
 			return false;
 		}
 
-		InterestRateChange(asset, interestRateBPS);
-
 		rates[asset] = interestRateBPS;
+
+		InterestRateChange(asset, interestRateBPS);
 
 		return true;
 	}
@@ -42,4 +40,5 @@ contract InterestRate is Graceful, Owned, InterestHelper {
 	function getInterestRate(address asset) public view returns (uint64) {
 		return rates[asset];
 	}
+
 }

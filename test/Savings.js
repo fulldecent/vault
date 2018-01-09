@@ -1,5 +1,8 @@
 const BigNumber = require('bignumber.js');
 const Savings = artifacts.require("./Savings.sol");
+const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
@@ -26,9 +29,21 @@ const LedgerAccount = {
 contract('Savings', function(accounts) {
   var savings;
   var etherToken;
+  var tokenStore;
+  var interestRateStorage;
 
   beforeEach(async () => {
+    const ledgerStorage = await LedgerStorage.new();
+    tokenStore = await TokenStore.new();
+    interestRateStorage = await InterestRateStorage.new();
+
     [savings, etherToken] = await Promise.all([Savings.new(), EtherToken.new()]);
+    await ledgerStorage.allow(savings.address);
+    await tokenStore.allow(savings.address);
+    await interestRateStorage.allow(savings.address);
+    await savings.setLedgerStorage(ledgerStorage.address);
+    await savings.setInterestRateStorage(interestRateStorage.address);
+    await savings.setTokenStore(tokenStore.address);
   });
 
   describe('#customerDeposit', () => {
@@ -48,7 +63,7 @@ contract('Savings', function(accounts) {
       assert.equal((await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address)).toNumber(), 100);
 
       // verify balances in W-Eth
-      assert.equal(await utils.tokenBalance(etherToken, savings.address), 100);
+      assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 100);
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
@@ -119,7 +134,7 @@ contract('Savings', function(accounts) {
         assert.equal(await utils.ledgerAccountBalance(savings, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
-        assert.equal(await utils.tokenBalance(etherToken, savings.address), 60);
+        assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 60);
         assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
       });
 
@@ -134,7 +149,7 @@ contract('Savings', function(accounts) {
         const exponent = durationInYears * (interestRateBPS/10000);
         const expectedBalance = depositAmount * (Math.E ** (exponent))
 
-        await savings.setInterestRate(etherToken.address, interestRateBPS, {from: web3.eth.accounts[0]});
+        await interestRateStorage.setInterestRate(etherToken.address, interestRateBPS, {from: web3.eth.accounts[0]});
         await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 
         await utils.increaseTime(web3, moment(0).add(durationInYears, 'years').unix());

@@ -1,8 +1,8 @@
 pragma solidity ^0.4.18;
 
-import "./base/Owned.sol";
-import "./base/ArrayHelper.sol";
-import "./base/Graceful.sol";
+import "../base/Owned.sol";
+import "../base/Allowed.sol";
+import "../base/ArrayHelper.sol";
 
 /**
  * @title The Compound Oracle
@@ -11,10 +11,10 @@ import "./base/Graceful.sol";
  *         as determined by Compound. These asset values are used to make
  *         fair terms for loan contracts in Compound.
  */
-contract Oracle is Graceful, Owned, ArrayHelper {
+contract Oracle is Owned, Allowed, ArrayHelper {
     int public assetMultiplier = 10 ** 9;
-    mapping(address => uint) values;
-    address[] assets;
+    mapping(address => uint) public values;
+    address[] public assets;
 
     event NewAsset(address indexed asset);
     event AssetValueUpdate(address indexed asset, uint valueInWei);
@@ -31,6 +31,15 @@ contract Oracle is Graceful, Owned, ArrayHelper {
      */
     function getSupportedAssets() public view returns(address[]) {
         return assets;
+    }
+
+    /**
+     * @dev `getAssetsLength` returns length of assets for iteration
+     *
+     * @return assetLength Length of list of supported asset addresses
+     */
+    function getAssetsLength() public view returns(uint256) {
+        return assets.length;
     }
 
     /**

@@ -1,6 +1,5 @@
 pragma solidity ^0.4.18;
 
-import "./Oracle.sol";
 import "./Ledger.sol";
 import "./Savings.sol";
 import "./Loaner.sol";
@@ -16,9 +15,8 @@ contract Vault is Ledger, Savings, Loaner {
     /**
       * @notice `Vault` is the core Compound Vault contract
       */
-    function Vault (uint minimumCollateralRatio_) public Loaner(minimumCollateralRatio_) {
+    function Vault() public {
     }
-
 
     /**
       * @notice Do not pay directly into Vault, please use `deposit`.

@@ -51,9 +51,15 @@ module.exports = {
       port: 8545,
       gas: 4612388,
       gasPrice: web3.toWei(15, "gwei"),
-      network_id: "1000",
+      network_id: "235",
       provider: missionProvider,
     },
     ...infuraNetworks,
+  },
+  solc: {
+    optimizer: {
+      enabled: true,
+      runs: 200
+    }
   }
 };
