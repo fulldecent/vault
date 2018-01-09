@@ -30,7 +30,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: npm test
+      - run: unset MISSION_PRIVATE_KEY && npm test
 
   deploy-to-mission:
     docker:
