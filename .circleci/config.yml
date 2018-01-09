@@ -43,7 +43,7 @@ jobs:
       - restore_cache:
           key: deploy-to-mission
       - run: "[ -d ~/repo/mission-build ] && mv ~/repo/mission-build ~/repo/build || echo 'No existing build dir'"
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network mission
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --reset --network mission
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js 1> /dev/null 2> mission-addresses.json
       - run: mv ~/repo/build ~/repo/mission-build
       - save_cache:
@@ -73,7 +73,7 @@ jobs:
       - restore_cache:
           key: deploy-to-rinkeby
       - run: "[ -d ~/repo/rinkeby-build ] && mv ~/repo/rinkeby-build ~/repo/build || echo 'No existing build dir'"
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
+      - run: ./node_modules/truffle/build/cli.bundled.js deploy --reset --network rinkeby
       - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> rinkeby-addresses.json
       - run: mv ~/repo/build ~/repo/rinkeby-build
       - save_cache:
