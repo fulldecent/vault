@@ -10,7 +10,7 @@ import "./base/InterestHelper.sol";
 /**
   * @title The Compound Loan Account
   * @author Compound
-  * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
+  * @notice A loan account allows customer's to borrow assets, holding other assets as collateral.
   */
 contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     Oracle oracle;
@@ -51,21 +51,27 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     }
 
     /**
-      * @notice `customerBorrow` creates a new loan and deposits ether into the user's account.
+      * @notice `customerBorrow` creates a new loan and deposits the requested asset into the user's account.
       * @param asset The asset to borrow
       * @param amount The amount to borrow
       * @return success or failure
       */
     function customerBorrow(address asset, uint amount) public returns (bool) {
-        if (!validCollateralRatio(amount)) {
-            failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
-            return false;
-        }
 
         if (!loanerStorage.loanableAsset(asset)) {
             failure("Loaner::AssetNotLoanable", uint256(asset));
             return false;
         }
+
+        if (!validCollateralRatio(amount)) {
+            failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
+            return false;
+        }
+
+        // TODO: If customer already has a loan of asset, we need to make sure we can handle the change.
+        // Before adding the new amount we will need to either calculate interest on existing loan amount or snapshot
+        // the current loan balance.
+        // Alternatively: Block additional loan for same asset.
 
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
@@ -149,9 +155,9 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     }
 
     /**
-      * @notice `getMaxLoanAvailable` gets the maximum loan availble
+      * @notice `getMaxLoanAvailable` gets the maximum loan available
       * @param account the address of the account
-      * @return uint the maximum loan amout available
+      * @return uint the maximum loan amount available
       */
     function getMaxLoanAvailable(address account) view public returns (uint) {
         return getValueEquivalent(account) * loanerStorage.minimumCollateralRatio();
@@ -172,7 +178,7 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
      * @param acct The account to view value balance
      * @return value The value of the acct in Eth equivalancy
      */
-    function getValueEquivalent(address acct) public returns (uint256) {
+    function getValueEquivalent(address acct) view public returns (uint256) {
         uint256 assetCount = oracle.getAssetsLength(); // from Oracle
         uint256 balance = 0;
 
@@ -208,7 +214,7 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     }
 
     /**
-      * @notice `validLoanerStorage` verifies that the LoanerStorage is correct initialized
+      * @notice `validLoanerStorage` verifies that the LoanerStorage is correctly initialized
       * @dev This is just for sanity checking.
       * @return true if successfully initialized, false otherwise
       */

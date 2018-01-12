@@ -9,7 +9,7 @@ pragma solidity ^0.4.18;
 contract ArrayHelper {
 
 	/**
-	  * @dev Determines whether or not array contains the given value, here defined as adddresses.
+	  * @dev Determines whether or not array contains the given value, here defined as addresses.
 	  * @param arr Array to check
 	  * @param val Value to look for in `arr`
 	  * @return found Whether or not the value `val` was found in `arr`
