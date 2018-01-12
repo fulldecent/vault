@@ -14,8 +14,8 @@ contract WalletFactory is Owned {
      * Note: These state variables are immuatable.
      * We must create a new factory to change either address.
      */
-    address vaultAddress;
-    address etherTokenAddress;
+    address public vaultAddress;
+    address public etherTokenAddress;
 
     event NewWallet(address walletOwner, address newWalletAddress, address walletFactoryAddress);
 

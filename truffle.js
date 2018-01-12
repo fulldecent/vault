@@ -22,7 +22,7 @@ const infuraNetworks = _.fromPairs(_.compact(networks.map((network) => {
         host: "localhost",
         port: 8545,
         network_id: "*",
-        gas: 50000000,
+        gas: 4600000,
         gasPrice: web3.toWei(13, "gwei"),
         provider,
       }
@@ -58,8 +58,7 @@ module.exports = {
   },
   solc: {
     optimizer: {
-      enabled: true,
-      runs: 200
+      enabled: true
     }
   }
 };

@@ -13,23 +13,23 @@ import "./base/InterestHelper.sol";
   * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
   */
 contract Loaner is Graceful, Owned, Ledger, InterestHelper {
-    Oracle oracle;
-    LoanerStorage loanerStorage;
+    Oracle public oracle;
+    LoanerStorage public loanerStorage;
 
     function Loaner () public {}
 
     /**
       * @notice `setOracle` sets the oracle storage location for this contract
       * @dev This is for long-term data storage (TODO: Test)
-      * @param oracle_ The contract which acts as the long-term Oracle store
+      * @param oracleAddress The contract which acts as the long-term Oracle store
       * @return Success of failure of operation
       */
-    function setOracle(Oracle oracle_) public returns (bool) {
+    function setOracle(address oracleAddress) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        oracle = oracle_;
+        oracle = Oracle(oracleAddress);
 
         return true;
     }
@@ -37,15 +37,15 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
     /**
       * @notice `setLoanerStorage` sets the loaner storage location for this contract
       * @dev This is for long-term data storage (TODO: Test)
-      * @param loanerStorage_ The contract which acts as the long-term store
+      * @param loanerStorageAddress The contract which acts as the long-term store
       * @return Success of failure of operation
       */
-    function setLoanerStorage(LoanerStorage loanerStorage_) public returns (bool) {
+    function setLoanerStorage(address loanerStorageAddress) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        loanerStorage = loanerStorage_;
+        loanerStorage = LoanerStorage(loanerStorageAddress);
 
         return true;
     }

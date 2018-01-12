@@ -11,8 +11,8 @@ import "./tokens/EtherToken.sol";
   *         the Compound core contracts.
   */
 contract Wallet is Owned {
-    Vault vault;
-    EtherToken etherToken;
+    Vault public vault;
+    EtherToken public etherToken;
 
     event Deposit(address acct, address asset, uint256 amount);
     event Withdrawal(address acct, address asset, uint256 amount);

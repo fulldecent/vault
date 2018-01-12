@@ -13,20 +13,20 @@ import "./storage/TokenStore.sol";
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
 contract Savings is Graceful, Owned, Ledger, InterestHelper {
-    TokenStore tokenStore;
+    TokenStore public tokenStore;
 
     /**
       * @notice `setTokenStore` sets the token store contract
       * @dev This is for long-term token storage (TODO: Test)
-      * @param tokenStore_ The contract which acts as the long-term token store
+      * @param tokenStoreAddress The contract which acts as the long-term token store
       * @return Success of failure of operation
       */
-    function setTokenStore(TokenStore tokenStore_) public returns (bool) {
+    function setTokenStore(address tokenStoreAddress) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        tokenStore = tokenStore_;
+        tokenStore = TokenStore(tokenStoreAddress);
 
         return true;
     }

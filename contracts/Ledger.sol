@@ -12,8 +12,8 @@ import "./storage/InterestRateStorage.sol";
   *         as well as calculating Compound interest.
   */
 contract Ledger is Graceful, Owned {
-    LedgerStorage ledgerStorage;
-    InterestRateStorage interestRateStorage;
+    LedgerStorage public ledgerStorage;
+    InterestRateStorage public interestRateStorage;
 
     enum LedgerReason {
         CustomerDeposit,
@@ -44,15 +44,15 @@ contract Ledger is Graceful, Owned {
     /**
       * @notice `setLedgerStorage` sets the ledger storage location for this contract
       * @dev This is for long-term data storage (TODO: Test)
-      * @param ledgerStorage_ The contract which acts as the long-term data store
+      * @param ledgerStorageAddress The contract which acts as the long-term data store
       * @return Success of failure of operation
       */
-    function setLedgerStorage(LedgerStorage ledgerStorage_) public returns (bool) {
+    function setLedgerStorage(address ledgerStorageAddress) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        ledgerStorage = ledgerStorage_;
+        ledgerStorage = LedgerStorage(ledgerStorageAddress);
 
         return true;
     }
@@ -60,15 +60,15 @@ contract Ledger is Graceful, Owned {
     /**
       * @notice `setInterestRateStorage` sets the interest rate storage location for this contract
       * @dev This is for long-term data storage (TODO: Test)
-      * @param interestRateStorage_ The contract which acts as the long-term data store
+      * @param interestRateStorageAddress The contract which acts as the long-term data store
       * @return Success of failure of operation
       */
-    function setInterestRateStorage(InterestRateStorage interestRateStorage_) public returns (bool) {
+    function setInterestRateStorage(address interestRateStorageAddress) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        interestRateStorage = interestRateStorage_;
+        interestRateStorage = InterestRateStorage(interestRateStorageAddress);
 
         return true;
     }

@@ -30,9 +30,9 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: unset MISSION_PRIVATE_KEY && npm test
+      - run: npm test
 
-  deploy-to-mission:
+  deploy-to-canary:
     docker:
       - image: circleci/node:8.8.1
     working_directory: ~/repo
@@ -41,28 +41,29 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - restore_cache:
-          key: deploy-to-mission
-      - run: "[ -d ~/repo/mission-build ] && mv ~/repo/mission-build ~/repo/build || echo 'No existing build dir'"
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --reset --network mission
-      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./addresses.js 1> /dev/null 2> mission-addresses.json
-      - run: mv ~/repo/build ~/repo/mission-build
+          key: deploy-to-canary
+      - run: "[ -d ~/repo/canary-build ] && mv ~/repo/canary-build ~/repo/build || echo 'No existing build dir'"
+      - run: rm -rf ~/repo/build
+      - run: RINKEBY_PRIVATE_KEY="$CANARY_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
+      - run: RINKEBY_PRIVATE_KEY="$CANARY_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> canary-addresses.json
+      - run: mv ~/repo/build ~/repo/canary-build
       - save_cache:
-          key: deploy-to-mission-{{ epoch }}
+          key: deploy-to-canary-{{ epoch }}
           paths:
-            - ~/repo/mission-build
+            - ~/repo/canary-build
           when: on_success
       - persist_to_workspace:
           root: ~/repo
           paths:
-            - mission-build
+            - canary-build
       - store_artifacts:
-          path: mission-addresses.json
-          destination: mission/addresses.json
+          path: canary-addresses.json
+          destination: canary/addresses.json
       - store_artifacts:
-          path: mission-build
-          destination: mission-build
+          path: canary-build
+          destination: canary-build
 
-  deploy-to-rinkeby:
+  deploy-to-alpha:
     docker:
       - image: circleci/node:8.8.1
     working_directory: ~/repo
@@ -71,28 +72,29 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - restore_cache:
-          key: deploy-to-rinkeby
-      - run: "[ -d ~/repo/rinkeby-build ] && mv ~/repo/rinkeby-build ~/repo/build || echo 'No existing build dir'"
-      - run: ./node_modules/truffle/build/cli.bundled.js deploy --reset --network rinkeby
-      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> rinkeby-addresses.json
-      - run: mv ~/repo/build ~/repo/rinkeby-build
+          key: deploy-to-alpha
+      - run: "[ -d ~/repo/alpha-build ] && mv ~/repo/alpha-build ~/repo/build || echo 'No existing build dir'"
+      - run: rm -rf ~/repo/build
+      - run: RINKEBY_PRIVATE_KEY="$ALPHA_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
+      - run: RINKEBY_PRIVATE_KEY="$ALPHA_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> alpha-addresses.json
+      - run: mv ~/repo/build ~/repo/alpha-build
       - save_cache:
-          key: deploy-to-rinkeby-{{ epoch }}
+          key: deploy-to-alpha-{{ epoch }}
           paths:
-            - ~/repo/rinkeby-build
+            - ~/repo/alpha-build
           when: on_success
       - persist_to_workspace:
           root: ~/repo
           paths:
-            - rinkeby-build
+            - alpha-build
       - store_artifacts:
-          path: rinkeby-addresses.json
-          destination: rinkeby/addresses.json
+          path: alpha-addresses.json
+          destination: alpha/addresses.json
       - store_artifacts:
-          path: rinkeby-build
-          destination: rinkeby-build
+          path: alpha-build
+          destination: alpha-build
 
-  rotate-mission:
+  rotate-canary:
     docker:
       - image: circleci/node:8.8.1
     working_directory: ~/repo
@@ -100,10 +102,10 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: mv ~/repo/mission-build ~/repo/build
-      - run: ./node_modules/truffle/build/cli.bundled.js exec --network mission ./allow.js
+      - run: mv ~/repo/canary-build ~/repo/build
+      - run: RINKEBY_PRIVATE_KEY="$CANARY_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./allow.js
 
-  rotate-rinkeby:
+  rotate-alpha:
     docker:
       - image: circleci/node:8.8.1
     working_directory: ~/repo
@@ -111,8 +113,8 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/repo
-      - run: mv ~/repo/rinkeby-build ~/repo/build
-      - run: ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./allow.js
+      - run: mv ~/repo/alpha-build ~/repo/build
+      - run: RINKEBY_PRIVATE_KEY="$ALPHA_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./allow.js
 
 workflows:
   version: 2
@@ -122,29 +124,29 @@ workflows:
       - test:
           requires:
             - build
-      - deploy-to-mission:
+      - deploy-to-canary:
           requires:
             - test
           filters:
             branches:
               only: /(^master$)|(.*deploy$)/
-      - deploy-to-rinkeby:
+      - deploy-to-alpha:
           requires:
             - test
           filters:
             branches:
               only: /(^master$)|(.*deploy$)/
-      - hold-mission:
+      - hold-canary:
           type: approval
           requires:
-            - deploy-to-mission
-      - rotate-mission:
+            - deploy-to-canary
+      - rotate-canary:
           requires:
-            - hold-mission
-      - hold-rinkeby:
+            - hold-canary
+      - hold-alpha:
           type: approval
           requires:
-            - deploy-to-rinkeby
-      - rotate-rinkeby:
+            - deploy-to-alpha
+      - rotate-alpha:
           requires:
-            - hold-rinkeby
+            - hold-alpha
