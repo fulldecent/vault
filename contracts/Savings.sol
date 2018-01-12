@@ -38,7 +38,7 @@ contract Savings is Graceful, Owned, Ledger {
       */
     function checkTokenStore() internal returns (bool) {
         if (tokenStore == address(0)) {
-            failure("Savings::TokenStoreUnitialized");
+            failure("Savings::TokenStoreUninitialized");
             return false;
         }
 
@@ -98,6 +98,7 @@ contract Savings is Graceful, Owned, Ledger {
         }
 
         if (!accrueDepositInterest(from, asset)) {
+            // TODO we still need to do the debit/credit as below. Need to emit an error but keep going.
             return false;
         }
 
@@ -108,7 +109,7 @@ contract Savings is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `customerWithdraw` withdraws a given amount from an customer's balance.
+      * @notice `customerWithdraw` withdraws the given amount from a customer's balance of the specified asset
       * @param asset Asset type to withdraw
       * @param amount amount to withdraw
       * @param to address to withdraw to
@@ -123,10 +124,13 @@ contract Savings is Graceful, Owned, Ledger {
             return false;
         }
 
+        // accrue interest, which is likely to increase the balance, before checking balance.
         if (!accrueDepositInterest(msg.sender, asset)) {
             return false;
         }
 
+        // TODO: Use collateral-adjusted balance.  If a customer has loans, we shouldn't let them
+        // withdraw below their minimum collateral value.
         uint256 balance = getBalance(msg.sender, LedgerAccount.Deposit, asset);
         if (amount > balance) {
             failure("Savings::InsufficientBalance", uint256(asset), uint256(amount), uint256(to), uint256(balance));
@@ -139,6 +143,11 @@ contract Savings is Graceful, Owned, Ledger {
         // Transfer asset out to `to` address
         if (!tokenStore.transferAssetOut(asset, to, amount)) {
             // TODO: We've marked the debits and credits, maybe we should reverse those?
+            // Can we just do the following?
+            // credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
+            // debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
+            // We probably ought to add LedgerReason.CustomerWithdrawalFailed and use that instead of LedgerReason.CustomerWithdrawal.
+            // Either way, we'll likely need changes in Farmer and/or Data to process the resulting logs.
             failure("Savings::TokenTransferToFail", uint256(asset), uint256(amount), uint256(to), uint256(balance));
             return false;
         }

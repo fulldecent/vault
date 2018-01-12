@@ -8,7 +8,7 @@ import "../base/Owned.sol";
 /**
   * @title The Compound Loaner Storage Contract
   * @author Compound
-  * @notice The Loaner Storage contract is a simple contract to keep track of loaner information (e.g. which assets are lendable).
+  * @notice The Loaner Storage contract is a simple contract to keep track of loaner information: which assets can be borrowed and the global minimum collateral ratio
   */
 contract LoanerStorage is Owned, Allowed, ArrayHelper {
 	address[] public loanableAssets;
@@ -37,6 +37,7 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
     /**
       * @notice `setMinimumCollateralRatio` sets the minimum collateral ratio
       * @param minimumCollateralRatio_ the minimum collateral ratio to be set
+      * @dev used like this to gate loan creation: borrower_account_value * minimumCollateralRatio >= loan_amount
       * @return success or failure
       */
     function setMinimumCollateralRatio(uint minimumCollateralRatio_) public returns (bool) {

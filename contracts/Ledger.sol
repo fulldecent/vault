@@ -58,6 +58,35 @@ contract Ledger is Graceful, Owned {
     }
 
     /**
+      * @notice `setInterestRateStorage` sets the interest rate storage location for this contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param interestRateStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
+      */
+    function setInterestRateStorage(InterestRateStorage interestRateStorage_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        interestRateStorage = interestRateStorage_;
+
+        return true;
+    }
+
+    /**
+      * @notice `checkInterestRateStorage` verifies interest rate store has been set
+      * @return True if interest rate store is initialized, false otherwise
+      */
+    function checkInterestRateStorage() internal returns (bool) {
+        if (interestRateStorage == address(0)) {
+            failure("Ledger::InterestRateStorageUninitialized");
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
       * @notice Debit a ledger account.
       * @param ledgerReason What caused this debit?
       * @param ledgerAccount Which ledger account to adjust (e.g. Deposit or Loan)
@@ -143,7 +172,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the ledger account
       * @return true if the account is an asset false otherwise
       */
-    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal returns (uint) {
+    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal view returns (uint) {
         return ledgerStorage.getBalance(customer, uint8(ledgerAccount), asset);
     }
 
@@ -152,7 +181,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the account type (e.g. Deposit or Loan)
       * @return true if the account is an asset false otherwise
       */
-    function isAsset(LedgerAccount ledgerAccount) private returns (bool) {
+    function isAsset(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
             ledgerAccount == LedgerAccount.Loan
         );
@@ -163,7 +192,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the account type (e.g. Deposit or Loan)
       * @return true if the account is an asset false otherwise
       */
-    function isLiability(LedgerAccount ledgerAccount) private returns (bool) {
+    function isLiability(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );
