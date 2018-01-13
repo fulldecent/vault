@@ -6,12 +6,55 @@ const moment = require('moment');
 
 const SECONDS_IN_A_DAY = ( 60 * 60 * 24 );
 
+function getBlockUnit(blockNumber) {
+  return Math.floor(blockNumber / 10);
+}
+
+function getBlocks(web3, assert) {
+  const currentBlock = web3.eth.blockNumber;
+  const currentBlockUnit = getBlockUnit(currentBlock);
+
+  const blockThreeUnitsBeforeCurrent = currentBlockUnit * 10 - 30;
+  const laterBlockThreeUnitsBeforeCurrent = currentBlockUnit * 10 - 25;
+  const blockTwoUnitsBeforeCurrent = currentBlockUnit * 10 - 20;
+  const laterBlockTwoUnitsBeforeCurrent = currentBlockUnit * 10 - 15;
+  const blockOneUnitBeforeCurrent = currentBlockUnit * 10 - 10;
+  const laterBlockOneUnitBeforeCurrent = currentBlockUnit * 10 - 5;
+  const blockInCurrentBlockUnit = currentBlockUnit * 10;
+  const laterBlockInCurrentBlockUnit = currentBlockUnit * 10 + 1;
+  const blockInUpcomingBlockUnit = currentBlockUnit * 10 + 10;
+
+  assert(getBlockUnit(blockThreeUnitsBeforeCurrent), currentBlockUnit - 3);
+  assert(getBlockUnit(laterBlockThreeUnitsBeforeCurrent), currentBlockUnit - 3);
+  assert(getBlockUnit(blockTwoUnitsBeforeCurrent), currentBlockUnit - 2);
+  assert(getBlockUnit(laterBlockTwoUnitsBeforeCurrent), currentBlockUnit - 2);
+  assert(getBlockUnit(blockOneUnitBeforeCurrent), currentBlockUnit - 1);
+  assert(getBlockUnit(laterBlockOneUnitBeforeCurrent), currentBlockUnit - 1);
+  assert(getBlockUnit(blockInCurrentBlockUnit), currentBlockUnit);
+  assert(getBlockUnit(laterBlockInCurrentBlockUnit), currentBlockUnit);
+  assert(getBlockUnit(blockInUpcomingBlockUnit), currentBlockUnit + 1);
+
+  return [
+    currentBlock,
+    currentBlockUnit,
+    blockThreeUnitsBeforeCurrent,
+    laterBlockThreeUnitsBeforeCurrent,
+    blockTwoUnitsBeforeCurrent,
+    laterBlockTwoUnitsBeforeCurrent,
+    blockOneUnitBeforeCurrent,
+    laterBlockOneUnitBeforeCurrent,
+    blockInCurrentBlockUnit,
+    laterBlockInCurrentBlockUnit,
+    blockInUpcomingBlockUnit
+  ];
+}
+
 contract('InterestRateStorage', function(accounts) {
   var interestRateStorage;
   var etherToken;
 
   beforeEach(async () => {
-    [interestRateStorage, etherToken] = await Promise.all([InterestRateStorage.new(), EtherToken.new()]);
+    [interestRateStorage, etherToken] = await Promise.all([InterestRateStorage.new(10), EtherToken.new()]);
     await interestRateStorage.allow(web3.eth.accounts[0]);
   });
 
@@ -42,151 +85,218 @@ contract('InterestRateStorage', function(accounts) {
   });
 
   describe('#snapshotCurrentRate', async () => {
-    it('should snapshot the first day', async () => {
-      const now = moment().unix() + SECONDS_IN_A_DAY; // since we've moved the EVM forward one day
-      const midnightTonight = now - Math.floor( now / SECONDS_IN_A_DAY ) + 60 * 60 * 24;
-      const secondsUntilMidnight = midnightTonight - now;
-
-      const yesterday = now - SECONDS_IN_A_DAY;
-      const laterYesterday = yesterday + secondsUntilMidnight / 2;
-      const today = now;
-      const laterToday = today + secondsUntilMidnight / 2;
-      const tomorrow = today + SECONDS_IN_A_DAY;
-      const laterTomorrow = tomorrow + secondsUntilMidnight / 2;
-      const theDayAfterTomorrow = tomorrow + SECONDS_IN_A_DAY;
+    it('should snapshot the block unit', async () => {
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
       await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, laterToday);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
 
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, yesterday)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, yesterday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, yesterday)).valueOf(), 10000000000000000);
+      const [
+        currentBlock,
+        currentBlockUnit,
+        blockThreeUnitsBeforeCurrent,
+        laterBlockThreeUnitsBeforeCurrent,
+        blockTwoUnitsBeforeCurrent,
+        laterBlockTwoUnitsBeforeCurrent,
+        blockOneUnitBeforeCurrent,
+        laterBlockOneUnitBeforeCurrent,
+        blockInCurrentBlockUnit,
+        laterBlockInCurrentBlockUnit,
+        blockInUpcomingBlockUnit
+      ] = getBlocks(web3, assert);
 
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterYesterday)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterYesterday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterYesterday)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, today)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, today)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, today)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterToday)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterToday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterToday)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, tomorrow)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, tomorrow)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, tomorrow)).valueOf(), 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 500, 10000000000000000);
     });
 
-    it('should correctly snapshot a second day', async () => {
-      const now = moment().unix() + SECONDS_IN_A_DAY; // since we've moved the EVM forward one day
-      const midnightTonight = now - Math.floor( now / SECONDS_IN_A_DAY ) + 60 * 60 * 24;
-      const secondsUntilMidnight = midnightTonight - now;
-
-      const yesterday = now - SECONDS_IN_A_DAY;
-      const laterYesterday = yesterday + secondsUntilMidnight / 2;
-      const today = now;
-      const laterToday = today + secondsUntilMidnight / 2;
-      const tomorrow = today + SECONDS_IN_A_DAY;
+    it('should correctly snapshot two block units', async () => {
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
       await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, laterYesterday);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine one more block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
       await interestRateStorage.setInterestRate(etherToken.address, 501);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, laterToday);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
 
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, yesterday)).valueOf(), laterYesterday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, yesterday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, yesterday)).valueOf(), 10000000000000501);
+      const [
+        currentBlock,
+        currentBlockUnit,
+        blockThreeUnitsBeforeCurrent,
+        laterBlockThreeUnitsBeforeCurrent,
+        blockTwoUnitsBeforeCurrent,
+        laterBlockTwoUnitsBeforeCurrent,
+        blockOneUnitBeforeCurrent,
+        laterBlockOneUnitBeforeCurrent,
+        blockInCurrentBlockUnit,
+        laterBlockInCurrentBlockUnit,
+        blockInUpcomingBlockUnit
+      ] = getBlocks(web3, assert);
 
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterYesterday)).valueOf(), laterYesterday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterYesterday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterYesterday)).valueOf(), 10000000000000501);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, today)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, today)).valueOf(), 501);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, today)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterToday)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterToday)).valueOf(), 501);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterToday)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, tomorrow)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, tomorrow)).valueOf(), 501);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, tomorrow)).valueOf(), 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 501, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 501, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 501, 10000000000000000);
     });
 
-    it('should correctly snapshot a third day', async () => {
-      const now = moment().unix() + SECONDS_IN_A_DAY; // since we've moved the EVM forward one day
-      const midnightTonight = now - Math.floor( now / SECONDS_IN_A_DAY ) + 60 * 60 * 24;
-      const secondsUntilMidnight = midnightTonight - now;
-
-      const yesterday = now - SECONDS_IN_A_DAY;
-      const laterYesterday = yesterday + secondsUntilMidnight / 2;
-      const today = now;
-      const laterToday = today + secondsUntilMidnight / 2;
-      const tomorrow = today + SECONDS_IN_A_DAY;
-      const laterTomorrow = tomorrow + secondsUntilMidnight / 2;
-      const theDayAfterTomorrow = tomorrow + SECONDS_IN_A_DAY;
+    it('should correctly snapshot three block units', async () => {
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
       await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, laterYesterday);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine one more block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
       await interestRateStorage.setInterestRate(etherToken.address, 501);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, laterToday);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine yet another block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
       await interestRateStorage.setInterestRate(etherToken.address, 490);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, laterTomorrow);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
 
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, yesterday)).valueOf(), laterYesterday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, yesterday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, yesterday)).valueOf(), 10000000000000991);
+      const [
+        currentBlock,
+        currentBlockUnit,
+        blockThreeUnitsBeforeCurrent,
+        laterBlockThreeUnitsBeforeCurrent,
+        blockTwoUnitsBeforeCurrent,
+        laterBlockTwoUnitsBeforeCurrent,
+        blockOneUnitBeforeCurrent,
+        laterBlockOneUnitBeforeCurrent,
+        blockInCurrentBlockUnit,
+        laterBlockInCurrentBlockUnit,
+        blockInUpcomingBlockUnit
+      ] = getBlocks(web3, assert);
 
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterYesterday)).valueOf(), laterYesterday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterYesterday)).valueOf(), 500);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterYesterday)).valueOf(), 10000000000000991);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, today)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, today)).valueOf(), 501);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, today)).valueOf(), 10000000000000490);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterToday)).valueOf(), laterToday);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterToday)).valueOf(), 501);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterToday)).valueOf(), 10000000000000490);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, tomorrow)).valueOf(), laterTomorrow);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, tomorrow)).valueOf(), 490);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, tomorrow)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, laterTomorrow)).valueOf(), laterTomorrow);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, laterTomorrow)).valueOf(), 490);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, laterTomorrow)).valueOf(), 10000000000000000);
-
-      assert.equal((await interestRateStorage.getSnapshotTimestamp(etherToken.address, theDayAfterTomorrow)).valueOf(), laterTomorrow);
-      assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherToken.address, theDayAfterTomorrow)).valueOf(), 490);
-      assert.equal((await interestRateStorage.getCompoundedInterestRate(etherToken.address, theDayAfterTomorrow)).valueOf(), 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, 501, 10000000000000490);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, 501, 10000000000000490);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 490, 10000000000000000);
     });
 
-    it('should correctly snapshot a fourth day missing a third day');
+    it('should correctly snapshot a fourth day', async () => {
+      await utils.mineUntilBlockNumberEndsWith(web3, 7);
+      await interestRateStorage.setInterestRate(etherToken.address, 500);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine one more block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 6);
+      await interestRateStorage.setInterestRate(etherToken.address, 501);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine one more block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 5);
+      await interestRateStorage.setInterestRate(etherToken.address, 490);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine one more block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 1);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      const [
+        currentBlock,
+        currentBlockUnit,
+        blockThreeUnitsBeforeCurrent,
+        laterBlockThreeUnitsBeforeCurrent,
+        blockTwoUnitsBeforeCurrent,
+        laterBlockTwoUnitsBeforeCurrent,
+        blockOneUnitBeforeCurrent,
+        laterBlockOneUnitBeforeCurrent,
+        blockInCurrentBlockUnit,
+        laterBlockInCurrentBlockUnit,
+        blockInUpcomingBlockUnit
+      ] = getBlocks(web3, assert);
+
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 3, 500, 10000000000001481);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 3, 500, 10000000000001481);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 501, 10000000000000980);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 501, 10000000000000980);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, 490, 10000000000000490);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, 490, 10000000000000490);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 490, 10000000000000000);
+    });
+
+    it('should correctly snapshot a fourth day missing a third day', async () => {
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
+
+      await interestRateStorage.setInterestRate(etherToken.address, 500);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Mine one more block unit
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
+
+      await interestRateStorage.setInterestRate(etherToken.address, 501);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      // Skip past a whole block unit!!
+      await utils.mineUntilBlockNumberEndsWith(web3, 4);
+      await utils.mineUntilBlockNumberEndsWith(web3, 3);
+
+      await interestRateStorage.setInterestRate(etherToken.address, 490);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+
+      const [
+        currentBlock,
+        currentBlockUnit,
+        blockThreeUnitsBeforeCurrent,
+        laterBlockThreeUnitsBeforeCurrent,
+        blockTwoUnitsBeforeCurrent,
+        laterBlockTwoUnitsBeforeCurrent,
+        blockOneUnitBeforeCurrent,
+        laterBlockOneUnitBeforeCurrent,
+        blockInCurrentBlockUnit,
+        laterBlockInCurrentBlockUnit,
+        blockInUpcomingBlockUnit
+      ] = getBlocks(web3, assert);
+
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 3, 500, 10000000000001481);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 3, 500, 10000000000001481);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 501, 10000000000000980);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 501, 10000000000000980);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, 490, 10000000000000490);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, 490, 10000000000000490);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 490, 10000000000000000);
+    });
     it('should be allowed only');
   });
 
-  describe('#getDay', async () => {
-    it('should return 0 for Jan 1, 1970', async () => {
-      var timestamp = moment("01-01-1970", "MM-DD-YYYY").unix();
-
-      assert.equal((await interestRateStorage.getDay.call(timestamp)).valueOf(), 0);
-    });
-    it('should return 1 for Jan 2, 1970', async () => {
-      var timestamp = moment("01-02-1970", "MM-DD-YYYY").unix();
-
-      assert.equal((await interestRateStorage.getDay.call(timestamp)).valueOf(), 1);
-    });
-    it('should return correctly for July 1, 2073', async () => {
-      var timestamp = moment("07-01-2073", "MM-DD-YYYY").unix();
-
-      assert.equal((await interestRateStorage.getDay.call(timestamp)).valueOf(), 37802);
+  describe('#getBlockUnit', async () => {
+    it('should return correct units for given scale', async () => {
+      assert.equal((await interestRateStorage.getBlockUnit.call(150)).valueOf(), 15);
+      assert.equal((await interestRateStorage.getBlockUnit.call(255)).valueOf(), 25);
+      assert.equal((await interestRateStorage.getBlockUnit.call(999999999)).valueOf(), 99999999);
+      assert.equal((await interestRateStorage.getBlockUnit.call(998)).valueOf(), 99);
+      assert.equal((await interestRateStorage.getBlockUnit.call(9)).valueOf(), 0);
+      assert.equal((await interestRateStorage.getBlockUnit.call(20)).valueOf(), 2);
+      assert.equal((await interestRateStorage.getBlockUnit.call(10)).valueOf(), 1);
+      assert.equal((await interestRateStorage.getBlockUnit.call(11)).valueOf(), 1);
+      assert.equal((await interestRateStorage.getBlockUnit.call(0)).valueOf(), 0);
     });
   })
 });

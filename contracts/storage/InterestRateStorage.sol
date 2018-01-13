@@ -9,95 +9,106 @@ import "../base/Allowed.sol";
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
 contract InterestRateStorage is Owned, Allowed {
-	uint constant secondsPerDay = 86400;
 	uint constant interestRateScale = 10 ** 16;
+	uint blockScale;
+
+	function InterestRateStorage(uint8 blockScale_) {
+		blockScale = blockScale_;
+	}
 
 	// Track assets -> daily interest rates
 	mapping(address => uint64) public dailyInterestRates;
 
 	struct Snapshot {
-		uint timestamp;
+		uint64 blockUnit;
 		uint64 dailyInterestRate;
 		uint256 compoundedInterestRate;
 	}
 
 	// Snapshots map a timestamp to a "rate to date"
-	mapping(address => uint32) public firstSnapshotDays;
-	mapping(address => uint32) public lastSnapshotDays;
-	mapping(address => mapping(uint32 => Snapshot)) public snapshots;
+	mapping(address => uint64) public firstSnapshotBlockUnits;
+	mapping(address => uint64) public lastSnapshotBlockUnits;
+	mapping(address => mapping(uint64 => Snapshot)) public snapshots;
 
 	event InterestRateChange(address asset, uint64 dailyInterestRate);
-	event NewSnapshot(address asset, uint timestamp, uint64 dailyInterestRate);
+	event NewSnapshot(address asset, uint blockUnit, uint64 dailyInterestRate);
 
 	/**
-	  * @notice `getSnapshotTimestamp` returns the timestamp of the first snapshot on or after the given time
+	  * @notice `getSnapshotBlockNumber` returns the block number of the first snapshot on or after the given time
 	  * @param asset The asset which was snapshotted
-	  * @param timestamp The timestamp to get the snapshot from
-	  * @return The timestamp of the first snapshot on or after the given time
+	  * @param blockNumber The block number to get the snapshot for
+	  * @return The block unit of the first snapshot on or after the given block
 	  */
-	function getSnapshotTimestamp(address asset, uint256 timestamp) public view returns (uint256) {
-		return getSnapshot(asset, timestamp).timestamp;
+	function getSnapshotBlockUnit(address asset, uint256 blockNumber) public view returns (uint64) {
+		return getSnapshot(asset, blockNumber).blockUnit;
 	}
 
 	/**
-	  * @notice `getSnapshotDailyInterestRate` returns the daily interest rate of the first snapshot on or after the given time
+	  * @notice `getSnapshotDailyInterestRate` returns the daily interest rate of the first snapshot on or after the given block
 	  * @param asset The asset which was snapshotted
-	  * @param timestamp The timestamp to get the snapshot from
-	  * @return The daily interest rate of the first snapshot on or after the given time scaled by `interestRateScale`
+	  * @param blockNumber The block number to get the snapshot for
+	  * @return The daily interest rate of the first snapshot on or after the given block scaled up by `interestRateScale`
 	  */
-	function getSnapshotDailyInterestRate(address asset, uint256 timestamp) public view returns (uint64) {
-		return getSnapshot(asset, timestamp).dailyInterestRate;
+	function getSnapshotDailyInterestRate(address asset, uint256 blockNumber) public view returns (uint64) {
+		return getSnapshot(asset, blockNumber).dailyInterestRate;
 	}
 
 	/**
 	  * @notice `getCompoundedInterestRate` returns the compounded interest rate up until now of the first snapshot on or after the given time
 	  * @param asset The asset which was snapshotted
-	  * @param timestamp The timestamp to get the snapshot from
-	  * @return The compounded interest rate for this given asset since timestamp scaled by `interestRateScale`
+	  * @param blockNumber The block number to get the snapshot for
+	  * @return The compounded interest rate for this given asset since given block scaled up by `interestRateScale`
 	  */
-	function getCompoundedInterestRate(address asset, uint256 timestamp) public view returns (uint256) {
-		return getSnapshot(asset, timestamp).compoundedInterestRate;
+	function getCompoundedInterestRate(address asset, uint256 blockNumber) public view returns (uint256) {
+		return getSnapshot(asset, blockNumber).compoundedInterestRate;
 	}
 
 	/**
 	  * @notice `snapshotCurrentRate` takes a daily snapshot of a given asset's rate
 	  * @param asset The asset to snapshot
-	  * @dev This will fail if we have a current snapshot for the given day
+	  * @dev This will fail if we have a current snapshot for the given block unit
 	  * @dev Note: this is public and anyone can call it.
 	  * @return Success or failure of given snapshot.
-	  * TODO: Remove timestamp
 	  */
-	function snapshotCurrentRate(address asset, uint256 timestamp) public returns (bool) {
-		uint32 firstSnapshotDay = firstSnapshotDays[asset];
-		uint32 currentDay = getDay(timestamp);
+	function snapshotCurrentRate(address asset) public returns (bool) {
+		uint64 firstSnapshotBlockUnit = firstSnapshotBlockUnits[asset];
+		uint64 currentBlockUnit = getBlockUnit(block.number);
 		uint64 rate = dailyInterestRates[asset];
-		Snapshot storage existingSnapshot = snapshots[asset][currentDay];
+		Snapshot storage existingSnapshot = snapshots[asset][currentBlockUnit];
 
-		if (existingSnapshot.timestamp > 0) {
-			failure("InterestRateStorage::RateExists", existingSnapshot.timestamp, existingSnapshot.dailyInterestRate, existingSnapshot.compoundedInterestRate);
+		if (existingSnapshot.blockUnit > 0) {
+			failure("InterestRateStorage::RateExists", existingSnapshot.blockUnit, existingSnapshot.dailyInterestRate, existingSnapshot.compoundedInterestRate);
 			return false;
 		}
 
-		lastSnapshotDays[asset] = currentDay;
+		lastSnapshotBlockUnits[asset] = currentBlockUnit;
 
-		snapshots[asset][currentDay] = Snapshot(
-			timestamp,
+		snapshots[asset][currentBlockUnit] = Snapshot(
+			currentBlockUnit,
 			rate,
 			interestRateScale
 		);
 
-		NewSnapshot(asset, timestamp, rate);
+		NewSnapshot(asset, currentBlockUnit, rate);
 
-		if (firstSnapshotDay == 0) {
-			firstSnapshotDays[asset] = currentDay;
+		if (firstSnapshotBlockUnit == 0) {
+			firstSnapshotBlockUnits[asset] = currentBlockUnit;
 		} else {
-			for (uint32 day = currentDay - 1; day >= firstSnapshotDay; day--) {
-				if (snapshots[asset][day].timestamp == 0) {
-					// Handle the case of filling in missing days
-					snapshots[asset][day] = snapshots[asset][day+1];
+			for (uint64 blockUnit = currentBlockUnit - 1; blockUnit >= firstSnapshotBlockUnit; blockUnit--) {
+				if (snapshots[asset][blockUnit].blockUnit == 0) {
+					// Handle the case of filling in missing snapshots
+					snapshots[asset][blockUnit] = Snapshot(
+						blockUnit,
+						snapshots[asset][blockUnit+1].dailyInterestRate,
+						multiplyInterestRate(snapshots[asset][blockUnit+1].compoundedInterestRate, snapshots[asset][blockUnit+1].dailyInterestRate)
+					);
+
+					// Let's start compounding this rate as well.
+					// TODO: This is right?
+					rate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].dailyInterestRate, rate) - interestRateScale);
 				} else {
-					// Compound interest rate with day
-					snapshots[asset][day].compoundedInterestRate = ( ( interestRateScale + rate ) * snapshots[asset][day].compoundedInterestRate ) / interestRateScale;
+					// Compound interest rate with current block unit's interest
+					snapshots[asset][blockUnit].compoundedInterestRate = multiplyInterestRate(snapshots[asset][blockUnit].compoundedInterestRate, rate);
 				}
 			}
 		}
@@ -106,41 +117,51 @@ contract InterestRateStorage is Owned, Allowed {
 	}
 
 	/**
-	  * @notice `getSnapshot` returns the given day's snapshot
-	  * @param asset The asset to snapshot
-	  * @param timestamp The timestamp to get the snapshot from
-	  * @return The timestamp for the given asset based on the day, or the first if timestamp is before the first
+	  * @notice `multiplyInterestRate` multiples the principal by a given interest rate which was scaled
+	  * @param principal original amount to scale (may be an interest rate itself)
+	  * @param interestRate the interest rate to apply
+	  * @return principal times interest rate after scaling up and back down
 	  */
-	function getSnapshot(address asset, uint256 timestamp) internal view returns (Snapshot) {
-		uint32 day = getDay(timestamp);
-		uint32 firstSnapshotDay = firstSnapshotDays[asset];
-		uint32 lastSnapshotDay = lastSnapshotDays[asset];
+	function multiplyInterestRate(uint256 principal, uint256 interestRate) private returns (uint256) {
+		return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
+	}
 
-		if (firstSnapshotDay == 0) {
+	/**
+	  * @notice `getSnapshot` returns the given block unit's snapshot
+	  * @param asset The asset to snapshot
+	  * @param blockNumber The block number to get the snapshot for
+	  * @return The snapshot for the given asset based on the block unit, or the first if block number is before the first snapshot
+	  */
+	function getSnapshot(address asset, uint256 blockNumber) internal view returns (Snapshot) {
+		uint64 blockUnit = getBlockUnit(blockNumber);
+		uint64 firstSnapshotBlockUnit = firstSnapshotBlockUnits[asset];
+		uint64 lastSnapshotBlockUnit = lastSnapshotBlockUnits[asset];
+
+		if (firstSnapshotBlockUnit == 0) {
 			return Snapshot(
 				0,
 				dailyInterestRates[asset],
 				interestRateScale); // No snapshotted interest
 		}
 
-		if (day < firstSnapshotDay) {
-			day = firstSnapshotDay; // Start from first available day
+		if (blockUnit < firstSnapshotBlockUnit) {
+			blockUnit = firstSnapshotBlockUnit; // Start from first available block unit
 		}
 
-		if (day > lastSnapshotDay) {
-			day = lastSnapshotDay; // Go to end if no further days
+		if (blockUnit > lastSnapshotBlockUnit) {
+			blockUnit = lastSnapshotBlockUnit; // Go to end if no further block units
 		}
 
-		return snapshots[asset][day];
+		return snapshots[asset][blockUnit];
 	}
 
 	/**
-	  * @notice `getDay` returns the day associated with a given timestamp
-	  * @param timestamp A timestamp
-	  * @return The given day number of that timestamp (e.g. timestamp at Jan 1, 1970 = Day 0)
+	  * @notice `getBlockUnit` returns the block unit associated with a given block number
+	  * @param blockNumber The given block number
+	  * @return The given block unit, which is the floor of `blockNumber / blockScale`
 	  */
-	function getDay(uint timestamp) public pure returns (uint32) {
-		return uint32(timestamp / secondsPerDay);
+	function getBlockUnit(uint blockNumber) public view returns (uint64) {
+		return uint64(blockNumber / blockScale);
 	}
 
 	/**

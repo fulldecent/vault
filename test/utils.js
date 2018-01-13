@@ -97,7 +97,27 @@ async function mineBlock(web3) {
   });
 }
 
+async function mineBlocks(web3, blocksToMine) {
+  var promises = [];
+
+  for (var i = 0; i < blocksToMine; i++) {
+    promises.push(await mineBlock(web3));
+  }
+
+  return await Promise.all(promises);
+}
+
 module.exports = {
+  mineBlocks: mineBlocks,
+
+  mineUntilBlockNumberEndsWith: async function(web3, endsWith) {
+    const blockNumber = web3.eth.blockNumber;
+
+    const blocksToMine = 10 - ( blockNumber % 10 ) + endsWith;
+
+    return await mineBlocks(web3, blocksToMine);
+  },
+
   // https://ethereum.stackexchange.com/a/21661
   //
   assertEvents: function(contract, expectedEvents, args) {
@@ -204,6 +224,12 @@ module.exports = {
 
   addLoanableAsset: async function(loaner, asset, web3) {
     return await loaner.addLoanableAsset(asset.address, {from: web3.eth.accounts[0]});
+  },
+
+  assertInterestRate: async function(assert, interestRateStorage, etherTokenAddress, blockNumber, expectedBlockUnit, expectedDailyInterestRate, expectedCompoundInterestRate) {
+    assert.equal((await interestRateStorage.getSnapshotBlockUnit(etherTokenAddress, blockNumber)).valueOf(), expectedBlockUnit);
+    assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedDailyInterestRate);
+    assert.equal((await interestRateStorage.getCompoundedInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedCompoundInterestRate);
   },
 
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php
