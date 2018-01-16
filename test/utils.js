@@ -173,7 +173,7 @@ module.exports = {
     });
   },
 
-  assertOnlyAllowed: async function(contract, f, web3) {
+  assertOnlyAllowed: async function(contract, f, web3, afterEach) {
     const ownerAccount = web3.eth.accounts[0];
     const existingAllowedAccount = await contract.allowed.call();
     const allowedAccount = web3.eth.accounts[1];
@@ -183,10 +183,18 @@ module.exports = {
 
     await f({from: allowedAccount});
 
+    if (afterEach) {
+      await afterEach();
+    }
+
     // Don't allow rando account
     await assertGracefulFailure(contract, "Allowed::NotAllowed", async () => {
       await f({from: nonAllowedAccount});
     });
+
+    if (afterEach) {
+      await afterEach();
+    }
 
     // Not even owner
     await assertGracefulFailure(contract, "Allowed::NotAllowed", async () => {

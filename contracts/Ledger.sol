@@ -13,7 +13,7 @@ import "./storage/InterestRateStorage.sol";
   */
 contract Ledger is Graceful, Owned {
     LedgerStorage public ledgerStorage;
-    InterestRateStorage public interestRateStorage;
+    uint16 basisPointMultiplier = 1000;
 
     enum LedgerReason {
         CustomerDeposit,
@@ -53,35 +53,6 @@ contract Ledger is Graceful, Owned {
         }
 
         ledgerStorage = LedgerStorage(ledgerStorageAddress);
-
-        return true;
-    }
-
-    /**
-      * @notice `setInterestRateStorage` sets the interest rate storage location for this contract
-      * @dev This is for long-term data storage (TODO: Test)
-      * @param interestRateStorageAddress The contract which acts as the long-term data store
-      * @return Success of failure of operation
-      */
-    function setInterestRateStorage(address interestRateStorageAddress) public returns (bool) {
-        if (!checkOwner()) {
-            return false;
-        }
-
-        interestRateStorage = InterestRateStorage(interestRateStorageAddress);
-
-        return true;
-    }
-
-    /**
-      * @notice `checkInterestRateStorage` verifies interest rate store has been set
-      * @return True if interest rate store is initialized, false otherwise
-      */
-    function checkInterestRateStorage() internal returns (bool) {
-        if (interestRateStorage == address(0)) {
-            failure("Ledger::InterestRateStorageUnitialized");
-            return false;
-        }
 
         return true;
     }

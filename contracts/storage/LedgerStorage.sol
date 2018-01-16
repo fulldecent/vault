@@ -11,7 +11,7 @@ import "../base/Graceful.sol";
 contract LedgerStorage is Graceful, Allowed {
     struct BalanceCheckpoint {
         uint256 balance;
-        uint256 timestamp;
+        uint256 blockNumber;
         uint64  interestRateBPS;
         uint256 nextPaymentDate;
     }
@@ -21,6 +21,9 @@ contract LedgerStorage is Graceful, Allowed {
 
 	// A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
+
+    // Balance Sheet
+    mapping(uint8 => mapping(address => uint256)) balanceSheet;
 
     /**
       * @notice `increaseBalanceByAmount` increases a balances account by a given amount
@@ -36,12 +39,19 @@ contract LedgerStorage is Graceful, Allowed {
         }
 
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
+        uint balanceSheetBalance = balanceSheet[ledgerAccount][asset];
 
         if (checkpoint.balance + amount < checkpoint.balance) {
             failure("LedgerStorage::BalanceOverflow", uint256(customer), uint256(asset), checkpoint.balance, amount);
             return false;
         }
 
+        if (balanceSheetBalance + amount < balanceSheetBalance) {
+            failure("LedgerStorage::BalanceSheetOverflow", uint256(asset), balanceSheetBalance, amount);
+            return false;
+        }
+
+        balanceSheet[ledgerAccount][asset] = balanceSheetBalance + amount;
         checkpoint.balance += amount;
 
         BalanceIncrease(customer, ledgerAccount, asset, amount);
@@ -63,17 +73,35 @@ contract LedgerStorage is Graceful, Allowed {
         }
 
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
+        uint balanceSheetBalance = balanceSheet[ledgerAccount][asset];
 
         if (checkpoint.balance - amount > checkpoint.balance) {
             failure("LedgerStorage::InsufficientBalance", uint256(customer), uint256(asset), checkpoint.balance, amount);
             return false;
         }
 
+        if (balanceSheetBalance - amount > balanceSheetBalance) {
+            failure("LedgerStorage::BalanceSheetUnderflow", uint256(asset), balanceSheetBalance, amount);
+            return false;
+        }
+
+        balanceSheet[ledgerAccount][asset] = balanceSheetBalance - amount;
         checkpoint.balance -= amount;
 
         BalanceDecrease(customer, ledgerAccount, asset, amount);
 
         return true;
+    }
+
+    /**
+      * @notice `getBalanceSheetBalance` returns Compound's balance sheet balance of a ledger account
+      * @param asset The asset to query the balance of
+      * @param ledgerAccount An integer representing a ledger account to query
+      * @return balance sheet's balance of given asset
+      * TODO: Test
+      */
+    function getBalanceSheetBalance(address asset, uint8 ledgerAccount) public view returns (uint256) {
+        return balanceSheet[ledgerAccount][asset];
     }
 
     /**
@@ -88,15 +116,15 @@ contract LedgerStorage is Graceful, Allowed {
     }
 
     /**
-      * @notice `getBalanceTimestamp` returns the timestamp of the given customer's balance checkpoint
-      * @dev Timestamps are used to notify us that we haven't updated interest since this time.
+      * @notice `getBalanceBlockNumber` returns the block number of the given customer's balance checkpoint
+      * @dev Block numbers are used to notify us that we haven't updated interest since this time.
       * @param customer The customer whose account to query
       * @param ledgerAccount An integer representing a ledger account to query
-      * @param asset The asset to query the timestamp of
-      * @return timestamp of given asset's balance checkpoint
+      * @param asset The asset to query the block number of
+      * @return block number of given asset's balance checkpoint
       */
-    function getBalanceTimestamp(address customer, uint8 ledgerAccount, address asset) public view returns (uint256) {
-    	return balanceCheckpoints[customer][ledgerAccount][asset].timestamp;
+    function getBalanceBlockNumber(address customer, uint8 ledgerAccount, address asset) public view returns (uint256) {
+        return balanceCheckpoints[customer][ledgerAccount][asset].blockNumber;
     }
 
     /**
@@ -105,17 +133,13 @@ contract LedgerStorage is Graceful, Allowed {
       * @param ledgerAccount Which ledger account to checkpoint
       * @param asset The asset which is being checkpointed
       */
-    function saveCheckpoint(
-        address customer,
-        uint8 ledgerAccount,
-        address asset
-    ) returns (bool) {
+    function saveCheckpoint(address customer, uint8 ledgerAccount, address asset) public returns (bool) {
         if (!checkAllowed()) {
             return false;
         }
 
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
-        checkpoint.timestamp = now;
+        checkpoint.blockNumber = block.number;
 
         return true;
     }

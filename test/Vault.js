@@ -43,7 +43,8 @@ contract('Vault', function(accounts) {
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    interestRateStorage = await InterestRateStorage.new();
+    savingsInterestRateStorage = await InterestRateStorage.new();
+    borrowInterestRateStorage = await InterestRateStorage.new();
     ledgerStorage = await LedgerStorage.new();
     loanerStorage = await LoanerStorage.new();
     oracle = await Oracle.new();
@@ -53,13 +54,15 @@ contract('Vault', function(accounts) {
     await ledgerStorage.allow(vault.address);
     await loanerStorage.allow(vault.address);
     await loanerStorage.setMinimumCollateralRatio(2);
-    await interestRateStorage.allow(vault.address);
+    await savingsInterestRateStorage.allow(vault.address);
+    await borrowInterestRateStorage.allow(vault.address);
     await oracle.allow(vault.address);
     await tokenStore.allow(vault.address);
 
     await vault.setLedgerStorage(ledgerStorage.address);
     await vault.setLoanerStorage(loanerStorage.address);
-    await vault.setInterestRateStorage(interestRateStorage.address);
+    await vault.setSavingsInterestRateStorage(savingsInterestRateStorage.address);
+    await vault.setBorrowInterestRateStorage(borrowInterestRateStorage.address);
     await vault.setOracle(oracle.address);
     await vault.setTokenStore(tokenStore.address);
 

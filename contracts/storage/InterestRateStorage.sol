@@ -12,16 +12,13 @@ contract InterestRateStorage is Owned, Allowed {
 	uint constant interestRateScale = 10 ** 16;
 	uint blockScale;
 
-	function InterestRateStorage(uint8 blockScale_) {
+	function InterestRateStorage(uint8 blockScale_) public {
 		blockScale = blockScale_;
 	}
 
-	// Track assets -> daily interest rates
-	mapping(address => uint64) public dailyInterestRates;
-
 	struct Snapshot {
 		uint64 blockUnit;
-		uint64 dailyInterestRate;
+		uint64 blockUnitInterestRate; // log_2(10**16) ~= 53, meaning we have around 11 bits before the decimal
 		uint256 compoundedInterestRate;
 	}
 
@@ -30,8 +27,7 @@ contract InterestRateStorage is Owned, Allowed {
 	mapping(address => uint64) public lastSnapshotBlockUnits;
 	mapping(address => mapping(uint64 => Snapshot)) public snapshots;
 
-	event InterestRateChange(address asset, uint64 dailyInterestRate);
-	event NewSnapshot(address asset, uint blockUnit, uint64 dailyInterestRate);
+	event NewSnapshot(address asset, uint blockUnit, uint64 blockUnitInterestRate);
 
 	/**
 	  * @notice `getSnapshotBlockNumber` returns the block number of the first snapshot on or after the given time
@@ -44,13 +40,13 @@ contract InterestRateStorage is Owned, Allowed {
 	}
 
 	/**
-	  * @notice `getSnapshotDailyInterestRate` returns the daily interest rate of the first snapshot on or after the given block
+	  * @notice `getSnapshotBlockUnitInterestRate` returns the block unit interest rate of the first snapshot on or after the given block
 	  * @param asset The asset which was snapshotted
 	  * @param blockNumber The block number to get the snapshot for
-	  * @return The daily interest rate of the first snapshot on or after the given block scaled up by `interestRateScale`
+	  * @return The block unit interest rate of the first snapshot on or after the given block scaled up by `interestRateScale`
 	  */
-	function getSnapshotDailyInterestRate(address asset, uint256 blockNumber) public view returns (uint64) {
-		return getSnapshot(asset, blockNumber).dailyInterestRate;
+	function getSnapshotBlockUnitInterestRate(address asset, uint256 blockNumber) public view returns (uint64) {
+		return getSnapshot(asset, blockNumber).blockUnitInterestRate;
 	}
 
 	/**
@@ -64,20 +60,37 @@ contract InterestRateStorage is Owned, Allowed {
 	}
 
 	/**
-	  * @notice `snapshotCurrentRate` takes a daily snapshot of a given asset's rate
+	  * @notice `getCurrentBalance` returns the princiapl with compounded interest rate up until now applied
+	  * @param asset The asset which was snapshotted
+	  * @param blockNumber The block number to get the snapshot for
+	  * @param principal The starting principal before interest is to be applied
+	  * @return The compounded interest rate applied for the given principal to bring that principal up to date
+	  */
+	function getCurrentBalance(address asset, uint256 blockNumber, uint256 principal) public view returns (uint256) {
+		uint256 compoundedInterestRate = getCompoundedInterestRate(asset, blockNumber);
+
+		return ( compoundedInterestRate * principal ) / interestRateScale;
+	}
+
+	/**
+	  * @notice `snapshotCurrentRate` takes a block unit snapshot of a given asset's rate
 	  * @param asset The asset to snapshot
+	  * @param rate The interest rate to snapshot
 	  * @dev This will fail if we have a current snapshot for the given block unit
 	  * @dev Note: this is public and anyone can call it.
 	  * @return Success or failure of given snapshot.
 	  */
-	function snapshotCurrentRate(address asset) public returns (bool) {
+	function snapshotCurrentRate(address asset, uint64 rate) public returns (bool) {
+		if (!checkAllowed()) {
+            return false;
+        }
+
 		uint64 firstSnapshotBlockUnit = firstSnapshotBlockUnits[asset];
 		uint64 currentBlockUnit = getBlockUnit(block.number);
-		uint64 rate = dailyInterestRates[asset];
 		Snapshot storage existingSnapshot = snapshots[asset][currentBlockUnit];
 
 		if (existingSnapshot.blockUnit > 0) {
-			failure("InterestRateStorage::RateExists", existingSnapshot.blockUnit, existingSnapshot.dailyInterestRate, existingSnapshot.compoundedInterestRate);
+			failure("InterestRateStorage::RateExists", existingSnapshot.blockUnit, existingSnapshot.blockUnitInterestRate, existingSnapshot.compoundedInterestRate);
 			return false;
 		}
 
@@ -99,13 +112,13 @@ contract InterestRateStorage is Owned, Allowed {
 					// Handle the case of filling in missing snapshots
 					snapshots[asset][blockUnit] = Snapshot(
 						blockUnit,
-						snapshots[asset][blockUnit+1].dailyInterestRate,
-						multiplyInterestRate(snapshots[asset][blockUnit+1].compoundedInterestRate, snapshots[asset][blockUnit+1].dailyInterestRate)
+						snapshots[asset][blockUnit+1].blockUnitInterestRate,
+						multiplyInterestRate(snapshots[asset][blockUnit+1].compoundedInterestRate, snapshots[asset][blockUnit+1].blockUnitInterestRate)
 					);
 
 					// Let's start compounding this rate as well.
 					// TODO: This is right?
-					rate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].dailyInterestRate, rate) - interestRateScale);
+					rate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].blockUnitInterestRate, rate) - interestRateScale);
 				} else {
 					// Compound interest rate with current block unit's interest
 					snapshots[asset][blockUnit].compoundedInterestRate = multiplyInterestRate(snapshots[asset][blockUnit].compoundedInterestRate, rate);
@@ -114,16 +127,6 @@ contract InterestRateStorage is Owned, Allowed {
 		}
 
 		return true;
-	}
-
-	/**
-	  * @notice `multiplyInterestRate` multiples the principal by a given interest rate which was scaled
-	  * @param principal original amount to scale (may be an interest rate itself)
-	  * @param interestRate the interest rate to apply
-	  * @return principal times interest rate after scaling up and back down
-	  */
-	function multiplyInterestRate(uint256 principal, uint256 interestRate) private returns (uint256) {
-		return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
 	}
 
 	/**
@@ -140,7 +143,7 @@ contract InterestRateStorage is Owned, Allowed {
 		if (firstSnapshotBlockUnit == 0) {
 			return Snapshot(
 				0,
-				dailyInterestRates[asset],
+				0,
 				interestRateScale); // No snapshotted interest
 		}
 
@@ -165,30 +168,13 @@ contract InterestRateStorage is Owned, Allowed {
 	}
 
 	/**
-	  * @notice `setInterestRate` sets the daily interest rate for a given asset
-	  * @param asset The asset to set the interest rate for
-	  * @param dailyInterestRate The daily interest rate scaled to `scale` (10e16)
-	  * @return success or failure
+	  * @notice `multiplyInterestRate` multiples the principal by a given interest rate which was scaled
+	  * @param principal original amount to scale (may be an interest rate itself)
+	  * @param interestRate the interest rate to apply
+	  * @return principal times interest rate after scaling up and back down
 	  */
-	function setInterestRate(address asset, uint64 dailyInterestRate) public returns (bool) {
-		if (!checkOwner()) {
-			return false;
-		}
-
-		dailyInterestRates[asset] = dailyInterestRate;
-
-		InterestRateChange(asset, dailyInterestRate);
-
-		return true;
-	}
-
-	/**
-	  * @notice `getInterestRate` returns the interest rate for given asset
-	  * @param asset The asset to get the interest rate for
-	  * @return rate The daily interest rate scaled to `scale` (10e16)
-	  */
-	function getInterestRate(address asset) public view returns (uint64) {
-		return dailyInterestRates[asset];
+	function multiplyInterestRate(uint256 principal, uint256 interestRate) pure private returns (uint256) {
+		return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
 	}
 
 }

@@ -42,7 +42,7 @@ contract('Savings', function(accounts) {
     await tokenStore.allow(savings.address);
     await interestRateStorage.allow(savings.address);
     await savings.setLedgerStorage(ledgerStorage.address);
-    await savings.setInterestRateStorage(interestRateStorage.address);
+    await savings.setSavingsInterestRateStorage(interestRateStorage.address);
     await savings.setTokenStore(tokenStore.address);
   });
 
@@ -149,6 +149,7 @@ contract('Savings', function(accounts) {
         const exponent = durationInYears * (interestRateBPS/10000);
         const expectedBalance = depositAmount * (Math.E ** (exponent))
 
+        // TODO: Set interest rate isn't a thing now
         await interestRateStorage.setInterestRate(etherToken.address, interestRateBPS, {from: web3.eth.accounts[0]});
         await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 

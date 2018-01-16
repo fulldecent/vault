@@ -49,6 +49,28 @@ function getBlocks(web3, assert) {
   ];
 }
 
+async function buildSnapshots(web3, etherToken, interestRateStorage) {
+  await utils.mineUntilBlockNumberEndsWith(web3, 7);
+  const startingBlockNumber = web3.eth.blockNumber;
+  const startingBlockUnit = (await interestRateStorage.getBlockUnit.call(startingBlockNumber)).toNumber()
+
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 100);
+
+  // Mine one more block unit
+  await utils.mineUntilBlockNumberEndsWith(web3, 6);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 200);
+
+  // Mine one more block unit
+  await utils.mineUntilBlockNumberEndsWith(web3, 5);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 300);
+
+  // Mine one more block unit
+  await utils.mineUntilBlockNumberEndsWith(web3, 1);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 400);
+
+  return [startingBlockNumber, startingBlockUnit];
+}
+
 contract('InterestRateStorage', function(accounts) {
   var interestRateStorage;
   var etherToken;
@@ -58,29 +80,79 @@ contract('InterestRateStorage', function(accounts) {
     await interestRateStorage.allow(web3.eth.accounts[0]);
   });
 
-  describe('#setInterestRate', () => {
-    it("should set interest rate", async () => {
-      await interestRateStorage.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
+  describe('#getSnapshotBlockUnit', async () => {
+    it('should reference correct blocks', async() => {
+      [startingBlockNumber, startingBlockUnit] = await buildSnapshots(web3, etherToken, interestRateStorage);
 
-      const rate = await interestRateStorage.getInterestRate.call(etherToken.address);
-      assert.equal(rate, 500);
+      async function getSnapshotBlockUnit(blockNumber) {
+        return (await (interestRateStorage.getSnapshotBlockUnit.call(etherToken.address, blockNumber))).toNumber();
+      }
+
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber - 10), startingBlockUnit);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber), startingBlockUnit);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber + 1), startingBlockUnit);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber + 10), startingBlockUnit + 1);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber + 20), startingBlockUnit + 2);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber + 30), startingBlockUnit + 3);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber + 40), startingBlockUnit + 3);
+      assert.equal(await getSnapshotBlockUnit(startingBlockNumber + 50), startingBlockUnit + 3);
     });
+  });
 
-    it("should emit event", async () => {
-      await interestRateStorage.setInterestRate(etherToken.address, 500, {from: web3.eth.accounts[0]});
+  describe('#getSnapshotBlockUnitInterestRate', () => {
+    it('should get correct block unit interest rates', async () => {
+      [startingBlockNumber, startingBlockUnit] = await buildSnapshots(web3, etherToken, interestRateStorage);
 
-      await utils.assertEvents(interestRateStorage, [
-      {
-        event: "InterestRateChange",
-        args: {
-          asset: etherToken.address,
-          dailyInterestRate: web3.toBigNumber('500')
-        }
-      }]);
+      async function getSnapshotBlockUnitInterestRate(blockNumber) {
+        return (await (interestRateStorage.getSnapshotBlockUnitInterestRate.call(etherToken.address, blockNumber))).toNumber();
+      }
+
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber - 10), 100);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber), 100);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 1), 100);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 10), 200);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 20), 300);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 30), 400);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 40), 400);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 50), 400);
     });
+  });
 
-    it("should be owner only", async () => {
-      await utils.assertOnlyOwner(interestRateStorage, interestRateStorage.setInterestRate.bind(null, etherToken.address, 500), web3);
+  describe('#getCompoundedInterestRate', () => {
+    it('should get correct block unit interest rates', async () => {
+      [startingBlockNumber, startingBlockUnit] = await buildSnapshots(web3, etherToken, interestRateStorage);
+
+      async function getCompoundedInterestRate(blockNumber) {
+        return (await (interestRateStorage.getCompoundedInterestRate.call(etherToken.address, blockNumber))).toNumber();
+      }
+
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber - 10), 10000000000000900);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber), 10000000000000900);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 1), 10000000000000900);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 10), 10000000000000700);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 20), 10000000000000400);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 30), 10000000000000000);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 40), 10000000000000000);
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 50), 10000000000000000);
+    });
+  });
+
+  describe('#getCurrentBalance', async () => {
+    it('should get correct block unit interest rates', async () => {
+      [startingBlockNumber, startingBlockUnit] = await buildSnapshots(web3, etherToken, interestRateStorage);
+
+      async function getCurrentBalance(blockNumber) {
+        return (await (interestRateStorage.getCurrentBalance.call(etherToken.address, blockNumber, 20000000000000000))).toNumber();
+      }
+
+      assert.equal(await getCurrentBalance(startingBlockNumber - 10), 20000000000001800);
+      assert.equal(await getCurrentBalance(startingBlockNumber), 20000000000001800);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 1), 20000000000001800);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 10), 20000000000001400);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 20), 20000000000000800);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 30), 20000000000000000);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 40), 20000000000000000);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 50), 20000000000000000);
     });
   });
 
@@ -88,8 +160,7 @@ contract('InterestRateStorage', function(accounts) {
     it('should snapshot the block unit', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
 
       const [
         currentBlock,
@@ -119,14 +190,12 @@ contract('InterestRateStorage', function(accounts) {
     it('should correctly snapshot two block units', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 501);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 501);
 
       const [
         currentBlock,
@@ -156,20 +225,15 @@ contract('InterestRateStorage', function(accounts) {
     it('should correctly snapshot three block units', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
-
-      await interestRateStorage.setInterestRate(etherToken.address, 501);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 501);
 
       // Mine yet another block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
-
-      await interestRateStorage.setInterestRate(etherToken.address, 490);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 490);
 
       const [
         currentBlock,
@@ -198,22 +262,19 @@ contract('InterestRateStorage', function(accounts) {
 
     it('should correctly snapshot a fourth day', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 7);
-      await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 6);
-      await interestRateStorage.setInterestRate(etherToken.address, 501);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 501);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 5);
-      await interestRateStorage.setInterestRate(etherToken.address, 490);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 490);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 1);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 490);
 
       const [
         currentBlock,
@@ -243,21 +304,18 @@ contract('InterestRateStorage', function(accounts) {
     it('should correctly snapshot a fourth day missing a third day', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 500);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 501);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 501);
 
       // Skip past a whole block unit!!
       await utils.mineUntilBlockNumberEndsWith(web3, 4);
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.setInterestRate(etherToken.address, 490);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, 490);
 
       const [
         currentBlock,
@@ -283,7 +341,11 @@ contract('InterestRateStorage', function(accounts) {
       await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
       await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 490, 10000000000000000);
     });
-    it('should be allowed only');
+
+    it('should be allowed only', async () => {
+      await utils.mineBlocks(web3, 10);
+      await utils.assertOnlyAllowed(interestRateStorage, interestRateStorage.snapshotCurrentRate.bind(null, etherToken.address, 200), web3, utils.mineBlocks.bind(null, web3, 10));
+    });
   });
 
   describe('#getBlockUnit', async () => {
