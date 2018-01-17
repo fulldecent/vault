@@ -45,7 +45,7 @@ contract('Vault', function(accounts) {
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    borrowInterestRateStorage = await InterestRateStorage.new();
+    borrowInterestRateStorage = await InterestRateStorage.new(10);
     ledgerStorage = await LedgerStorage.new();
     loanerStorage = await LoanerStorage.new();
     oracle = await Oracle.new();
@@ -321,7 +321,7 @@ contract('Vault', function(accounts) {
   });
 
   describe('#snapshotBorrowInterestRate', async () => {
-    it.only('should snapshot the current balance', async () => {
+    it('should snapshot the current balance', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
@@ -329,15 +329,12 @@ contract('Vault', function(accounts) {
 
       const blockNumber = web3.eth.blockNumber;
 
-      console.log(await vault.borrowInterestRateStorage());
-      console.log(await vault.ledgerStorage());
-
       await vault.snapshotBorrowInterestRate(etherToken.address);
 
-      // assert.equal(
-      //   (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-      //   750
-      // );
+      assert.equal(
+        (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
+        2500
+      );
     });
 
     it('should be called once per block unit');
