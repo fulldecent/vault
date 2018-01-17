@@ -22,6 +22,7 @@ const LedgerReason = {
   Interest: web3.toBigNumber(2),
   CustomerBorrow: web3.toBigNumber(3),
   CustomerPayLoan: web3.toBigNumber(4),
+  CollateralPayLoan: web3.toBigNumber(5),
 };
 
 const LedgerAccount = {
@@ -29,7 +30,8 @@ const LedgerAccount = {
   Loan: web3.toBigNumber(1),
   Deposit: web3.toBigNumber(2),
   InterestExpense: web3.toBigNumber(3),
-  InterestIncome: web3.toBigNumber(4)
+  InterestIncome: web3.toBigNumber(4),
+  Trading: web3.toBigNumber(5),
 };
 
 contract('Vault', function(accounts) {
