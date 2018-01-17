@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const utils = require('./utils');
@@ -87,7 +89,7 @@ contract('LedgerStorage', function(accounts) {
   });
 
   describe('#saveCheckpoint', () => {
-    it.only("should update checkpoint", async () => {
+    it("should update checkpoint", async () => {
       await ledgerStorage.saveCheckpoint(1, 2, 3, {from: web3.eth.accounts[0]});
 
       const firstBlockUnit = (await ledgerStorage.getBalanceBlockNumber.call(1, 2, 3)).valueOf();

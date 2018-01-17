@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");

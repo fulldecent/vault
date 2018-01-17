@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
@@ -60,7 +62,7 @@ contract('InterestRateStorage', function(accounts) {
 
   describe('#getSnapshotBlockUnit', async () => {
     it('should reference correct blocks', async() => {
-      [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+      const [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
 
       async function getSnapshotBlockUnit(blockNumber) {
         return (await (interestRateStorage.getSnapshotBlockUnit.call(etherToken.address, blockNumber))).toNumber();
@@ -79,7 +81,7 @@ contract('InterestRateStorage', function(accounts) {
 
   describe('#getSnapshotBlockUnitInterestRate', () => {
     it('should get correct block unit interest rates', async () => {
-      [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+      const [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
 
       async function getSnapshotBlockUnitInterestRate(blockNumber) {
         return (await (interestRateStorage.getSnapshotBlockUnitInterestRate.call(etherToken.address, blockNumber))).toNumber();
@@ -98,7 +100,7 @@ contract('InterestRateStorage', function(accounts) {
 
   describe('#getCompoundedInterestRate', () => {
     it('should get correct block unit interest rates', async () => {
-      [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+      const [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
 
       async function getCompoundedInterestRate(blockNumber) {
         return (await (interestRateStorage.getCompoundedInterestRate.call(etherToken.address, blockNumber))).toNumber();
@@ -117,7 +119,7 @@ contract('InterestRateStorage', function(accounts) {
 
   describe('#getCurrentBalance', async () => {
     it('should get correct block unit interest rates', async () => {
-      [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+      const [startingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
 
       async function getCurrentBalance(blockNumber) {
         return (await (interestRateStorage.getCurrentBalance.call(etherToken.address, blockNumber, 20000000000000000))).toNumber();

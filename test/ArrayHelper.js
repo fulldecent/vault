@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const ArrayHelper = artifacts.require("./base/ArrayHelper.sol");
 const utils = require('./utils');

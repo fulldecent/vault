@@ -1,3 +1,5 @@
+"use strict";
+
 const Oracle = artifacts.require("./storage/Oracle.sol");
 const utils = require('./utils');
 const moment = require('moment');

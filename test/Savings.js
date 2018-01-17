@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const Savings = artifacts.require("./Savings.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
@@ -151,7 +153,7 @@ contract('Savings', function(accounts) {
         await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 
         await interestRateStorage.allow(web3.eth.accounts[0]);
-        [snapshotStartingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+        const [snapshotStartingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
 
         await savings.customerWithdraw(etherToken.address, withdrawAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 

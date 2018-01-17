@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const LoanerStorage = artifacts.require("./storage/LoanerStorage.sol");
 const utils = require('./utils');
