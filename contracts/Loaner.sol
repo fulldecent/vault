@@ -1,23 +1,23 @@
 pragma solidity ^0.4.18;
 
 import "./Ledger.sol";
-import "./storage/Oracle.sol";
-import "./storage/LoanerStorage.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
-import "./base/InterestHelper.sol";
+import "./base/Token.sol";
+import "./storage/Oracle.sol";
+import "./storage/LoanerStorage.sol";
 
 /**
   * @title The Compound Loan Account
   * @author Compound
   * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
   */
-contract Loaner is Graceful, Owned, Ledger, InterestHelper {
+contract Loaner is Graceful, Owned, Ledger {
     Oracle public oracle;
     LoanerStorage public loanerStorage;
     InterestRateStorage public borrowInterestRateStorage;
-    uint8 public borrowRateSlopeBPS = 200;
-    uint8 public minimumBorrowRateBPS = 100;
+    uint16 public borrowRateSlopeBPS = 2000;
+    uint16 public minimumBorrowRateBPS = 1000;
 
     function Loaner () public {}
 
@@ -258,23 +258,23 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
       * @notice `getBorrowInterestRateBPS` returns the current borrow interest rate based on the balance sheet
       * @param asset address of asset
       * @return the current borrow interest rate (in basis points)
-      * TODO: Test
       */
     function getBorrowInterestRateBPS(address asset) public view returns (uint64) {
         uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 deposits = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
+        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
 
         // `borrow r` == 10% + (1-`reserve ratio`) * 20%
-        return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / deposits ) ) * borrowRateSlopeBPS );
+      // note: this is done in one-line since intermediate results would be truncated
+      return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier );
     }
 
     /**
-      * @notice `snapshotBorrowInterstRate` snapshots the current interest rate for the block uint
+      * @notice `snapshotBorrowInterestRate` snapshots the current interest rate for the block uint
       * @param asset address of asset
       * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
       * TODO: Test
       */
-    function snapshotBorrowInterstRate(address asset) public returns (bool) {
+    function snapshotBorrowInterestRate(address asset) public returns (bool) {
       uint64 rate = getBorrowInterestRateBPS(asset);
 
       return borrowInterestRateStorage.snapshotCurrentRate(asset, rate);

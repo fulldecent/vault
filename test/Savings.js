@@ -1,6 +1,7 @@
 const BigNumber = require('bignumber.js');
 const Savings = artifacts.require("./Savings.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
@@ -31,11 +32,13 @@ contract('Savings', function(accounts) {
   var etherToken;
   var tokenStore;
   var interestRateStorage;
+  var testLedgerStorage;
 
   beforeEach(async () => {
     const ledgerStorage = await LedgerStorage.new();
     tokenStore = await TokenStore.new();
-    interestRateStorage = await InterestRateStorage.new();
+    interestRateStorage = await InterestRateStorage.new(10);
+    testLedgerStorage = await TestLedgerStorage.new();
 
     [savings, etherToken] = await Promise.all([Savings.new(), EtherToken.new()]);
     await ledgerStorage.allow(savings.address);
@@ -139,21 +142,17 @@ contract('Savings', function(accounts) {
       });
 
       it("should update the user's balance with interest since the last checkpoint", async () => {
-        const startingBlock = web3.eth.blockNumber;
-        const durationInYears = 10;
-        const interestRateBPS = 500;
-        const depositAmount = web3.toWei("5", "ether");
+        const depositAmount = 20000000000000000;
+        const withdrawAmount = 10000000000000000;
         const depositAmountBigNumber = new BigNumber(depositAmount);
-        const withdrawAmount = web3.toWei(".5", "ether");
         const withdrawalAmountBigNumber = new BigNumber(withdrawAmount);
-        const exponent = durationInYears * (interestRateBPS/10000);
-        const expectedBalance = depositAmount * (Math.E ** (exponent))
+        const startingBlockNumber = web3.eth.blockNumber;
 
-        // TODO: Set interest rate isn't a thing now
-        await interestRateStorage.setInterestRate(etherToken.address, interestRateBPS, {from: web3.eth.accounts[0]});
         await utils.depositEth(savings, etherToken, depositAmount, web3.eth.accounts[1]);
 
-        await utils.increaseTime(web3, moment(0).add(durationInYears, 'years').unix());
+        await interestRateStorage.allow(web3.eth.accounts[0]);
+        [snapshotStartingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+
         await savings.customerWithdraw(etherToken.address, withdrawAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
         await utils.assertEvents(savings, [
@@ -195,7 +194,7 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.InterestExpense,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('3245255239655908560'),
+              amount: web3.toBigNumber('1800'),
               balance: web3.toBigNumber('0'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
@@ -209,8 +208,8 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('3245255239655908560'),
-              balance: web3.toBigNumber('8245255239655908560'),
+              amount: web3.toBigNumber('1800'),
+              balance: web3.toBigNumber('20000000000001800'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -225,7 +224,7 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: web3.toBigNumber(withdrawAmount),
-              balance: web3.toBigNumber('7745255239655908560'),
+              balance: web3.toBigNumber('10000000000001800'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -244,7 +243,7 @@ contract('Savings', function(accounts) {
               nextPaymentDate: web3.toBigNumber('0')
             }
           }
-        ], {fromBlock: startingBlock, toBlock: 'latest'});
+        ], {fromBlock: startingBlockNumber, toBlock: 'latest'});
       });
 
       it("should create debit deposits and credit cash", async () => {
@@ -309,6 +308,82 @@ contract('Savings', function(accounts) {
           await savings.customerWithdraw(etherToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
         });
       });
+    });
+
+    describe('#getSavingsInterestRateBPS', async () => {
+      it('should return correct balance with given balance sheet', async () => {
+        await savings.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+        const interestRateBPS = await savings.getSavingsInterestRateBPS(etherToken.address);
+
+        assert.equal(interestRateBPS.toNumber(), 750);
+      });
+
+      it('should return correct balance with another balance sheet', async () => {
+        await savings.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+        const interestRateBPS = await savings.getSavingsInterestRateBPS(etherToken.address);
+
+        assert.equal(interestRateBPS.toNumber(), 1000);
+      });
+
+      it('should return correct balance with another balance sheet', async () => {
+        await savings.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 0);
+
+        const interestRateBPS = await savings.getSavingsInterestRateBPS(etherToken.address);
+
+        assert.equal(interestRateBPS.toNumber(), 0);
+      });
+
+      it('should return correct balance with another balance sheet', async () => {
+        await savings.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 100);
+
+        const interestRateBPS = await savings.getSavingsInterestRateBPS(etherToken.address);
+
+        assert.equal(interestRateBPS.toNumber(), 500);
+      });
+
+      it('should return correct balance with another balance sheet', async () => {
+        await savings.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 10000);
+
+        const interestRateBPS = await savings.getSavingsInterestRateBPS(etherToken.address);
+
+        assert.equal(interestRateBPS.toNumber(), 991);
+      });
+    });
+
+    describe('#snapshotSavingsInterestRate', async () => {
+      it('should snapshot the current balance', async () => {
+        await savings.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+        const blockNumber = web3.eth.blockNumber;
+        await savings.snapshotSavingsInterestRate(etherToken.address);
+
+        assert.equal(
+          (await interestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
+          750
+        );
+      });
+
+      it('should be called once per block unit');
     });
   });
 

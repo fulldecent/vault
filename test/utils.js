@@ -107,16 +107,40 @@ async function mineBlocks(web3, blocksToMine) {
   return await Promise.all(promises);
 }
 
+async function mineUntilBlockNumberEndsWith(web3, endsWith) {
+  const blockNumber = web3.eth.blockNumber;
+
+  const blocksToMine = 10 - ( blockNumber % 10 ) + endsWith;
+
+  return await mineBlocks(web3, blocksToMine);
+}
+
+async function buildSnapshots(web3, etherToken, interestRateStorage) {
+  await mineUntilBlockNumberEndsWith(web3, 7);
+  const startingBlockNumber = web3.eth.blockNumber;
+  const startingBlockUnit = (await interestRateStorage.getBlockUnit.call(startingBlockNumber)).toNumber()
+
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 100);
+
+  // Mine one more block unit
+  await mineUntilBlockNumberEndsWith(web3, 6);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 200);
+
+  // Mine one more block unit
+  await mineUntilBlockNumberEndsWith(web3, 5);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 300);
+
+  // Mine one more block unit
+  await mineUntilBlockNumberEndsWith(web3, 1);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 400);
+
+  return [startingBlockNumber, startingBlockUnit];
+}
+
 module.exports = {
+  buildSnapshots: buildSnapshots,
   mineBlocks: mineBlocks,
-
-  mineUntilBlockNumberEndsWith: async function(web3, endsWith) {
-    const blockNumber = web3.eth.blockNumber;
-
-    const blocksToMine = 10 - ( blockNumber % 10 ) + endsWith;
-
-    return await mineBlocks(web3, blocksToMine);
-  },
+  mineUntilBlockNumberEndsWith: mineUntilBlockNumberEndsWith,
 
   // https://ethereum.stackexchange.com/a/21661
   //
@@ -234,9 +258,9 @@ module.exports = {
     return await loaner.addLoanableAsset(asset.address, {from: web3.eth.accounts[0]});
   },
 
-  assertInterestRate: async function(assert, interestRateStorage, etherTokenAddress, blockNumber, expectedBlockUnit, expectedDailyInterestRate, expectedCompoundInterestRate) {
+  assertInterestRate: async function(assert, interestRateStorage, etherTokenAddress, blockNumber, expectedBlockUnit, expectedBlockUnitInterestRate, expectedCompoundInterestRate) {
     assert.equal((await interestRateStorage.getSnapshotBlockUnit(etherTokenAddress, blockNumber)).valueOf(), expectedBlockUnit);
-    assert.equal((await interestRateStorage.getSnapshotDailyInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedDailyInterestRate);
+    assert.equal((await interestRateStorage.getSnapshotBlockUnitInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedBlockUnitInterestRate);
     assert.equal((await interestRateStorage.getCompoundedInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedCompoundInterestRate);
   },
 

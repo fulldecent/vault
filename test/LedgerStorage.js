@@ -87,7 +87,7 @@ contract('LedgerStorage', function(accounts) {
   });
 
   describe('#saveCheckpoint', () => {
-    it("should update checkpoint", async () => {
+    it.only("should update checkpoint", async () => {
       await ledgerStorage.saveCheckpoint(1, 2, 3, {from: web3.eth.accounts[0]});
 
       const firstBlockUnit = (await ledgerStorage.getBalanceBlockNumber.call(1, 2, 3)).valueOf();
@@ -99,7 +99,7 @@ contract('LedgerStorage', function(accounts) {
 
       const secondBlockUnit = (await ledgerStorage.getBalanceBlockNumber.call(1, 2, 3)).valueOf();
 
-      assert.equal(secondBlockUnit - secondBlockUnit, 22); // should be 2
+      assert.equal(secondBlockUnit - firstBlockUnit, 21);
     });
 
     it("should be allowed only", async () => {

@@ -3,7 +3,6 @@ pragma solidity ^0.4.18;
 import "./Ledger.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
-import "./base/InterestHelper.sol";
 import "./base/Token.sol";
 import "./storage/TokenStore.sol";
 
@@ -12,9 +11,9 @@ import "./storage/TokenStore.sol";
   * @author Compound
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
-contract Savings is Graceful, Owned, Ledger, InterestHelper {
+contract Savings is Graceful, Owned, Ledger {
     TokenStore public tokenStore;
-    uint8 public savingsRateSlopeBPS = 100;
+    uint16 public savingsRateSlopeBPS = 1000;
     InterestRateStorage public savingsInterestRateStorage;
 
     /**
@@ -206,23 +205,22 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       * @notice `getSavingsInterestRateBPS` returns the current savings interest rate based on the balance sheet
       * @param asset address of asset
       * @return the current savings interest rate (in basis points)
-      * TODO: Test
       */
     function getSavingsInterestRateBPS(address asset) public view returns (uint64) {
       uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-      uint256 deposits = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Deposit));
+      uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
 
       // `deposit r` == (1-`reserve ratio`) * 10%
-      return uint64( ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / deposits ) ) * savingsRateSlopeBPS );
+      // note: this is done in one-line since intermediate results would be truncated
+      return uint64( ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * savingsRateSlopeBPS / basisPointMultiplier );
     }
 
     /**
-      * @notice `snapshotSavingsInterstRate` snapshots the current interest rate for the block uint
+      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block uint
       * @param asset address of asset
       * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
-      * TODO: Test
       */
-    function snapshotSavingsInterstRate(address asset) public returns (bool) {
+    function snapshotSavingsInterestRate(address asset) public returns (bool) {
       uint64 rate = getSavingsInterestRateBPS(asset);
 
       return savingsInterestRateStorage.snapshotCurrentRate(asset, rate);
