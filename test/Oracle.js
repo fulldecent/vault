@@ -84,4 +84,39 @@ contract('Oracle', function(accounts) {
       });
     })
   });
+
+  describe('#getConvertedAssetValue', async () => {
+    describe('before either asset is set', () => {
+      it("returns 0", async () => {
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, 1, tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 0);
+      });
+    });
+
+    describe('before target asset value is set', () => {
+      it("returns 0", async () => {
+        await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(17) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, 1, tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 0);
+      });
+    });
+
+    describe('before src asset value is set', () => {
+      it("returns 0", async () => {
+        await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(15) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, 1, tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 0);
+      });
+    });
+
+
+    describe('after both asset prices have been set', async () => {
+      it("returns amount", async () => {
+        await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(2) , {from: web3.eth.accounts[0]});
+        await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(5) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, (10 ** 18), tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 400000000000000000); // (1 * 10^18)*2/5
+      });
+    });
+  });
 });
