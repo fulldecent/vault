@@ -56,6 +56,32 @@ contract Oracle is Owned, Allowed, ArrayHelper {
     }
 
     /**
+     * `getConvertedAssetValue` returns the Oracle's view of the current
+     * value of srcAsset in terms of targetAsset, or 0 if either asset is unknown.
+     *
+     * @param srcAsset The address of the asset to query
+     * @param srcAssetAmount The amount in base units of the asset
+     * @param targetAsset The asset in which we want to value srcAsset
+     *
+     * @return value The value in wei of the asset, or zero.
+     */
+    function getConvertedAssetValue(address srcAsset, uint256 srcAssetAmount, address targetAsset) public view returns(uint) {
+
+        if(srcAsset == targetAsset) {
+            return srcAssetAmount;
+        }
+
+        uint srcValue = values[srcAsset];
+        uint targetValue = values[targetAsset];
+
+        if (srcValue == 0 || targetValue == 0) {
+            return 0; // not supported
+        }
+
+        return (srcValue * srcAssetAmount) / targetValue;
+    }
+
+    /**
      * `setAssetValue` sets the value of an asset in Compound.
      *
      * @param asset The address of the asset to set

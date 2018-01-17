@@ -20,10 +20,18 @@ contract Ledger is Graceful, Owned {
         CustomerWithdrawal,
         Interest,
         CustomerBorrow,
-        CustomerPayLoan
+        CustomerPayLoan,
+        CollateralPayLoan
     }
     enum LedgerType { Debit, Credit }
-    enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
+    enum LedgerAccount {
+        Cash,
+        Loan,
+        Deposit,
+        InterestExpense,
+        InterestIncome,
+        Trading
+    }
 
     event LedgerEntry(
         LedgerReason    ledgerReason,     // Ledger reason

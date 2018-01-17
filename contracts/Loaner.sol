@@ -129,6 +129,66 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
+      * @notice `convertCollateral` converts specified amount of collateral asset into loan asset to improve the borrower's
+                collateral ratio for the loan.
+      * @param borrower the borrower who took out the loan
+      * @param paymentAsset asset with which to reduce the loan balance
+      * @param amountInPaymentAsset how much of the paymentAsset to use (in wei-equivalent)
+      * @param loanAsset the asset that was borrowed; must differ from paymentAsset
+     **/
+    function convertCollateral(address borrower, address paymentAsset, uint256 amountInPaymentAsset, address loanAsset) public returns (bool) {
+
+        if(loanAsset == paymentAsset) {
+            failure("Loaner::CollateralSameAsLoan", uint256(loanAsset));
+            return false;
+        }
+
+        if(amountInPaymentAsset == 0) {
+            failure("Loaner::ZeroCollateralAmount", uint256(loanAsset));
+            return false;
+        }
+
+        if(!validOracle()) {
+            return false;
+        }
+
+        // true up balance first
+        if(!accrueLoanInterest(borrower, loanAsset)) {
+            return false;
+        }
+
+        uint loanBalance = getBalance(borrower, LedgerAccount.Loan, loanAsset);
+        if(loanBalance == 0) {
+            failure("Loaner::ZeroLoanBalance", uint256(loanAsset));
+            return false;
+        }
+
+        // Only allow conversion if the collateral ratio is NOT valid for the current balance
+        if (validCollateralRatioNotSender(borrower, loanBalance)) {
+            failure("Loaner::ValidCollateralRatio", uint256(loanAsset), uint256(loanBalance), getValueEquivalent(borrower));
+            return false;
+        }
+
+        uint amountInLoanAsset = oracle.getConvertedAssetValue(paymentAsset, amountInPaymentAsset, loanAsset);
+
+        if(amountInLoanAsset > loanBalance) {
+            failure("Loaner::TooMuchCollateral", uint256(amountInLoanAsset), uint256(loanBalance), amountInPaymentAsset);
+            return false;
+        }
+
+        // record loss of collateral
+        debit(LedgerReason.CollateralPayLoan, LedgerAccount.Deposit, borrower, paymentAsset, amountInPaymentAsset);
+        credit(LedgerReason.CollateralPayLoan, LedgerAccount.Trading, borrower, paymentAsset, amountInPaymentAsset);
+
+        // reduce loan
+        credit(LedgerReason.CollateralPayLoan, LedgerAccount.Loan, borrower, loanAsset, amountInLoanAsset);
+        debit(LedgerReason.CollateralPayLoan, LedgerAccount.Trading, borrower, loanAsset, amountInLoanAsset);
+
+        return true;
+    }
+
+
+    /**
       * @notice `getLoanBalance` returns the balance (with interest) for
       *         the given customers's loan of the given asset (e.g. W-Eth or OMG)
       * @param customer The customer
@@ -199,10 +259,20 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
+      * @notice `validCollateralRatioNotSender` determines if a the requested amount is valid for the specified borrower based on the minimum collateral ratio
+      * @param borrower the borrower whose collateral should be examined
+      * @param loanAmount the requested (or current) loan amount
+      * @return boolean true if the requested amount is valid and false otherwise
+      */
+    function validCollateralRatioNotSender(address borrower, uint loanAmount) view internal returns (bool) {
+        return (getValueEquivalent(borrower) * loanerStorage.minimumCollateralRatio()) >= loanAmount;
+    }
+
+    /**
      * @notice `getValueEquivalent` returns the value of the account based on
      * Oracle prices of assets. Note: this includes the Eth value itself.
      * @param acct The account to view value balance
-     * @return value The value of the acct in Eth equivalancy
+     * @return value The value of the acct in Eth equivalency
      */
     function getValueEquivalent(address acct) public view returns (uint256) {
         uint256 assetCount = oracle.getAssetsLength(); // from Oracle
