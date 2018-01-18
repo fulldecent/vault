@@ -91,15 +91,13 @@ contract Savings is Graceful, Owned, Ledger {
             return false;
         }
 
-        // Transfer `tokenStore` the asset from `from`
-        if (!Token(asset).transferFrom(from, address(tokenStore), amount)) {
-            failure("Savings::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
+        if (!accrueDepositInterest(from, asset)) {
             return false;
         }
 
-        if (!accrueDepositInterest(from, asset)) {
-            // TODO Because we completed the token transfer just above, we still need to do the debit/credit as below;
-            // otherwise, we've moved tokens without tracking them.
+        // Transfer `tokenStore` the asset from `from`
+        if (!Token(asset).transferFrom(from, address(tokenStore), amount)) {
+            failure("Savings::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
             return false;
         }
 
