@@ -20,10 +20,18 @@ contract Ledger is Graceful, Owned {
         CustomerWithdrawal,
         Interest,
         CustomerBorrow,
-        CustomerPayLoan
+        CustomerPayLoan,
+        CollateralPayLoan
     }
     enum LedgerType { Debit, Credit }
-    enum LedgerAccount { Cash, Loan, Deposit, InterestExpense, InterestIncome }
+    enum LedgerAccount {
+        Cash,
+        Loan,
+        Deposit,
+        InterestExpense,
+        InterestIncome,
+        Trading
+    }
 
     event LedgerEntry(
         LedgerReason    ledgerReason,     // Ledger reason
@@ -143,7 +151,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the ledger account
       * @return true if the account is an asset false otherwise
       */
-    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal returns (uint) {
+    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal view returns (uint) {
         return ledgerStorage.getBalance(customer, uint8(ledgerAccount), asset);
     }
 
@@ -152,7 +160,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the account type (e.g. Deposit or Loan)
       * @return true if the account is an asset false otherwise
       */
-    function isAsset(LedgerAccount ledgerAccount) private returns (bool) {
+    function isAsset(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
             ledgerAccount == LedgerAccount.Loan
         );
@@ -163,7 +171,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the account type (e.g. Deposit or Loan)
       * @return true if the account is an asset false otherwise
       */
-    function isLiability(LedgerAccount ledgerAccount) private returns (bool) {
+    function isLiability(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
             ledgerAccount == LedgerAccount.Deposit
         );

@@ -4,7 +4,7 @@ var PigToken = artifacts.require("./tokens/PigToken.sol");
 var WalletFactory = artifacts.require("./WalletFactory.sol");
 var TokenFactory = artifacts.require("./TokenFactory.sol");
 
-var SavingsInterestRateStorage = artifacts.require("./storage/BorrowInterestRateStorage.sol");
+var SavingsInterestRateStorage = artifacts.require("./storage/SavingsInterestRateStorage.sol");
 var BorrowInterestRateStorage = artifacts.require("./storage/BorrowInterestRateStorage.sol");
 var LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 var LoanerStorage = artifacts.require("./storage/LoanerStorage.sol");

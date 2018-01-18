@@ -5,7 +5,8 @@ const Vault = artifacts.require("./Vault.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
 const LoanerStorage = artifacts.require("./storage/LoanerStorage.sol");
-const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const BorrowInterestRateStorage = artifacts.require("./storage/BorrowInterestRateStorage.sol");
+const SavingsInterestRateStorage = artifacts.require("./storage/SavingsInterestRateStorage.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const Oracle = artifacts.require("./storage/Oracle.sol");
 const PigToken = artifacts.require("./token/PigToken.sol");
@@ -25,6 +26,7 @@ const LedgerReason = {
   Interest: web3.toBigNumber(2),
   CustomerBorrow: web3.toBigNumber(3),
   CustomerPayLoan: web3.toBigNumber(4),
+  CollateralPayLoan: web3.toBigNumber(5),
 };
 
 const LedgerAccount = {
@@ -32,7 +34,8 @@ const LedgerAccount = {
   Loan: web3.toBigNumber(1),
   Deposit: web3.toBigNumber(2),
   InterestExpense: web3.toBigNumber(3),
-  InterestIncome: web3.toBigNumber(4)
+  InterestIncome: web3.toBigNumber(4),
+  Trading: web3.toBigNumber(5),
 };
 
 contract('Vault', function(accounts) {
@@ -49,8 +52,8 @@ contract('Vault', function(accounts) {
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    borrowInterestRateStorage = await InterestRateStorage.new(10);
-    savingsInterestRateStorage = await InterestRateStorage.new(10);
+    borrowInterestRateStorage = await BorrowInterestRateStorage.new(10);
+    savingsInterestRateStorage = await SavingsInterestRateStorage.new(10);
     ledgerStorage = await LedgerStorage.new();
     loanerStorage = await LoanerStorage.new();
     oracle = await Oracle.new();
@@ -114,15 +117,16 @@ contract('Vault', function(accounts) {
     });
   });
 
+  // TODO (as part of CE-62) : Get interest to be applied and uncomment the expected events with ledgerReason: LedgerReason.Interest
   describe('#customerPayLoan', () => {
-    it.skip("accrues interest and reduces the balance", async () => {
-      await interestRateStorage.setInterestRate(etherToken.address, 50000, {from: web3.eth.accounts[0]});
+    it("accrues interest and reduces the balance", async () => {
+      await borrowInterestRateStorage.snapshotCurrentRate(etherToken.address, 50000);
       await utils.depositEth(vault, etherToken, 100, web3.eth.accounts[1]);
       await vault.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
-      await vault.customerPayLoan(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await utils.mineBlocks(web3, 10);
+      await vault.customerPayLoan(etherToken.address, 18, {from: web3.eth.accounts[1]});
       await utils.assertEvents(vault, [
-        {
+      /*  {
           event: "LedgerEntry",
           args: {
             ledgerReason: LedgerReason.Interest,
@@ -149,7 +153,7 @@ contract('Vault', function(accounts) {
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
-        },
+        }, */
         {
           event: "LedgerEntry",
           args: {
@@ -158,7 +162,7 @@ contract('Vault', function(accounts) {
             ledgerAccount: LedgerAccount.Loan,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('20'),
+            amount: web3.toBigNumber('18'),
             balance: web3.toBigNumber('2'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
@@ -172,8 +176,8 @@ contract('Vault', function(accounts) {
             ledgerAccount: LedgerAccount.Deposit,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('20'),
-            balance: web3.toBigNumber('100'),
+            amount: web3.toBigNumber('18'),
+            balance: web3.toBigNumber('102'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }

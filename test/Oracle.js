@@ -86,4 +86,50 @@ contract('Oracle', function(accounts) {
       });
     })
   });
+
+  describe('#getConvertedAssetValue', async () => {
+    describe('before either asset is set', () => {
+      it("returns 0", async () => {
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, 1, tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 0);
+      });
+    });
+
+    describe('before target asset value is set', () => {
+      it("returns 0", async () => {
+        await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(17) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, 1, tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 0);
+      });
+    });
+
+    describe('before src asset value is set', () => {
+      it("returns 0", async () => {
+        await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(15) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, 1, tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 0);
+      });
+    });
+
+
+    describe('conversion in terms a more valuable asset', async () => {
+      it("returns amount", async () => {
+        await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(2) , {from: web3.eth.accounts[0]});
+        await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(5) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, (10 ** 18), tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 400000000000000000); // (1 * 10^18)*2/5 or 0.4E18
+      });
+    });
+
+    describe('conversion in terms of a less valuable asset', async () => {
+      it("returns expected amount", async() => {
+       // Asset1 = 5 * 10E18 (aka 5 Eth)
+       // Asset2 = 2 * 10E18 (aka 2 Eth)
+        await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(5) , {from: web3.eth.accounts[0]});
+        await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(2) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, (10 ** 18), tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 2500000000000000000); // (1 * 10^18)*5/2 or 2.5E18
+    });
+    });
+  });
 });

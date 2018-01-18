@@ -10,7 +10,7 @@ import "./storage/LoanerStorage.sol";
 /**
   * @title The Compound Loan Account
   * @author Compound
-  * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
+  * @notice A loan account allows customer's to borrow assets, holding other assets as collateral.
   */
 contract Loaner is Graceful, Owned, Ledger {
     Oracle public oracle;
@@ -83,21 +83,27 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `customerBorrow` creates a new loan and deposits ether into the user's account.
+      * @notice `customerBorrow` creates a new loan and deposits the requested asset into the user's account.
       * @param asset The asset to borrow
       * @param amount The amount to borrow
       * @return success or failure
       */
     function customerBorrow(address asset, uint amount) public returns (bool) {
-        if (!validCollateralRatio(amount)) {
-            failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
-            return false;
-        }
 
         if (!loanerStorage.loanableAsset(asset)) {
             failure("Loaner::AssetNotLoanable", uint256(asset));
             return false;
         }
+
+        if (!validCollateralRatio(amount, asset)) {
+            failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
+            return false;
+        }
+
+        // TODO: If customer already has a loan of asset, we need to make sure we can handle the change.
+        // Before adding the new amount we will need to either calculate interest on existing loan amount or snapshot
+        // the current loan balance.
+        // Alternatively: Block additional loan for same asset.
 
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
@@ -121,6 +127,66 @@ contract Loaner is Graceful, Owned, Ledger {
 
         return true;
     }
+
+    /**
+      * @notice `convertCollateral` converts specified amount of collateral asset into loan asset to improve the borrower's
+                collateral ratio for the loan.
+      * @param borrower the borrower who took out the loan
+      * @param paymentAsset asset with which to reduce the loan balance
+      * @param amountInPaymentAsset how much of the paymentAsset to use (in wei-equivalent)
+      * @param loanAsset the asset that was borrowed; must differ from paymentAsset
+     **/
+    function convertCollateral(address borrower, address paymentAsset, uint256 amountInPaymentAsset, address loanAsset) public returns (bool) {
+
+        if(loanAsset == paymentAsset) {
+            failure("Loaner::CollateralSameAsLoan", uint256(loanAsset));
+            return false;
+        }
+
+        if(amountInPaymentAsset == 0) {
+            failure("Loaner::ZeroCollateralAmount", uint256(loanAsset));
+            return false;
+        }
+
+        if(!validOracle()) {
+            return false;
+        }
+
+        // true up balance first
+        if(!accrueLoanInterest(borrower, loanAsset)) {
+            return false;
+        }
+
+        uint loanBalance = getBalance(borrower, LedgerAccount.Loan, loanAsset);
+        if(loanBalance == 0) {
+            failure("Loaner::ZeroLoanBalance", uint256(loanAsset));
+            return false;
+        }
+
+        // Only allow conversion if the collateral ratio is NOT valid for the current balance
+        if (validCollateralRatioNotSender(borrower, loanBalance, loanAsset)) {
+            failure("Loaner::ValidCollateralRatio", uint256(loanAsset), uint256(loanBalance), getValueEquivalent(borrower));
+            return false;
+        }
+
+        uint amountInLoanAsset = oracle.getConvertedAssetValue(paymentAsset, amountInPaymentAsset, loanAsset);
+
+        if(amountInLoanAsset > loanBalance) {
+            failure("Loaner::TooMuchCollateral", uint256(amountInLoanAsset), uint256(loanBalance), amountInPaymentAsset);
+            return false;
+        }
+
+        // record loss of collateral
+        debit(LedgerReason.CollateralPayLoan, LedgerAccount.Deposit, borrower, paymentAsset, amountInPaymentAsset);
+        credit(LedgerReason.CollateralPayLoan, LedgerAccount.Trading, borrower, paymentAsset, amountInPaymentAsset);
+
+        // reduce loan
+        credit(LedgerReason.CollateralPayLoan, LedgerAccount.Loan, borrower, loanAsset, amountInLoanAsset);
+        debit(LedgerReason.CollateralPayLoan, LedgerAccount.Trading, borrower, loanAsset, amountInLoanAsset);
+
+        return true;
+    }
+
 
     /**
       * @notice `getLoanBalance` returns the balance (with interest) for
@@ -175,9 +241,9 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `getMaxLoanAvailable` gets the maximum loan availble
+      * @notice `getMaxLoanAvailable` gets the maximum loan available
       * @param account the address of the account
-      * @return uint the maximum loan amout available
+      * @return uint the maximum loan amount available
       */
     function getMaxLoanAvailable(address account) view public returns (uint) {
         return getValueEquivalent(account) * loanerStorage.minimumCollateralRatio();
@@ -185,18 +251,30 @@ contract Loaner is Graceful, Owned, Ledger {
 
     /**
       * @notice `validCollateralRatio` determines if a the requested amount is valid based on the minimum collateral ratio
-      * @param requestedAmount the requested loan amount
+      * @param loanAmount the requested loan amount
+      * @param loanAsset denomination of loan
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
-        return (getValueEquivalent(msg.sender) * loanerStorage.minimumCollateralRatio()) >= requestedAmount;
+    function validCollateralRatio(uint loanAmount, address loanAsset) view internal returns (bool) {
+        return validCollateralRatioNotSender(msg.sender, loanAmount, loanAsset);
+    }
+
+    /**
+      * @notice `validCollateralRatioNotSender` determines if a the requested amount is valid for the specified borrower based on the minimum collateral ratio
+      * @param borrower the borrower whose collateral should be examined
+      * @param loanAmount the requested (or current) loan amount
+      * @param loanAsset denomination of loan
+      * @return boolean true if the requested amount is valid and false otherwise
+      */
+    function validCollateralRatioNotSender(address borrower, uint loanAmount, address loanAsset) view internal returns (bool) {
+        return (getValueEquivalent(borrower) * loanerStorage.minimumCollateralRatio()) >= oracle.getAssetValue(loanAsset, loanAmount);
     }
 
     /**
      * @notice `getValueEquivalent` returns the value of the account based on
      * Oracle prices of assets. Note: this includes the Eth value itself.
      * @param acct The account to view value balance
-     * @return value The value of the acct in Eth equivalancy
+     * @return value The value of the acct in Eth equivalency
      */
     function getValueEquivalent(address acct) public view returns (uint256) {
         uint256 assetCount = oracle.getAssetsLength(); // from Oracle
@@ -234,7 +312,7 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `validLoanerStorage` verifies that the LoanerStorage is correct initialized
+      * @notice `validLoanerStorage` verifies that the LoanerStorage is correctly initialized
       * @dev This is just for sanity checking.
       * @return true if successfully initialized, false otherwise
       */
