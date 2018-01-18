@@ -1,3 +1,5 @@
+"use strict";
+
 var _ = require("lodash");
 var Promise = require("bluebird");
 var BigNumber = require('bignumber.js');
@@ -97,7 +99,51 @@ async function mineBlock(web3) {
   });
 }
 
+async function mineBlocks(web3, blocksToMine) {
+  var promises = [];
+
+  for (var i = 0; i < blocksToMine; i++) {
+    promises.push(await mineBlock(web3));
+  }
+
+  return await Promise.all(promises);
+}
+
+async function mineUntilBlockNumberEndsWith(web3, endsWith) {
+  const blockNumber = web3.eth.blockNumber;
+
+  const blocksToMine = 10 - ( blockNumber % 10 ) + endsWith;
+
+  return await mineBlocks(web3, blocksToMine);
+}
+
+async function buildSnapshots(web3, etherToken, interestRateStorage) {
+  await mineUntilBlockNumberEndsWith(web3, 7);
+  const startingBlockNumber = web3.eth.blockNumber;
+  const startingBlockUnit = (await interestRateStorage.getBlockUnit.call(startingBlockNumber)).toNumber()
+
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 100);
+
+  // Mine one more block unit
+  await mineUntilBlockNumberEndsWith(web3, 6);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 200);
+
+  // Mine one more block unit
+  await mineUntilBlockNumberEndsWith(web3, 5);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 300);
+
+  // Mine one more block unit
+  await mineUntilBlockNumberEndsWith(web3, 1);
+  await interestRateStorage.snapshotCurrentRate(etherToken.address, 400);
+
+  return [startingBlockNumber, startingBlockUnit];
+}
+
 module.exports = {
+  buildSnapshots: buildSnapshots,
+  mineBlocks: mineBlocks,
+  mineUntilBlockNumberEndsWith: mineUntilBlockNumberEndsWith,
+
   // https://ethereum.stackexchange.com/a/21661
   //
   assertEvents: function(contract, expectedEvents, args) {
@@ -153,7 +199,7 @@ module.exports = {
     });
   },
 
-  assertOnlyAllowed: async function(contract, f, web3) {
+  assertOnlyAllowed: async function(contract, f, web3, afterEach) {
     const ownerAccount = web3.eth.accounts[0];
     const existingAllowedAccount = await contract.allowed.call();
     const allowedAccount = web3.eth.accounts[1];
@@ -163,10 +209,18 @@ module.exports = {
 
     await f({from: allowedAccount});
 
+    if (afterEach) {
+      await afterEach();
+    }
+
     // Don't allow rando account
     await assertGracefulFailure(contract, "Allowed::NotAllowed", async () => {
       await f({from: nonAllowedAccount});
     });
+
+    if (afterEach) {
+      await afterEach();
+    }
 
     // Not even owner
     await assertGracefulFailure(contract, "Allowed::NotAllowed", async () => {
@@ -204,6 +258,12 @@ module.exports = {
 
   addLoanableAsset: async function(loaner, asset, web3) {
     return await loaner.addLoanableAsset(asset.address, {from: web3.eth.accounts[0]});
+  },
+
+  assertInterestRate: async function(assert, interestRateStorage, etherTokenAddress, blockNumber, expectedBlockUnit, expectedBlockUnitInterestRate, expectedCompoundInterestRate) {
+    assert.equal((await interestRateStorage.getSnapshotBlockUnit(etherTokenAddress, blockNumber)).valueOf(), expectedBlockUnit);
+    assert.equal((await interestRateStorage.getSnapshotBlockUnitInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedBlockUnitInterestRate);
+    assert.equal((await interestRateStorage.getCompoundedInterestRate(etherTokenAddress, blockNumber)).valueOf(), expectedCompoundInterestRate);
   },
 
 // http://www.thecalculatorsite.com/articles/finance/compound-interest-formula.php

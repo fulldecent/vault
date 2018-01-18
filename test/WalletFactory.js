@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const WalletFactory = artifacts.require("./WalletFactory.sol");
 const Wallet = artifacts.require("./Wallet.sol");
@@ -17,8 +19,9 @@ contract('WalletFactory', function(accounts) {
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    ledgerStorage = await LedgerStorage.new();
-    interestRateStorage = await InterestRateStorage.new();
+    const ledgerStorage = await LedgerStorage.new();
+    const savingsInterestRateStorage = await InterestRateStorage.new(10);
+    const borrowInterestRateStorage = await InterestRateStorage.new(10);
     [vault, etherToken] = await Promise.all([Vault.new(), EtherToken.new()]);
 
     await tokenStore.allow(vault.address);
@@ -27,8 +30,11 @@ contract('WalletFactory', function(accounts) {
     await ledgerStorage.allow(vault.address);
     await vault.setLedgerStorage(ledgerStorage.address);
 
-    await interestRateStorage.allow(vault.address);
-    await vault.setInterestRateStorage(interestRateStorage.address);
+    await borrowInterestRateStorage.allow(vault.address);
+    await vault.setSavingsInterestRateStorage(borrowInterestRateStorage.address);
+
+    await savingsInterestRateStorage.allow(vault.address);
+    await vault.setBorrowInterestRateStorage(savingsInterestRateStorage.address);
 
     walletFactory = await WalletFactory.new(vault.address, etherToken.address);
   });

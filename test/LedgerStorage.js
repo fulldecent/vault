@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const utils = require('./utils');
@@ -7,6 +9,7 @@ contract('LedgerStorage', function(accounts) {
   var ledgerStorage;
 
   beforeEach(async () => {
+    // TODO: Set block unit size
     [ledgerStorage] = await Promise.all([LedgerStorage.new()]);
     await ledgerStorage.allow(web3.eth.accounts[0]);
   });
@@ -89,15 +92,16 @@ contract('LedgerStorage', function(accounts) {
     it("should update checkpoint", async () => {
       await ledgerStorage.saveCheckpoint(1, 2, 3, {from: web3.eth.accounts[0]});
 
-      const firstTime = (await ledgerStorage.getBalanceTimestamp.call(1, 2, 3)).valueOf();
+      const firstBlockUnit = (await ledgerStorage.getBalanceBlockNumber.call(1, 2, 3)).valueOf();
 
-      await utils.increaseTime(web3, moment(0).add(2, 'years').unix());
+      // Mine 20 blocks
+      await utils.mineBlocks(web3, 20);
 
       await ledgerStorage.saveCheckpoint(1, 2, 3, {from: web3.eth.accounts[0]});
 
-      const nextTime = (await ledgerStorage.getBalanceTimestamp.call(1, 2, 3)).valueOf();
+      const secondBlockUnit = (await ledgerStorage.getBalanceBlockNumber.call(1, 2, 3)).valueOf();
 
-      assert.isAbove(nextTime, firstTime);
+      assert.equal(secondBlockUnit - firstBlockUnit, 21);
     });
 
     it("should be allowed only", async () => {

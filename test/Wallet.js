@@ -1,3 +1,5 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const Vault = artifacts.require("./Vault.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
@@ -50,7 +52,8 @@ contract('Wallet', function(accounts) {
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    const interestRateStorage = await InterestRateStorage.new();
+    const savingsInterestRateStorage = await InterestRateStorage.new(10);
+    const borrowInterestRateStorage = await InterestRateStorage.new(10);
     const ledgerStorage = await LedgerStorage.new();
     loanerStorage = await LoanerStorage.new();
     oracle = await Oracle.new();
@@ -60,13 +63,15 @@ contract('Wallet', function(accounts) {
     await ledgerStorage.allow(vault.address);
     await loanerStorage.allow(vault.address);
     await loanerStorage.setMinimumCollateralRatio(2);
-    await interestRateStorage.allow(vault.address);
+    await savingsInterestRateStorage.allow(vault.address);
+    await borrowInterestRateStorage.allow(vault.address);
     await oracle.allow(vault.address);
     await tokenStore.allow(vault.address);
 
     await vault.setLedgerStorage(ledgerStorage.address);
     await vault.setLoanerStorage(loanerStorage.address);
-    await vault.setInterestRateStorage(interestRateStorage.address);
+    await vault.setSavingsInterestRateStorage(savingsInterestRateStorage.address);
+    await vault.setBorrowInterestRateStorage(borrowInterestRateStorage.address);
     await vault.setOracle(oracle.address);
     await vault.setTokenStore(tokenStore.address);
 

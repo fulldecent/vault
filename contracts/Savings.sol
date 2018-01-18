@@ -3,7 +3,6 @@ pragma solidity ^0.4.18;
 import "./Ledger.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
-import "./base/InterestHelper.sol";
 import "./base/Token.sol";
 import "./storage/TokenStore.sol";
 
@@ -12,8 +11,10 @@ import "./storage/TokenStore.sol";
   * @author Compound
   * @notice A Savings account allows functions for customer deposits and withdrawals.
   */
-contract Savings is Graceful, Owned, Ledger, InterestHelper {
+contract Savings is Graceful, Owned, Ledger {
     TokenStore public tokenStore;
+    uint16 public savingsRateSlopeBPS = 1000;
+    InterestRateStorage public savingsInterestRateStorage;
 
     /**
       * @notice `setTokenStore` sets the token store contract
@@ -45,6 +46,35 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
     }
 
     /**
+      * @notice `setSavingsInterestRateStorage` sets the interest rate storage location for this savings contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param savingsInterestRateStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
+      */
+    function setSavingsInterestRateStorage(InterestRateStorage savingsInterestRateStorage_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        savingsInterestRateStorage = savingsInterestRateStorage_;
+
+        return true;
+    }
+
+    /**
+      * @notice `checkSavingsInterestRateStorage` verifies interest rate store has been set
+      * @return True if interest rate store is initialized, false otherwise
+      */
+    function checkSavingsInterestRateStorage() internal returns (bool) {
+        if (savingsInterestRateStorage == address(0)) {
+            failure("Savings::InterestRateStorageUnitialized");
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
       * @notice `customerDeposit` deposits a given asset in a customer's savings account.
       * @param asset Asset to deposit
       * @param amount The amount of asset to deposit
@@ -54,6 +84,10 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
     function customerDeposit(address asset, uint256 amount, address from) public returns (bool) {
         // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
         if (!checkTokenStore()) {
+            return false;
+        }
+
+        if (!checkSavingsInterestRateStorage()) {
             return false;
         }
 
@@ -82,6 +116,10 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       */
     function customerWithdraw(address asset, uint256 amount, address to) public returns (bool) {
         if (!checkTokenStore()) {
+            return false;
+        }
+
+        if (!checkSavingsInterestRateStorage()) {
             return false;
         }
 
@@ -116,26 +154,11 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       * @return The balance (with interest)
       */
     function getDepositBalance(address customer, address asset) public view returns (uint256) {
-        return getDepositBalanceAt(
-            customer,
+        return savingsInterestRateStorage.getCurrentBalance(
             asset,
-            now);
-    }
-
-    /**
-      * @notice `getDepositBalanceAt` returns the balance (with interest) for
-      *         the given customer in the given asset (e.g. W-Eth or OMG)
-      * @param customer The customer
-      * @param asset The asset to check the balance of
-      * @param timestamp The timestamp at which to check the value.
-      * @return The balance (with interest)
-      */
-    function getDepositBalanceAt(address customer, address asset, uint256 timestamp) public view returns (uint256) {
-        return balanceWithInterest(
-            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset),
-            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Deposit), asset),
-            timestamp,
-            interestRateStorage.getInterestRate(asset));
+            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Deposit), asset),
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset)
+        );
     }
 
     /**
@@ -146,18 +169,25 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
       * @return success or failure
       */
     function accrueDepositInterest(address customer, address asset) public returns (bool) {
-        if (!checkInterestRateStorage()) {
+        if (!checkSavingsInterestRateStorage()) {
             return false;
         }
 
-        uint timestamp = ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Deposit), asset);
+        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Deposit), asset);
 
-        if (timestamp != 0) {
-            uint interest = compoundedInterest(
-                ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset),
-                timestamp,
-                now,
-                interestRateStorage.getInterestRate(asset));
+        if (blockNumber != block.number) {
+            // We need to true up balance
+
+            uint balanceWithInterest = getDepositBalance(customer, asset);
+            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset);
+
+            if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
+                // Interest should never be negative
+                failure("Savings::InterestUnderflow", uint256(asset), uint256(customer), balanceWithInterest, balanceLessInterest);
+                return false;
+            }
+
+            uint interest = balanceWithInterest - balanceLessInterest;
 
             if (interest != 0) {
                 debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
@@ -169,5 +199,30 @@ contract Savings is Graceful, Owned, Ledger, InterestHelper {
         }
 
         return true;
+    }
+
+    /**
+      * @notice `getSavingsInterestRateBPS` returns the current savings interest rate based on the balance sheet
+      * @param asset address of asset
+      * @return the current savings interest rate (in basis points)
+      */
+    function getSavingsInterestRateBPS(address asset) public view returns (uint64) {
+      uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+      uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
+
+      // `deposit r` == (1-`reserve ratio`) * 10%
+      // note: this is done in one-line since intermediate results would be truncated
+      return uint64( ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * savingsRateSlopeBPS / basisPointMultiplier );
+    }
+
+    /**
+      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block uint
+      * @param asset address of asset
+      * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
+      */
+    function snapshotSavingsInterestRate(address asset) public returns (bool) {
+      uint64 rate = getSavingsInterestRateBPS(asset);
+
+      return savingsInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }

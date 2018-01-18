@@ -7,7 +7,7 @@ contract Allowed is Graceful, Owned {
 	address public allowed = address(0);
 
 	// TODO: Test
-	function allow(address _allowed) returns (bool) {
+	function allow(address _allowed) public returns (bool) {
 		if (!checkOwner()) {
 			return false;
 		}
@@ -18,7 +18,7 @@ contract Allowed is Graceful, Owned {
 	}
 
 	// TODO: Test
-	function checkAllowed() returns (bool) {
+	function checkAllowed() public returns (bool) {
 		if (msg.sender != allowed) {
 			failure("Allowed::NotAllowed", uint256(msg.sender), uint256(allowed));
 			return false;

@@ -1,6 +1,9 @@
+"use strict";
+
 const BigNumber = require('bignumber.js');
 const Vault = artifacts.require("./Vault.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
 const LoanerStorage = artifacts.require("./storage/LoanerStorage.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
@@ -35,31 +38,38 @@ const LedgerAccount = {
 contract('Vault', function(accounts) {
   var vault;
   var etherToken;
-  var interestRateStorage;
+  var pigToken;
+  var borrowInterestRateStorage;
+  var savingsInterestRateStorage;
   var loanerStorage;
   var oracle;
   var ledgerStorage;
   var tokenStore;
+  var testLedgerStorage;
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    interestRateStorage = await InterestRateStorage.new();
+    borrowInterestRateStorage = await InterestRateStorage.new(10);
+    savingsInterestRateStorage = await InterestRateStorage.new(10);
     ledgerStorage = await LedgerStorage.new();
     loanerStorage = await LoanerStorage.new();
     oracle = await Oracle.new();
+    testLedgerStorage = await TestLedgerStorage.new();
 
     [vault, etherToken, pigToken] = await Promise.all([Vault.new(), EtherToken.new(), PigToken.new()]);
 
     await ledgerStorage.allow(vault.address);
     await loanerStorage.allow(vault.address);
     await loanerStorage.setMinimumCollateralRatio(2);
-    await interestRateStorage.allow(vault.address);
+    await savingsInterestRateStorage.allow(vault.address);
+    await borrowInterestRateStorage.allow(vault.address);
     await oracle.allow(vault.address);
     await tokenStore.allow(vault.address);
 
     await vault.setLedgerStorage(ledgerStorage.address);
     await vault.setLoanerStorage(loanerStorage.address);
-    await vault.setInterestRateStorage(interestRateStorage.address);
+    await vault.setSavingsInterestRateStorage(savingsInterestRateStorage.address);
+    await vault.setBorrowInterestRateStorage(borrowInterestRateStorage.address);
     await vault.setOracle(oracle.address);
     await vault.setTokenStore(tokenStore.address);
 
@@ -258,5 +268,82 @@ contract('Vault', function(accounts) {
   it("sets the owner", async () => {
     const owner = await vault.getOwner.call();
     assert.equal(owner, web3.eth.accounts[0]);
+  });
+
+  describe('#getBorrowInterestRateBPS', async () => {
+    it('should return correct balance with given balance sheet', async () => {
+      await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+
+      assert.equal(interestRateBPS.toNumber(), 2500);
+    });
+
+    it('should return correct balance with another balance sheet', async () => {
+      await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+
+      assert.equal(interestRateBPS.toNumber(), 3000);
+    });
+
+    it('should return correct balance with another balance sheet', async () => {
+      await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 0);
+
+      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+
+      assert.equal(interestRateBPS.toNumber(), 1000);
+    });
+
+    it('should return correct balance with another balance sheet', async () => {
+      await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 100);
+
+      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+
+      assert.equal(interestRateBPS.toNumber(), 2000);
+    });
+
+    it('should return correct balance with another balance sheet', async () => {
+      await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 10000);
+
+      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+
+      assert.equal(interestRateBPS.toNumber(), 2982);
+    });
+  });
+
+  describe('#snapshotBorrowInterestRate', async () => {
+    it('should snapshot the current balance', async () => {
+      await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+      const blockNumber = web3.eth.blockNumber;
+
+      await vault.snapshotBorrowInterestRate(etherToken.address);
+
+      assert.equal(
+        (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
+        2500
+      );
+    });
+
+    it('should be called once per block unit');
   });
 });

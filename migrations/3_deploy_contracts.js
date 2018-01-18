@@ -3,7 +3,8 @@ var EtherToken = artifacts.require("EtherToken.sol");
 var PigToken = artifacts.require("PigToken.sol");
 var WalletFactory = artifacts.require("WalletFactory.sol");
 var TokenFactory = artifacts.require("TokenFactory.sol");
-var InterestRateStorage = artifacts.require("InterestRateStorage.sol");
+var SavingsInterestRateStorage = artifacts.require("SavingsInterestRateStorage.sol");
+var BorrowInterestRateStorage = artifacts.require("BorrowInterestRateStorage.sol");
 var LedgerStorage = artifacts.require("LedgerStorage.sol");
 var LoanerStorage = artifacts.require("LoanerStorage.sol");
 var Oracle = artifacts.require("Oracle.sol");
@@ -15,34 +16,38 @@ module.exports = function(deployer, network) {
   return deployer.deploy(Vault).then(() => {
     return deployer.deploy(EtherToken).then(() => {
       return EtherToken.deployed().then(etherToken => {
-        return InterestRateStorage.deployed().then(interestRateStorage => {
-          return LedgerStorage.deployed().then(ledgerStorage => {
-            return LoanerStorage.deployed().then(loanerStorage => {
-              return Oracle.deployed().then(oracle => {
-                return TokenStore.deployed().then(tokenStore => {
-                  return Vault.deployed().then(vault => {
-                    return deployer.deploy(WalletFactory, vault.address, etherToken.address).then(() => {
-                      const contracts = [];
+        return SavingsInterestRateStorage.deployed().then(savingsInterestRateStorage => {
+          return BorrowInterestRateStorage.deployed().then(borrowInterestRateStorage => {
+            return LedgerStorage.deployed().then(ledgerStorage => {
+              return LoanerStorage.deployed().then(loanerStorage => {
+                return Oracle.deployed().then(oracle => {
+                  return TokenStore.deployed().then(tokenStore => {
+                    return Vault.deployed().then(vault => {
+                      return deployer.deploy(WalletFactory, vault.address, etherToken.address).then(() => {
+                        const contracts = [];
 
-                      if (network == "development" || network == "mission" || network == "rinkeby") {
-                        contracts.push(PigToken);
-                        contracts.push(TokenFactory);
-                      }
+                        if (network == "development" || network == "mission" || network == "rinkeby") {
+                          contracts.push(PigToken);
+                          contracts.push(TokenFactory);
+                        }
 
-                      return deployer.deploy(contracts).then(() => {
-                        return Promise.all([
-                          loanerStorage.setMinimumCollateralRatio(MINIMUM_COLLATERAL_RATIO),
-                          interestRateStorage.allow(vault.address),
-                          ledgerStorage.allow(vault.address),
-                          loanerStorage.allow(vault.address),
-                          oracle.allow(vault.address),
-                          tokenStore.allow(vault.address),
-                          vault.setInterestRateStorage(interestRateStorage.address),
-                          vault.setLedgerStorage(ledgerStorage.address),
-                          vault.setLoanerStorage(loanerStorage.address),
-                          vault.setOracle(oracle.address),
-                          vault.setTokenStore(tokenStore.address),
-                        ]);
+                        return deployer.deploy(contracts).then(() => {
+                          return Promise.all([
+                            loanerStorage.setMinimumCollateralRatio(MINIMUM_COLLATERAL_RATIO),
+                            savingsInterestRateStorage.allow(vault.address),
+                            borrowInterestRateStorage.allow(vault.address),
+                            ledgerStorage.allow(vault.address),
+                            loanerStorage.allow(vault.address),
+                            oracle.allow(vault.address),
+                            tokenStore.allow(vault.address),
+                            vault.setSavingsInterestRateStorage(savingsInterestRateStorage.address),
+                            vault.setBorrowInterestRateStorage(borrowInterestRateStorage.address),
+                            vault.setLedgerStorage(ledgerStorage.address),
+                            vault.setLoanerStorage(loanerStorage.address),
+                            vault.setOracle(oracle.address),
+                            vault.setTokenStore(tokenStore.address),
+                          ]);
+                        });
                       });
                     });
                   });

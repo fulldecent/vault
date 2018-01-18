@@ -1,20 +1,23 @@
 pragma solidity ^0.4.18;
 
 import "./Ledger.sol";
-import "./storage/Oracle.sol";
-import "./storage/LoanerStorage.sol";
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
-import "./base/InterestHelper.sol";
+import "./base/Token.sol";
+import "./storage/Oracle.sol";
+import "./storage/LoanerStorage.sol";
 
 /**
   * @title The Compound Loan Account
   * @author Compound
   * @notice A loan account allows customer's to borrow assets, holding other assets as collatoral.
   */
-contract Loaner is Graceful, Owned, Ledger, InterestHelper {
+contract Loaner is Graceful, Owned, Ledger {
     Oracle public oracle;
     LoanerStorage public loanerStorage;
+    InterestRateStorage public borrowInterestRateStorage;
+    uint16 public borrowRateSlopeBPS = 2000;
+    uint16 public minimumBorrowRateBPS = 1000;
 
     function Loaner () public {}
 
@@ -46,6 +49,35 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
         }
 
         loanerStorage = LoanerStorage(loanerStorageAddress);
+
+        return true;
+    }
+
+    /**
+      * @notice `setBorrowInterestRateStorage` sets the interest rate storage location for this loaner contract
+      * @dev This is for long-term data storage (TODO: Test)
+      * @param borrowInterestRateStorage_ The contract which acts as the long-term data store
+      * @return Success of failure of operation
+      */
+    function setBorrowInterestRateStorage(InterestRateStorage borrowInterestRateStorage_) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        borrowInterestRateStorage = borrowInterestRateStorage_;
+
+        return true;
+    }
+
+    /**
+      * @notice `checkBorrowInterestRateStorage` verifies interest rate store has been set
+      * @return True if interest rate store is initialized, false otherwise
+      */
+    function checkBorrowInterestRateStorage() internal returns (bool) {
+        if (borrowInterestRateStorage == address(0)) {
+            failure("Loaner::InterestRateStorageUnitialized");
+            return false;
+        }
 
         return true;
     }
@@ -98,26 +130,11 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
       * @return The loan balance of given account
       */
     function getLoanBalance(address customer, address asset) public view returns (uint256) {
-        return getLoanBalanceAt(
-            customer,
+        return borrowInterestRateStorage.getCurrentBalance(
             asset,
-            now);
-    }
-
-    /**
-      * @notice `getLoanBalanceAt` returns the balance (with interest) for
-      *         the given account's loan of the given asset (e.g. W-Eth or OMG)
-      * @param customer The customer
-      * @param asset The asset to check the balance of
-      * @param timestamp The timestamp at which to check the value.
-      * @return The loan balance of given account at timestamp
-      */
-    function getLoanBalanceAt(address customer, address asset, uint256 timestamp) public view returns (uint256) {
-        return balanceWithInterest(
-            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset),
-            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Loan), asset),
-            timestamp,
-            interestRateStorage.getInterestRate(asset));
+            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Loan), asset),
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset)
+        );
     }
 
     /**
@@ -127,22 +144,31 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
       * @return success or failure
       */
     function accrueLoanInterest(address customer, address asset) public returns (bool) {
-        if (!checkInterestRateStorage()) {
+        if (!checkBorrowInterestRateStorage()) {
             return false;
         }
 
-        uint interest = compoundedInterest(
-            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset),
-            ledgerStorage.getBalanceTimestamp(customer, uint8(LedgerAccount.Loan), asset),
-            now,
-            interestRateStorage.getInterestRate(asset));
+        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Loan), asset);
 
-        if (interest != 0) {
-            credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
-            debit(LedgerReason.Interest, LedgerAccount.Loan, customer, asset, interest);
-            if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Loan), asset)) {
-                revert();
+        if (blockNumber != block.number) {
+            uint balanceWithInterest = getLoanBalance(customer, asset);
+            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Loan), asset);
+
+            if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
+                // Interest should never be negative
+                failure("Loaner::InterestUnderflow", uint256(asset), uint256(customer), balanceWithInterest, balanceLessInterest);
+                return false;
             }
+
+            uint interest = balanceWithInterest - balanceLessInterest;
+
+            if (interest != 0) {
+                credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
+                debit(LedgerReason.Interest, LedgerAccount.Loan, customer, asset, interest);
+                if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Loan), asset)) {
+                    revert();
+                }
+          }
         }
 
         return true;
@@ -172,7 +198,7 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
      * @param acct The account to view value balance
      * @return value The value of the acct in Eth equivalancy
      */
-    function getValueEquivalent(address acct) public returns (uint256) {
+    function getValueEquivalent(address acct) public view returns (uint256) {
         uint256 assetCount = oracle.getAssetsLength(); // from Oracle
         uint256 balance = 0;
 
@@ -226,5 +252,31 @@ contract Loaner is Graceful, Owned, Ledger, InterestHelper {
         }
 
         return result;
+    }
+
+    /**
+      * @notice `getBorrowInterestRateBPS` returns the current borrow interest rate based on the balance sheet
+      * @param asset address of asset
+      * @return the current borrow interest rate (in basis points)
+      */
+    function getBorrowInterestRateBPS(address asset) public view returns (uint64) {
+        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
+
+        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
+      // note: this is done in one-line since intermediate results would be truncated
+      return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier );
+    }
+
+    /**
+      * @notice `snapshotBorrowInterestRate` snapshots the current interest rate for the block uint
+      * @param asset address of asset
+      * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
+      * TODO: Test
+      */
+    function snapshotBorrowInterestRate(address asset) public returns (bool) {
+      uint64 rate = getBorrowInterestRateBPS(asset);
+
+      return borrowInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }
