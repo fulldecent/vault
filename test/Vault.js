@@ -117,7 +117,7 @@ contract('Vault', function(accounts) {
     });
   });
 
-  // TODO: Get interest to be applied and uncomment the expected events with ledgerReason: LedgerReason.Interest
+  // TODO (as part of CE-62) : Get interest to be applied and uncomment the expected events with ledgerReason: LedgerReason.Interest
   describe('#customerPayLoan', () => {
     it("accrues interest and reduces the balance", async () => {
       await borrowInterestRateStorage.snapshotCurrentRate(etherToken.address, 50000);
