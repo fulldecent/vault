@@ -95,17 +95,7 @@ contract Loaner is Graceful, Owned, Ledger {
             return false;
         }
 
-        if (!validCollateralRatio(amount)) {
-            failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
-            return false;
-        }
-
-        // TODO: If customer already has a loan of asset, we need to make sure we can handle the change.
-        // Before adding the new amount we will need to either calculate interest on existing loan amount or snapshot
-        // the current loan balance.
-        // Alternatively: Block additional loan for same asset.
-
-        if (!validCollateralRatio(amount)) {
+        if (!validCollateralRatio(amount, asset)) {
             failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
             return false;
         }
@@ -174,7 +164,7 @@ contract Loaner is Graceful, Owned, Ledger {
         }
 
         // Only allow conversion if the collateral ratio is NOT valid for the current balance
-        if (validCollateralRatioNotSender(borrower, loanBalance)) {
+        if (validCollateralRatioNotSender(borrower, loanBalance, loanAsset)) {
             failure("Loaner::ValidCollateralRatio", uint256(loanAsset), uint256(loanBalance), getValueEquivalent(borrower));
             return false;
         }
@@ -261,21 +251,23 @@ contract Loaner is Graceful, Owned, Ledger {
 
     /**
       * @notice `validCollateralRatio` determines if a the requested amount is valid based on the minimum collateral ratio
-      * @param requestedAmount the requested loan amount
+      * @param loanAmount the requested loan amount
+      * @param loanAsset denomination of loan
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatio(uint requestedAmount) view internal returns (bool) {
-        return (getValueEquivalent(msg.sender) * loanerStorage.minimumCollateralRatio()) >= requestedAmount;
+    function validCollateralRatio(uint loanAmount, address loanAsset) view internal returns (bool) {
+        return validCollateralRatioNotSender(msg.sender, loanAmount, loanAsset);
     }
 
     /**
       * @notice `validCollateralRatioNotSender` determines if a the requested amount is valid for the specified borrower based on the minimum collateral ratio
       * @param borrower the borrower whose collateral should be examined
       * @param loanAmount the requested (or current) loan amount
+      * @param loanAsset denomination of loan
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatioNotSender(address borrower, uint loanAmount) view internal returns (bool) {
-        return (getValueEquivalent(borrower) * loanerStorage.minimumCollateralRatio()) >= loanAmount;
+    function validCollateralRatioNotSender(address borrower, uint loanAmount, address loanAsset) view internal returns (bool) {
+        return (getValueEquivalent(borrower) * loanerStorage.minimumCollateralRatio()) >= oracle.getAssetValue(loanAsset, loanAmount);
     }
 
     /**
