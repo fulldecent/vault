@@ -105,6 +105,16 @@ contract Loaner is Graceful, Owned, Ledger {
         // the current loan balance.
         // Alternatively: Block additional loan for same asset.
 
+        if (!validCollateralRatio(amount)) {
+            failure("Loaner::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
+            return false;
+        }
+
+        // TODO: If customer already has a loan of asset, we need to make sure we can handle the change.
+        // Before adding the new amount we will need to either calculate interest on existing loan amount or snapshot
+        // the current loan balance.
+        // Alternatively: Block additional loan for same asset.
+
         debit(LedgerReason.CustomerBorrow, LedgerAccount.Loan, msg.sender, asset, amount);
         credit(LedgerReason.CustomerBorrow, LedgerAccount.Deposit, msg.sender, asset, amount);
 
