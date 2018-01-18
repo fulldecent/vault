@@ -112,13 +112,24 @@ contract('Oracle', function(accounts) {
     });
 
 
-    describe('after both asset prices have been set', async () => {
+    describe('conversion to a more valuable asset', async () => {
       it("returns amount", async () => {
         await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(2) , {from: web3.eth.accounts[0]});
         await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(5) , {from: web3.eth.accounts[0]});
         const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, (10 ** 18), tokenAddrs.OMG);
         assert.equal(balance.valueOf(), 400000000000000000); // (1 * 10^18)*2/5
       });
+    });
+
+    describe('conversion to a less valuable asset', async () => {
+      it("returns expected amount", async() => {
+       // Asset1 = 5 * 10E19 (aka 50 Eth)
+       // Asset2 = 2 * 10E19 (aka 20 Eth)
+        await oracle.setAssetValue(tokenAddrs.BAT, toAssetValue(5) , {from: web3.eth.accounts[0]});
+        await oracle.setAssetValue(tokenAddrs.OMG, toAssetValue(2) , {from: web3.eth.accounts[0]});
+        const balance = await oracle.getConvertedAssetValue.call(tokenAddrs.BAT, (10 ** 18), tokenAddrs.OMG);
+        assert.equal(balance.valueOf(), 2500000000000000000); // (1 * 10^18)*5/2
+    });
     });
   });
 });
