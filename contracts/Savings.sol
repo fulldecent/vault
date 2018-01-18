@@ -98,7 +98,8 @@ contract Savings is Graceful, Owned, Ledger {
         }
 
         if (!accrueDepositInterest(from, asset)) {
-            // TODO we still need to do the debit/credit as below. Need to emit an error but keep going.
+            // TODO Because we completed the token transfer just above, we still need to do the debit/credit as below;
+            // otherwise, we've moved tokens without tracking them.
             return false;
         }
 
