@@ -6,8 +6,6 @@ const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
-const SECONDS_IN_A_DAY = ( 60 * 60 * 24 );
-
 function getBlockUnit(blockNumber) {
   return Math.floor(blockNumber / 10);
 }
@@ -87,14 +85,14 @@ contract('InterestRateStorage', function(accounts) {
         return (await (interestRateStorage.getSnapshotBlockUnitInterestRate.call(etherToken.address, blockNumber))).toNumber();
       }
 
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber - 10), 100);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber), 100);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 1), 100);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 10), 200);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 20), 300);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 30), 400);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 40), 400);
-      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 50), 400);
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber - 10), utils.annualBPSToScaledPerGroupRate(100));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber), utils.annualBPSToScaledPerGroupRate(100));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 1), utils.annualBPSToScaledPerGroupRate(100));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 10), utils.annualBPSToScaledPerGroupRate(200));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 20), utils.annualBPSToScaledPerGroupRate(300));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 30), utils.annualBPSToScaledPerGroupRate(400));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 40), utils.annualBPSToScaledPerGroupRate(400));
+      assert.equal(await getSnapshotBlockUnitInterestRate(startingBlockNumber + 50), utils.annualBPSToScaledPerGroupRate(400));
     });
   });
 
@@ -106,13 +104,29 @@ contract('InterestRateStorage', function(accounts) {
         return (await (interestRateStorage.getCompoundedInterestRate.call(etherToken.address, blockNumber))).toNumber();
       }
 
-      assert.equal(await getCompoundedInterestRate(startingBlockNumber - 10), 10000000000000900);
-      assert.equal(await getCompoundedInterestRate(startingBlockNumber), 10000000000000900);
-      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 1), 10000000000000900);
-      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 10), 10000000000000700);
-      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 20), 10000000000000400);
+      // before 1st snapshot, so we use the value from the 1st snapshot,
+      // which should have compounded values 100 * 200 * 300 * 400 bps (but converted out of annual bps to scaled storage value for num blocks)
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber - 10), 10000004280822504);
+
+      // this matches the 1st snapshot group
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber), 10000004280822504);
+
+      // still in the 1st snapshot group
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 1), 10000004280822504);
+
+      // now in 2nd snapshot, which should have converted value of compounded 200 * 300 * 400 bps
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 10), 10000003329528429);
+
+      // now in 3rd snapshot, which should have converted value of compounded 300 * 400 bps
+      assert.equal(await getCompoundedInterestRate(startingBlockNumber + 20), 10000001902587519);
+
+      // now in 4th snapshot, which should have no compounding yet, because no 5th snapshot rate exists to compound on it
       assert.equal(await getCompoundedInterestRate(startingBlockNumber + 30), 10000000000000000);
+
+      // we've only made 4 snapshots, so return 4th instead of the non-existent 5th.
       assert.equal(await getCompoundedInterestRate(startingBlockNumber + 40), 10000000000000000);
+
+        // we've only made 4 snapshots, so return 4th instead of the non-existent 6th.
       assert.equal(await getCompoundedInterestRate(startingBlockNumber + 50), 10000000000000000);
     });
   });
@@ -125,11 +139,11 @@ contract('InterestRateStorage', function(accounts) {
         return (await (interestRateStorage.getCurrentBalance.call(etherToken.address, blockNumber, 20000000000000000))).toNumber();
       }
 
-      assert.equal(await getCurrentBalance(startingBlockNumber - 10), 20000000000001800);
-      assert.equal(await getCurrentBalance(startingBlockNumber), 20000000000001800);
-      assert.equal(await getCurrentBalance(startingBlockNumber + 1), 20000000000001800);
-      assert.equal(await getCurrentBalance(startingBlockNumber + 10), 20000000000001400);
-      assert.equal(await getCurrentBalance(startingBlockNumber + 20), 20000000000000800);
+      assert.equal(await getCurrentBalance(startingBlockNumber - 10), 20000008561645008);
+      assert.equal(await getCurrentBalance(startingBlockNumber), 20000008561645008);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 1), 20000008561645008);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 10), 20000006659056858);
+      assert.equal(await getCurrentBalance(startingBlockNumber + 20), 20000003805175038);
       assert.equal(await getCurrentBalance(startingBlockNumber + 30), 20000000000000000);
       assert.equal(await getCurrentBalance(startingBlockNumber + 40), 20000000000000000);
       assert.equal(await getCurrentBalance(startingBlockNumber + 50), 20000000000000000);
@@ -140,7 +154,9 @@ contract('InterestRateStorage', function(accounts) {
     it('should snapshot the block unit', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
+      var rate = utils.annualBPSToScaledPerGroupRate(500);
+
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, rate);
 
       const [
         currentBlock,
@@ -156,26 +172,29 @@ contract('InterestRateStorage', function(accounts) {
         blockInUpcomingBlockUnit
       ] = getBlocks(web3, assert);
 
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 500, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 500, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, rate, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, rate, 10000000000000000);
     });
 
     it('should correctly snapshot two block units', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
+      var rate500 = utils.annualBPSToScaledPerGroupRate(500);
+      var rate501 = utils.annualBPSToScaledPerGroupRate(501);
+
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, rate500);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, 501);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, rate501);
 
       const [
         currentBlock,
@@ -191,29 +210,35 @@ contract('InterestRateStorage', function(accounts) {
         blockInUpcomingBlockUnit
       ] = getBlocks(web3, assert);
 
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, 500, 10000000000000501);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 501, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 501, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 501, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 1, rate500, 10000002382990867);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 1, rate500, 10000002382990867);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 1, rate500, 10000002382990867);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 1, rate500, 10000002382990867);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, rate500, 10000002382990867);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, rate500, 10000002382990867);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, rate501, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, rate501, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, rate501, 10000000000000000);
     });
 
+
+    // AP: Update this test to use proper rates as inputs for snapshotCurrentRate
     it('should correctly snapshot three block units', async () => {
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
 
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, 500);
+      var rate500 = utils.annualBPSToScaledPerGroupRate(500);
+      var rate501 = utils.annualBPSToScaledPerGroupRate(501);
+      var rate490 = utils.annualBPSToScaledPerGroupRate(490);
+
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, rate500);
 
       // Mine one more block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, 501);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, rate501);
 
       // Mine yet another block unit
       await utils.mineUntilBlockNumberEndsWith(web3, 3);
-      await interestRateStorage.snapshotCurrentRate(etherToken.address, 490);
+      await interestRateStorage.snapshotCurrentRate(etherToken.address, rate490);
 
       const [
         currentBlock,
@@ -229,15 +254,15 @@ contract('InterestRateStorage', function(accounts) {
         blockInUpcomingBlockUnit
       ] = getBlocks(web3, assert);
 
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 500, 10000000000000991);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, 501, 10000000000000490);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, 501, 10000000000000490);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, 490, 10000000000000000);
-      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, 490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 2, rate500, 10000004713661132);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 2, rate500, 10000004713661132);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 2, rate500, 10000004713661132);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockTwoUnitsBeforeCurrent, currentBlockUnit - 2, rate500, 10000004713661132);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockOneUnitBeforeCurrent, currentBlockUnit - 1, rate501, 10000002330669710);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockOneUnitBeforeCurrent, currentBlockUnit - 1, rate501, 10000002330669710);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInCurrentBlockUnit, currentBlockUnit, rate490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockInCurrentBlockUnit, currentBlockUnit, rate490, 10000000000000000);
+      await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockInUpcomingBlockUnit, currentBlockUnit, rate490, 10000000000000000);
     });
 
     it('should correctly snapshot a fourth day', async () => {
@@ -270,6 +295,8 @@ contract('InterestRateStorage', function(accounts) {
         blockInUpcomingBlockUnit
       ] = getBlocks(web3, assert);
 
+
+      // jkl wtf is the 500. 500E-16 per Geoff.
       await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockThreeUnitsBeforeCurrent, currentBlockUnit - 3, 500, 10000000000001481);
       await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, laterBlockThreeUnitsBeforeCurrent, currentBlockUnit - 3, 500, 10000000000001481);
       await utils.assertInterestRate(assert, interestRateStorage, etherToken.address, blockTwoUnitsBeforeCurrent, currentBlockUnit - 2, 501, 10000000000000980);

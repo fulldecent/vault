@@ -365,7 +365,7 @@ contract('Savings', function(accounts) {
 
         const interestRateBPS = await savings.getSavingsInterestRateBPS(etherToken.address);
 
-        assert.equal(interestRateBPS.toNumber(), 991);
+        assert.equal(interestRateBPS.toNumber(), 990);
       });
     });
 

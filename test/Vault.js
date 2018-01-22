@@ -14,6 +14,8 @@ const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
 const toAssetValue = (value) => (value * 10 ** 9);
+const interestRateScale = (10 ** 16); // InterestRateStorage.sol interestRateScale
+const blockUnitsPerYear = 210240; // Tied to test set up in which InterestRateStorage.sol blockScale is 10. 2102400 blocks per year / 10 blocks per unit = 210240 units per year
 
 const LedgerType = {
   Debit: web3.toBigNumber(0),
@@ -274,64 +276,78 @@ contract('Vault', function(accounts) {
     assert.equal(owner, web3.eth.accounts[0]);
   });
 
-  describe('#getBorrowInterestRateBPS', async () => {
-    it('should return correct balance with given balance sheet', async () => {
+    describe('#getBorrowInterestRateBPS', async () => {
+        it('should return correct balance with given balance sheet', async () => {
+        await vault.setLedgerStorage(testLedgerStorage.address);
+
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
+
+        const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+        assert.equal(interestRateBPS.toNumber(), 2500);
+    });
+  });
+
+  describe('#getScaledBorrowRatePerGroup', async () => {
+    it('should return correct balance with liquidity ratio of 25%', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
 
-      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+      console.log("interestRateScale="+interestRateScale+", blockUnitsPerYear="+blockUnitsPerYear);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 2500);
+      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(2500));
     });
 
-    it('should return correct balance with another balance sheet', async () => {
+
+    it('should return correct balance with liquidity ratio of 0%', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
 
-      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 3000);
+      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(3000));
     });
 
-    it('should return correct balance with another balance sheet', async () => {
+    it('should return correct balance with liquidity ratio of 100%', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 0);
 
-      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 1000);
+      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(1000));
     });
 
-    it('should return correct balance with another balance sheet', async () => {
+    it('should return correct balance with liquidity ratio of 50%', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 100);
 
-      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 2000);
+      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(2000));
     });
 
-    it('should return correct balance with another balance sheet', async () => {
+    it('should return correct balance with liquidity ratio of 0.99%', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 10000);
 
-      const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 2982);
+      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(2982));
     });
   });
 
-  describe('#snapshotBorrowInterestRate', async () => {
+    describe('#snapshotBorrowInterestRate', async () => {
     it('should snapshot the current balance', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
@@ -344,7 +360,7 @@ contract('Vault', function(accounts) {
 
       assert.equal(
         (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-        2500
+            utils.annualBPSToScaledPerGroupRate(2500)
       );
     });
 

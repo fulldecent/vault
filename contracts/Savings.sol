@@ -214,19 +214,21 @@ contract Savings is Graceful, Owned, Ledger {
       * @param asset address of asset
       * @return the current savings interest rate (in basis points)
       */
+    // TODO: Replace with getScaledSupplyInterestRatePerBlockUnit similar to getScaledBorrowRatePerGroup in Loaner.sol.
     function getSavingsInterestRateBPS(address asset) public view returns (uint64) {
       uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
       uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
 
       // `deposit r` == (1-`reserve ratio`) * 10%
       // note: this is done in one-line since intermediate results would be truncated
+      // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
       return uint64( ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * savingsRateSlopeBPS / basisPointMultiplier );
     }
 
     /**
-      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block uint
+      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block unit
       * @param asset address of asset
-      * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
+      * @return true on success, false if failure (e.g. snapshot already taken for this block unit)
       */
     function snapshotSavingsInterestRate(address asset) public returns (bool) {
       uint64 rate = getSavingsInterestRateBPS(asset);

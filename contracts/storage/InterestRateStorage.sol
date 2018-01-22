@@ -10,10 +10,19 @@ import "../base/Allowed.sol";
   */
 contract InterestRateStorage is Owned, Allowed {
 	uint constant interestRateScale = 10 ** 16;
+
+	// the number of blocks in a single interest rate period.
 	uint blockScale;
 
+	uint blockUnitsPerYear;
+
+	/* @param blockScale_ is the number of blocks that constitutes an interest rate period
+	*/
 	function InterestRateStorage(uint8 blockScale_) public {
 		blockScale = blockScale_;
+
+		// blocksPerYear = 2102400 = (365 * 24 * 60 * 60) seconds per year / 15 seconds per block;
+		blockUnitsPerYear = 2102400/blockScale;
 	}
 
 	struct Snapshot {
@@ -29,12 +38,20 @@ contract InterestRateStorage is Owned, Allowed {
 
 	event NewSnapshot(address asset, uint blockUnit, uint64 blockUnitInterestRate);
 
-	/**
-	  * @notice `getSnapshotBlockNumber` returns the block number of the first snapshot on or after the given time
-	  * @param asset The asset which was snapshotted
-	  * @param blockNumber The block number to get the snapshot for
-	  * @return The block unit of the first snapshot on or after the given block
-	  */
+    function getInterestRateScale() public pure returns (uint)  {
+        return interestRateScale;
+    }
+
+    function getBlockUnitsPerYear() public view returns (uint) {
+        return blockUnitsPerYear;
+    }
+
+    /**
+      * @notice `getSnapshotBlockNumber` returns the block number of the first snapshot on or after the given time
+      * @param asset The asset which was snapshotted
+      * @param blockNumber The block number to get the snapshot for
+      * @return The block unit of the first snapshot on or after the given block
+      */
 	function getSnapshotBlockUnit(address asset, uint256 blockNumber) public view returns (uint64) {
 		return getSnapshot(asset, blockNumber).blockUnit;
 	}
@@ -43,7 +60,7 @@ contract InterestRateStorage is Owned, Allowed {
 	  * @notice `getSnapshotBlockUnitInterestRate` returns the block unit interest rate of the first snapshot on or after the given block
 	  * @param asset The asset which was snapshotted
 	  * @param blockNumber The block number to get the snapshot for
-	  * @return The block unit interest rate of the first snapshot on or after the given block scaled up by `interestRateScale`
+	  * @return The block unit interest rate of the first snapshot on or after the given block, scaled up by `interestRateScale`
 	  */
 	function getSnapshotBlockUnitInterestRate(address asset, uint256 blockNumber) public view returns (uint64) {
 		return getSnapshot(asset, blockNumber).blockUnitInterestRate;
@@ -53,7 +70,7 @@ contract InterestRateStorage is Owned, Allowed {
 	  * @notice `getCompoundedInterestRate` returns the compounded interest rate up until now of the first snapshot on or after the given time
 	  * @param asset The asset which was snapshotted
 	  * @param blockNumber The block number to get the snapshot for
-	  * @return The compounded interest rate for this given asset since given block scaled up by `interestRateScale`
+	  * @return The compounded interest rate for this given asset since given block, scaled up by `interestRateScale`
 	  */
 	function getCompoundedInterestRate(address asset, uint256 blockNumber) public view returns (uint256) {
 		return getSnapshot(asset, blockNumber).compoundedInterestRate;
@@ -75,12 +92,12 @@ contract InterestRateStorage is Owned, Allowed {
 	/**
 	  * @notice `snapshotCurrentRate` takes a block unit snapshot of a given asset's rate
 	  * @param asset The asset to snapshot
-	  * @param rate The interest rate to snapshot
+	  * @param scaledPerGroupRate The interest rate to snapshot.  THIS SHOULD COME IN SCALED BY interestRateScale. in python: scaled_group_rate = ((group_rate_bps * interest_rate_scale)/basis_points_multiplier).quantize(0, rounding=ROUND_FLOOR)
 	  * @dev This will fail if we have a current snapshot for the given block unit
 	  * @dev Note: this is public and anyone can call it.
 	  * @return Success or failure of given snapshot.
 	  */
-	function snapshotCurrentRate(address asset, uint64 rate) public returns (bool) {
+	function snapshotCurrentRate(address asset, uint64 scaledPerGroupRate) public returns (bool) {
 		if (!checkAllowed()) {
             return false;
         }
@@ -97,12 +114,12 @@ contract InterestRateStorage is Owned, Allowed {
 		lastSnapshotBlockUnits[asset] = currentBlockUnit;
 
 		snapshots[asset][currentBlockUnit] = Snapshot(
-			currentBlockUnit,
-			rate,
-			interestRateScale
+			currentBlockUnit, // blockUnit
+			scaledPerGroupRate, // blockUnitInterestRate
+			interestRateScale // compoundedInterestRate
 		);
 
-		NewSnapshot(asset, currentBlockUnit, rate);
+		NewSnapshot(asset, currentBlockUnit, scaledPerGroupRate);
 
 		if (firstSnapshotBlockUnit == 0) {
 			firstSnapshotBlockUnits[asset] = currentBlockUnit;
@@ -118,10 +135,11 @@ contract InterestRateStorage is Owned, Allowed {
 
 					// Let's start compounding this rate as well.
 					// TODO: This is right?
-					rate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].blockUnitInterestRate, rate) - interestRateScale);
+                    // AP: I'm starting to think it is not right.
+					scaledPerGroupRate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].blockUnitInterestRate, scaledPerGroupRate) - interestRateScale);
 				} else {
 					// Compound interest rate with current block unit's interest
-					snapshots[asset][blockUnit].compoundedInterestRate = multiplyInterestRate(snapshots[asset][blockUnit].compoundedInterestRate, rate);
+					snapshots[asset][blockUnit].compoundedInterestRate = multiplyInterestRate(snapshots[asset][blockUnit].compoundedInterestRate, scaledPerGroupRate);
 				}
 			}
 		}

@@ -342,9 +342,32 @@ contract Loaner is Graceful, Owned, Ledger {
         uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
 
         // `borrow r` == 10% + (1-`reserve ratio`) * 20%
-      // note: this is done in one-line since intermediate results would be truncated
-      return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier );
+        // note: this is done in one-line since intermediate results would be truncated
+        return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier );
     }
+
+//    event Foo(uint )
+
+    /**
+      * @notice `getScaledBorrowRatePerGroup` returns the current borrow interest rate based on the balance sheet
+      * @param asset address of asset
+      * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
+      * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
+      * @return the current borrow interest rate (in basis points)
+      */
+    function getScaledBorrowRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
+        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
+
+        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
+        // note: this is done in one-line since intermediate results would be truncated
+
+        return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * (borrowRateSlopeBPS / basisPointMultiplier) * interestRateScale / (blockUnitsPerYear*basisPointMultiplier));
+        // This one SHOULD be right. It's the annual BPS number scaled up and then convert to per group rate.
+        //return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * (borrowRateSlopeBPS / basisPointMultiplier)) * interestRateScale / (blockUnitsPerYear*basisPointMultiplier));
+        //     uint64(  minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) *  borrowRateSlopeBPS / basisPointMultiplier );
+    }
+
 
     /**
       * @notice `snapshotBorrowInterestRate` snapshots the current interest rate for the block uint
@@ -353,7 +376,9 @@ contract Loaner is Graceful, Owned, Ledger {
       * TODO: Test
       */
     function snapshotBorrowInterestRate(address asset) public returns (bool) {
-      uint64 rate = getBorrowInterestRateBPS(asset);
+      uint64 rate = getScaledBorrowRatePerGroup(asset,
+          borrowInterestRateStorage.getInterestRateScale(),
+          borrowInterestRateStorage.getBlockUnitsPerYear());
 
       return borrowInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
