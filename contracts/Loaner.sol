@@ -358,10 +358,16 @@ contract Loaner is Graceful, Owned, Ledger {
         uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
         uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
 
+        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
+        uint256 denominator = cash + borrows;
+        if(denominator == 0) {
+            denominator = 1;
+        }
+
         // `borrow r` == 10% + (1-`reserve ratio`) * 20%
         // note: this is done in one-line since intermediate results would be truncated
 
-        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
+        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
     }
 
 
