@@ -277,7 +277,7 @@ contract('Vault', function(accounts) {
   });
   
   describe('#getScaledBorrowRatePerGroup', async () => {
-    it('should return correct balance with liquidity ratio of 25%', async () => {
+    it('should return correct balance with liquidity ratio of 25% (borrow rate 25%)', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
@@ -289,11 +289,11 @@ contract('Vault', function(accounts) {
 
       console.log(["interestRateBPS=",interestRateBPS]);
 
-      assert.equal(interestRateBPS.toNumber(), 11891170000);
+      utils.validateRate(assert, 2500, interestRateBPS.toNumber(), 11891170000, "25%");
     });
 
 
-    it('should return correct balance with liquidity ratio of 0%', async () => {
+    it('should return correct balance with liquidity ratio of 0% (borrow rate 30%)', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
@@ -301,10 +301,10 @@ contract('Vault', function(accounts) {
 
       const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-    assert.equal(interestRateBPS.toNumber(), 14269404000);
+    utils.validateRate(assert, 3000, interestRateBPS.toNumber(), 14269404000, "30%");
     });
 
-    it('should return correct balance with liquidity ratio of 100%', async () => {
+    it('should return correct balance with liquidity ratio of 100% (borrow rate 10%)', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
@@ -312,10 +312,10 @@ contract('Vault', function(accounts) {
 
       const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 4756468000);
+      utils.validateRate(assert, 1000, interestRateBPS.toNumber(), 4756468000, "10%");
     });
 
-    it('should return correct balance with liquidity ratio of 50%', async () => {
+    it('should return correct balance with liquidity ratio of 50% (borrow rate 20%)', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
@@ -323,10 +323,10 @@ contract('Vault', function(accounts) {
 
       const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 9512936000);
+      utils.validateRate(assert, 2000, interestRateBPS.toNumber(), 9512936000, "20%");
     });
 
-    it('should return correct balance with liquidity ratio of 0.99%', async () => {
+    it('should return correct balance with liquidity ratio of 0.99% (borrow rate 29.82%)', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
@@ -334,7 +334,21 @@ contract('Vault', function(accounts) {
 
       const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), 14174274640);
+      // For this one, the error ratio is 0.00067.
+      utils.validateRateWithMaxRatio(assert, 2982, interestRateBPS.toNumber(), 14174274640, 0.00068, "29.82%");
+    });
+
+    it('should return correct balance with liquidity ratio of 0.559471% (borrow rate 18.8105726872247%)', async () => {
+        await vault.setLedgerStorage(testLedgerStorage.address);
+
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 127);
+      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 100);
+
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
+
+      // For this one, the error ratio is 0.00003061.
+      utils.validateRateWithMaxRatio(assert, 1881.05726872247, interestRateBPS.toNumber(), 8946916308, 0.0000307, "18.8105726872247%");
+      //                                                                      exact value  8947190205
     });
   });
 
@@ -349,10 +363,8 @@ contract('Vault', function(accounts) {
 
       await vault.snapshotBorrowInterestRate(etherToken.address);
 
-      assert.equal(
-        (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-        11891170000
-      );
+        utils.validateRate(assert, 2500, (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
+            11891170000, "25%");
     });
 
     it('should be called once per block unit');

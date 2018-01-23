@@ -29,6 +29,8 @@ Contract tests are defined under the [test
 directory](https://github.com/compound-finance/vault/tree/master/test). To run the tests run:
 
     truffle test
+    
+Assertions used in our tests are provided by [ChaiJS](http://chaijs.com).    
 
 Deployment
 ----------

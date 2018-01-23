@@ -8,6 +8,27 @@ const toAssetValue = (value) => (value * 10 ** 9);
 const interestRateScale =  10 ** 16;
 const groupsPerYear = 210240; // 2102400 blocks per year / 10 blocks per group
 const annualBPSToScaledPerGroupRate = (value) => Math.trunc((value * interestRateScale) / (10000 * groupsPerYear));
+const annualBPSToScaledPerGroupRateNonTrunc = (value) => (value * interestRateScale) / (10000 * groupsPerYear);
+
+function validateRate(assert, annual_bps, actual, expected, msg) {
+  validateRateWithMaxRatio(assert, annual_bps, actual, expected, 0.0000002, msg)
+}
+
+function validateRateWithMaxRatio(assert, annual_bps, actual, expected, max_ratio, msg, debug=true) {
+    var group_rate_derived_from_annual_bps = annualBPSToScaledPerGroupRateNonTrunc(annual_bps);
+    var delta = expected - group_rate_derived_from_annual_bps;
+    // error_ratio: How does our blockchain computed per group rate compare to the annual bps
+    // that has been converted to a per group rate?
+    var error_ratio = 0;
+    if(group_rate_derived_from_annual_bps != 0) {
+        error_ratio = Math.abs(delta) / group_rate_derived_from_annual_bps;
+    }
+    if(error_ratio >= max_ratio || debug) {
+        console.log(msg+", annual_bps="+annual_bps+", expected="+expected+", actual="+actual+", error_ratio="+error_ratio+", group_rate_derived_from_annual_bps="+group_rate_derived_from_annual_bps);
+    }
+    assert.isBelow(error_ratio, max_ratio, "bad error ratio");
+    assert.equal(actual, expected, msg);
+}
 
 async function createAndApproveWeth(ledger, etherToken, amount, account, approvalAmount) {
   await etherToken.deposit({from: account, value: amount});
@@ -147,6 +168,8 @@ module.exports = {
   mineBlocks: mineBlocks,
   mineUntilBlockNumberEndsWith: mineUntilBlockNumberEndsWith,
   annualBPSToScaledPerGroupRate: annualBPSToScaledPerGroupRate,
+  validateRate: validateRate,
+  validateRateWithMaxRatio: validateRateWithMaxRatio,
 
   // https://ethereum.stackexchange.com/a/21661
   //
