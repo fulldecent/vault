@@ -135,7 +135,6 @@ contract InterestRateStorage is Owned, Allowed {
 
 					// Let's start compounding this rate as well.
 					// TODO: This is right?
-                    // AP: I'm starting to think it is not right.
 					scaledPerGroupRate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].blockUnitInterestRate, scaledPerGroupRate) - interestRateScale);
 				} else {
 					// Compound interest rate with current block unit's interest
