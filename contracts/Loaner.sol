@@ -352,7 +352,7 @@ contract Loaner is Graceful, Owned, Ledger {
       * @param asset address of asset
       * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
       * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
-      * @return the current borrow interest rate (in basis points)
+      * @return the current borrow interest rate (in scale points, aka divide by 10^16 to get real rate)
       */
     function getScaledBorrowRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
         uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
