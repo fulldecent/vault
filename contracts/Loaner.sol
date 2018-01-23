@@ -333,21 +333,6 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
-      * DEPRECATED. DO NOT USE.
-      * @notice `getBorrowInterestRateBPS` returns the current borrow interest rate based on the balance sheet
-      * @param asset address of asset
-      * @return the current borrow interest rate (in basis points)
-      */
-    function getBorrowInterestRateBPS(address asset) public view returns (uint64) {
-        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
-
-        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
-        // note: this is done in one-line since intermediate results would be truncated
-        return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier );
-    }
-
-    /**
       * @notice `getScaledBorrowRatePerGroup` returns the current borrow interest rate based on the balance sheet
       * @param asset address of asset
       * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.

@@ -210,28 +210,6 @@ contract Savings is Graceful, Owned, Ledger {
     }
 
     /**
-      * DEPRECATED. DO NOT USE. Use getScaledSupplyRatePerGroup instead.
-      * @notice `getSavingsInterestRateBPS` returns the current savings interest rate based on the balance sheet
-      * @param asset address of asset
-      * @return the current savings interest rate (in basis points)
-      */
-    function getSavingsInterestRateBPS(address asset) public view returns (uint64) {
-      uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-      uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
-
-      // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
-      uint256 denominator = cash + borrows;
-      if(denominator == 0) {
-          denominator = 1;
-      }
-
-      // `deposit r` == (1-`reserve ratio`) * 10%
-      // note: this is done in one-line since intermediate results would be truncated
-      // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
-      return uint64( ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * savingsRateSlopeBPS / basisPointMultiplier );
-    }
-
-    /**
       * @notice `getScaledSupplyRatePerGroup` returns the current borrow interest rate based on the balance sheet
       * @param asset address of asset
       * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.

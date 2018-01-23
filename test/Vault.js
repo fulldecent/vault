@@ -275,19 +275,7 @@ contract('Vault', function(accounts) {
     const owner = await vault.getOwner.call();
     assert.equal(owner, web3.eth.accounts[0]);
   });
-
-    describe('#getBorrowInterestRateBPS', async () => {
-        it('should return correct balance with given balance sheet', async () => {
-        await vault.setLedgerStorage(testLedgerStorage.address);
-
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
-
-        const interestRateBPS = await vault.getBorrowInterestRateBPS(etherToken.address);
-        assert.equal(interestRateBPS.toNumber(), 2500);
-    });
-  });
-
+  
   describe('#getScaledBorrowRatePerGroup', async () => {
     it('should return correct balance with liquidity ratio of 25%', async () => {
       await vault.setLedgerStorage(testLedgerStorage.address);
