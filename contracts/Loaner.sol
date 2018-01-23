@@ -333,7 +333,7 @@ contract Loaner is Graceful, Owned, Ledger {
     }
 
     /**
-      * DEPRECATED. DO NOT USE. 
+      * DEPRECATED. DO NOT USE.
       * @notice `getBorrowInterestRateBPS` returns the current borrow interest rate based on the balance sheet
       * @param asset address of asset
       * @return the current borrow interest rate (in basis points)
@@ -361,10 +361,7 @@ contract Loaner is Graceful, Owned, Ledger {
         // `borrow r` == 10% + (1-`reserve ratio`) * 20%
         // note: this is done in one-line since intermediate results would be truncated
 
-        return uint64( minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * (borrowRateSlopeBPS / basisPointMultiplier) * interestRateScale / (blockUnitsPerYear*basisPointMultiplier));
-        // This one SHOULD be right. It's the annual BPS number scaled up and then convert to per group rate.
-        //return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * (borrowRateSlopeBPS / basisPointMultiplier)) * interestRateScale / (blockUnitsPerYear*basisPointMultiplier));
-        //     uint64(  minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) *  borrowRateSlopeBPS / basisPointMultiplier );
+        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
     }
 
 

@@ -128,7 +128,7 @@ contract('Savings', function(accounts) {
     });
   });
 
-  describe('#customerDeposit', () => {
+  describe('#customerWithdraw', () => {
     describe('if you have enough funds', () => {
       it("should decrease the account's balance", async () => {
         await utils.depositEth(savings, etherToken, 100, web3.eth.accounts[1]);
@@ -196,7 +196,7 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.InterestExpense,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('1800'),
+              amount: web3.toBigNumber('8561645008'),
               balance: web3.toBigNumber('0'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
@@ -210,8 +210,8 @@ contract('Savings', function(accounts) {
               ledgerAccount: LedgerAccount.Deposit,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('1800'),
-              balance: web3.toBigNumber('20000000000001800'),
+              amount: web3.toBigNumber('8561645008'),
+              balance: web3.toBigNumber('20000008561645008'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -226,7 +226,7 @@ contract('Savings', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: web3.toBigNumber(withdrawAmount),
-              balance: web3.toBigNumber('10000000000001800'),
+              balance: web3.toBigNumber('10000008561645008'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }

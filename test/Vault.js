@@ -296,9 +296,12 @@ contract('Vault', function(accounts) {
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
 
       console.log("interestRateScale="+interestRateScale+", blockUnitsPerYear="+blockUnitsPerYear);
-      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
+      const interestRateBPS = (await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear));
+      (await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear));
 
-      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(2500));
+      console.log(["interestRateBPS=",interestRateBPS]);
+
+      assert.equal(interestRateBPS.toNumber(), 11891170000);
     });
 
 
@@ -308,9 +311,9 @@ contract('Vault', function(accounts) {
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 150);
 
-      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(3000));
+    assert.equal(interestRateBPS.toNumber(), 14269404000);
     });
 
     it('should return correct balance with liquidity ratio of 100%', async () => {
@@ -319,9 +322,9 @@ contract('Vault', function(accounts) {
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 0);
 
-      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(1000));
+      assert.equal(interestRateBPS.toNumber(), 4756468000);
     });
 
     it('should return correct balance with liquidity ratio of 50%', async () => {
@@ -330,9 +333,9 @@ contract('Vault', function(accounts) {
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 100);
 
-      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(2000));
+      assert.equal(interestRateBPS.toNumber(), 9512936000);
     });
 
     it('should return correct balance with liquidity ratio of 0.99%', async () => {
@@ -341,9 +344,9 @@ contract('Vault', function(accounts) {
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
       await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Loan, 10000);
 
-      const interestRateBPS = await vault.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
+      const interestRateBPS = await vault.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
 
-      assert.equal(interestRateBPS.toNumber(), utils.annualBPSToScaledPerGroupRate(2982));
+      assert.equal(interestRateBPS.toNumber(), 14174274640);
     });
   });
 
@@ -360,7 +363,7 @@ contract('Vault', function(accounts) {
 
       assert.equal(
         (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-            utils.annualBPSToScaledPerGroupRate(2500)
+        11891170000
       );
     });
 
