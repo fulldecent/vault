@@ -1,19 +1,19 @@
 "use strict";
 
 const BigNumber = require('bignumber.js');
-const Vault = artifacts.require("./Vault.sol");
+const MoneyMarket = artifacts.require("./MoneyMarket.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
-const LoanerStorage = artifacts.require("./storage/LoanerStorage.sol");
+const BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
-const Oracle = artifacts.require("./storage/Oracle.sol");
+const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
 const PigToken = artifacts.require("./token/PigToken.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const Wallet = artifacts.require("./Wallet.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
-async function depositEth(wallet, amount, account) {
+async function supplyEth(wallet, amount, account) {
   await wallet.sendTransaction({value: amount, from: account});
 }
 
@@ -21,12 +21,12 @@ async function withdrawEth(wallet, amount, account, to) {
   await wallet.withdrawEth(amount, to, {from: account});
 }
 
-async function depositAsset(wallet, token, amount, account) {
+async function supplyAsset(wallet, token, amount, account) {
   // Approve wallet for amount tokens
   await token.approve(wallet.address, amount, {from: account});
 
-  // Deposit those tokens
-  await wallet.depositAsset(token.address, amount, {from: account});
+  // Supply those tokens
+  await wallet.supplyAsset(token.address, amount, {from: account});
 }
 
 async function withdrawAsset(wallet, token, amount, account, to) {
@@ -43,58 +43,58 @@ async function borrowEth(wallet, amount, to, account) {
 
 contract('Wallet', function(accounts) {
   var wallet;
-  var vault;
+  var moneyMarket;
   var etherToken;
   var pigToken;
-  var loanerStorage;
-  var oracle;
+  var borrowStorage;
+  var priceOracle;
   var tokenStore;
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    const savingsInterestRateStorage = await InterestRateStorage.new(10);
+    const supplyInterestRateStorage = await InterestRateStorage.new(10);
     const borrowInterestRateStorage = await InterestRateStorage.new(10);
     const ledgerStorage = await LedgerStorage.new();
-    loanerStorage = await LoanerStorage.new();
-    oracle = await Oracle.new();
+    borrowStorage = await BorrowStorage.new();
+    priceOracle = await PriceOracle.new();
 
-    [vault, etherToken, pigToken] = await Promise.all([Vault.new(), EtherToken.new(), PigToken.new()]);
+    [moneyMarket, etherToken, pigToken] = await Promise.all([MoneyMarket.new(), EtherToken.new(), PigToken.new()]);
 
-    await ledgerStorage.allow(vault.address);
-    await loanerStorage.allow(vault.address);
-    await loanerStorage.setMinimumCollateralRatio(2);
-    await savingsInterestRateStorage.allow(vault.address);
-    await borrowInterestRateStorage.allow(vault.address);
-    await oracle.allow(vault.address);
-    await tokenStore.allow(vault.address);
+    await ledgerStorage.allow(moneyMarket.address);
+    await borrowStorage.allow(moneyMarket.address);
+    await borrowStorage.setMinimumCollateralRatio(2);
+    await supplyInterestRateStorage.allow(moneyMarket.address);
+    await borrowInterestRateStorage.allow(moneyMarket.address);
+    await priceOracle.allow(moneyMarket.address);
+    await tokenStore.allow(moneyMarket.address);
 
-    await vault.setLedgerStorage(ledgerStorage.address);
-    await vault.setLoanerStorage(loanerStorage.address);
-    await vault.setSavingsInterestRateStorage(savingsInterestRateStorage.address);
-    await vault.setBorrowInterestRateStorage(borrowInterestRateStorage.address);
-    await vault.setOracle(oracle.address);
-    await vault.setTokenStore(tokenStore.address);
+    await moneyMarket.setLedgerStorage(ledgerStorage.address);
+    await moneyMarket.setBorrowStorage(borrowStorage.address);
+    await moneyMarket.setSupplyInterestRateStorage(supplyInterestRateStorage.address);
+    await moneyMarket.setBorrowInterestRateStorage(borrowInterestRateStorage.address);
+    await moneyMarket.setPriceOracle(priceOracle.address);
+    await moneyMarket.setTokenStore(tokenStore.address);
 
-    wallet = await Wallet.new(web3.eth.accounts[1], vault.address, etherToken.address);
+    wallet = await Wallet.new(web3.eth.accounts[1], moneyMarket.address, etherToken.address);
   });
 
-  describe('#depositEth / fallback', () => {
-    it('#fallback should deposit assets in vault', async () => {
+  describe('#supplyEth / fallback', () => {
+    it('#fallback should supply assets in moneyMarket', async () => {
       await wallet.sendTransaction({value: 55});
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 55);
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 0);
     });
 
-    it('#depositEth should deposit assets in vault', async () => {
-      await wallet.depositEth({value: 55});
+    it('#supplyEth should supply assets in moneyMarket', async () => {
+      await wallet.supplyEth({value: 55});
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 55);
@@ -102,8 +102,8 @@ contract('Wallet', function(accounts) {
     });
   });
 
-  describe('#depositAsset', () => {
-    it('should deposit assets in vault', async () => {
+  describe('#supplyAsset', () => {
+    it('should supply assets in moneyMarket', async () => {
       // Allocate 100 pig tokens to account 1
       await pigToken.allocate(web3.eth.accounts[1], 100);
 
@@ -114,23 +114,23 @@ contract('Wallet', function(accounts) {
       assert.equal(await utils.tokenBalance(pigToken, tokenStore.address), 0);
       assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 100);
 
-      // Deposit those tokens
-      await wallet.depositAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
+      // Supply those tokens
+      await wallet.supplyAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, pigToken.address), 55);
 
       // verify balances in PigToken
       assert.equal(await utils.tokenBalance(pigToken, tokenStore.address), 55);
       assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
     });
 
-    it('should leave a Deposit event');
-    it('should accept deposits from third party');
+    it('should leave a Supply event');
+    it('should accept supplys from third party');
   });
 
-  describe('#depositDirect', () => {
-    it('should deposit assets owned by wallet into vault', async () => {
+  describe('#supplyDirect', () => {
+    it('should supply assets owned by wallet into moneyMarket', async () => {
       // Allocate 100 pig tokens to account 1
       await pigToken.allocate(web3.eth.accounts[1], 100);
 
@@ -142,28 +142,28 @@ contract('Wallet', function(accounts) {
       assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
       assert.equal(await utils.tokenBalance(pigToken, wallet.address), 55);
 
-      // Deposit those tokens (any account can call)
-      await wallet.depositDirect(pigToken.address, 55, {from: web3.eth.accounts[2]});
+      // Supply those tokens (any account can call)
+      await wallet.supplyDirect(pigToken.address, 55, {from: web3.eth.accounts[2]});
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, pigToken.address), 55);
 
       // verify balances in PigToken
       assert.equal(await utils.tokenBalance(pigToken, tokenStore.address), 55);
       assert.equal(await utils.tokenBalance(pigToken, web3.eth.accounts[1]), 45);
     });
 
-    it('should leave a Deposit event');
-    it('should accept deposits from third party');
+    it('should leave a Supply event');
+    it('should accept supplys from third party');
   });
 
   describe('#withdrawEth', () => {
-    it('should withdraw assets from vault', async () => {
+    it('should withdraw assets from moneyMarket', async () => {
       // fill initial balance
       await wallet.sendTransaction({value: 55});
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 55);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55);
 
       await utils.assertDifference(assert, 22, async () => {
         // get eth balance
@@ -174,7 +174,7 @@ contract('Wallet', function(accounts) {
       });
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), 33);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 33);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 33);
@@ -186,15 +186,15 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#withdrawAsset', () => {
-    it('should withdraw assets from vault', async () => {
+    it('should withdraw assets from moneyMarket', async () => {
       // Allocate 100 pig tokens to account 1
       await pigToken.allocate(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
       await pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
 
-      // Deposit those tokens
-      await wallet.depositAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
+      // Supply those tokens
+      await wallet.supplyAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
 
       // Withdraw to different address
       await wallet.withdrawAsset(pigToken.address, 33, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
@@ -210,34 +210,33 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#borrowAsset', () => {
-    it('should borrow assets from vault', async () => {
+    it('should borrow assets from moneyMarket', async () => {
       // fill initial balance
       await wallet.sendTransaction({value: web3.toWei(55, "finney")});
-      // give the vault tokens to lend
+      // give the moneyMarket tokens to lend
       // Approve wallet for 55 tokens
       await pigToken.allocate(web3.eth.accounts[1], web3.toWei(55, "finney"));
 
       // Approve wallet for 55 tokens
       await pigToken.approve(wallet.address, web3.toWei(55, "finney"), {from: web3.eth.accounts[1]});
 
-      // Deposit those tokens
-      await wallet.depositAsset(pigToken.address, web3.toWei(55, "finney"), {from: web3.eth.accounts[1]});
-      await utils.addLoanableAsset(loanerStorage, pigToken, web3);
-      await utils.setAssetValue(oracle, etherToken, 1, web3);
-      await utils.setAssetValue(oracle, pigToken, 1, web3);
+      // Supply those tokens
+      await wallet.supplyAsset(pigToken.address, web3.toWei(55, "finney"), {from: web3.eth.accounts[1]});
+      await utils.addBorrowableAsset(borrowStorage, pigToken, web3);
+      await utils.setAssetValue(priceOracle, etherToken, 1, web3);
+      await utils.setAssetValue(priceOracle, pigToken, 1, web3);
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, pigToken.address), web3.toWei(55, "finney"));
 
-      assert.equal((await vault.getValueEquivalent.call(wallet.address)).valueOf(), web3.toWei(110, "finney"));
+      assert.equal((await moneyMarket.getValueEquivalent.call(wallet.address)).valueOf(), web3.toWei(110, "finney"));
 
       await wallet.borrowAsset(pigToken.address, web3.toWei(22, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
 
-
       // verify balance in ledger (still has eth, pig token was withdrawn)
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, pigToken.address), web3.toWei(55, "finney"));
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), web3.toWei(55, "finney"));
@@ -252,26 +251,26 @@ contract('Wallet', function(accounts) {
       // fill initial balance
       await wallet.sendTransaction({value: web3.toWei(55, "finney")});
 
-      // give the vault tokens to lend
-      // TODO: Test for `Savings::TokenTransferToFail` if vault lacks funding
+      // give the moneyMarket tokens to lend
+      // TODO: Test for `Supplier::TokenTransferToFail` if moneyMarket lacks funding
       await pigToken.allocate(tokenStore.address, web3.toWei(100, "finney"));
 
-      // set oracle value of pig token to 2 wei, which means we can borrow 55
-      await utils.setAssetValue(oracle, etherToken, 1, web3);
-      await utils.setAssetValue(oracle, pigToken, 2, web3);
-      await utils.addLoanableAsset(loanerStorage, pigToken, web3);
+      // set priceOracle value of pig token to 2 wei, which means we can borrow 55
+      await utils.setAssetValue(priceOracle, etherToken, 1, web3);
+      await utils.setAssetValue(priceOracle, pigToken, 2, web3);
+      await utils.addBorrowableAsset(borrowStorage, pigToken, web3);
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), web3.toWei(55, "finney"));
 
       // TODO: This should fail at 27.5, not 110. Check we're calculating ratios correctly.
-      await utils.assertGracefulFailure(vault, "Loaner::InvalidCollateralRatio", [null, web3.toWei(111, "finney"), web3.toWei(55, "finney")], async () => {
+      await utils.assertGracefulFailure(moneyMarket, "Borrower::InvalidCollateralRatio", [null, web3.toWei(111, "finney"), web3.toWei(55, "finney")], async () => {
         await wallet.borrowAsset(pigToken.address, web3.toWei(111, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
       });
 
       // verify balance in ledger (still has eth, pig token was withdrawn)
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, etherToken.address), web3.toWei(55, "finney"));
-      assert.equal(await utils.ledgerAccountBalance(vault, wallet.address, pigToken.address), 0);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, pigToken.address), 0);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), web3.toWei(55, "finney"));
@@ -287,19 +286,19 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#borrowEth', () => {
-    it('should borrow assets from vault', async () => {
-      await loanerStorage.addLoanableAsset(etherToken.address);
-      await loanerStorage.addLoanableAsset(pigToken.address);
-      await utils.setAssetValue(oracle, pigToken, 1, web3);
+    it('should borrow assets from moneyMarket', async () => {
+      await borrowStorage.addBorrowableAsset(etherToken.address);
+      await borrowStorage.addBorrowableAsset(pigToken.address);
+      await utils.setAssetValue(priceOracle, pigToken, 1, web3);
       // Allocate 100 pig tokens to account 1
-      await depositEth(wallet, 33, web3.eth.accounts[1]);
+      await supplyEth(wallet, 33, web3.eth.accounts[1]);
       await pigToken.allocate(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
       await pigToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
 
-      // Deposit those tokens
-      await wallet.depositAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
+      // Supply those tokens
+      await wallet.supplyAsset(pigToken.address, 55, {from: web3.eth.accounts[1]});
 
       // Borrow eth to different address
       await wallet.borrowEth(33, web3.eth.accounts[2], {from: web3.eth.accounts[1]});
@@ -315,11 +314,11 @@ contract('Wallet', function(accounts) {
 
   describe('#balanceEth', () => {
     it('should have correct balance', async () => {
-      await depositEth(wallet, 22, web3.eth.accounts[1]);
+      await supplyEth(wallet, 22, web3.eth.accounts[1]);
 
       assert.equal((await wallet.balanceEth.call()).valueOf(), 22);
 
-      await depositEth(wallet, 11, web3.eth.accounts[1]);
+      await supplyEth(wallet, 11, web3.eth.accounts[1]);
 
       assert.equal((await wallet.balanceEth.call()).valueOf(), 33);
 
@@ -336,11 +335,11 @@ contract('Wallet', function(accounts) {
       // Allocate 100 pig tokens to account 1
       await pigToken.allocate(web3.eth.accounts[1], 100);
 
-      await depositAsset(wallet, pigToken, 22, web3.eth.accounts[1]);
+      await supplyAsset(wallet, pigToken, 22, web3.eth.accounts[1]);
 
       assert.equal((await wallet.balance.call(pigToken.address)).valueOf(), 22);
 
-      await depositAsset(wallet, pigToken, 11, web3.eth.accounts[1]);
+      await supplyAsset(wallet, pigToken, 11, web3.eth.accounts[1]);
 
       assert.equal((await wallet.balance.call(pigToken.address)).valueOf(), 33);
 

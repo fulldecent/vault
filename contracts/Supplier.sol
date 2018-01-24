@@ -7,18 +7,18 @@ import "./base/Token.sol";
 import "./storage/TokenStore.sol";
 
 /**
-  * @title The Compound Savings Account
+  * @title The Compound Supplier Account
   * @author Compound
-  * @notice A Savings account allows functions for customer deposits and withdrawals.
+  * @notice A Supplier account allows functions for customer supplies and withdrawals.
   */
-contract Savings is Graceful, Owned, Ledger {
+contract Supplier is Graceful, Owned, Ledger {
     TokenStore public tokenStore;
-    uint16 public savingsRateSlopeBPS = 1000;
-    InterestRateStorage public savingsInterestRateStorage;
+    uint16 public supplyRateSlopeBPS = 1000;
+    InterestRateStorage public supplyInterestRateStorage;
 
     /**
       * @notice `setTokenStore` sets the token store contract
-      * @dev This is for long-term token storage (TODO: Test)
+      * @dev This is for long-term token storage
       * @param tokenStoreAddress The contract which acts as the long-term token store
       * @return Success of failure of operation
       */
@@ -38,7 +38,7 @@ contract Savings is Graceful, Owned, Ledger {
       */
     function checkTokenStore() internal returns (bool) {
         if (tokenStore == address(0)) {
-            failure("Savings::TokenStoreUninitialized");
+            failure("Supplier::TokenStoreUninitialized");
             return false;
         }
 
@@ -46,28 +46,28 @@ contract Savings is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `setSavingsInterestRateStorage` sets the interest rate storage location for this savings contract
-      * @dev This is for long-term data storage (TODO: Test)
-      * @param savingsInterestRateStorage_ The contract which acts as the long-term data store
+      * @notice `setSupplyInterestRateStorage` sets the interest rate storage location for this supply contract
+      * @dev This is for long-term data storage
+      * @param supplyInterestRateStorage_ The contract which acts as the long-term data store
       * @return Success of failure of operation
       */
-    function setSavingsInterestRateStorage(InterestRateStorage savingsInterestRateStorage_) public returns (bool) {
+    function setSupplyInterestRateStorage(InterestRateStorage supplyInterestRateStorage_) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        savingsInterestRateStorage = savingsInterestRateStorage_;
+        supplyInterestRateStorage = supplyInterestRateStorage_;
 
         return true;
     }
 
     /**
-      * @notice `checkSavingsInterestRateStorage` verifies interest rate store has been set
+      * @notice `checkSupplierInterestRateStorage` verifies interest rate store has been set
       * @return True if interest rate store is initialized, false otherwise
       */
-    function checkSavingsInterestRateStorage() internal returns (bool) {
-        if (savingsInterestRateStorage == address(0)) {
-            failure("Savings::InterestRateStorageUnitialized");
+    function checkSupplierInterestRateStorage() internal returns (bool) {
+        if (supplyInterestRateStorage == address(0)) {
+            failure("Supplier::InterestRateStorageUnitialized");
             return false;
         }
 
@@ -75,34 +75,34 @@ contract Savings is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `customerDeposit` deposits a given asset in a customer's savings account.
-      * @param asset Asset to deposit
-      * @param amount The amount of asset to deposit
+      * @notice `customerSupply` supplies a given asset in a customer's supplier account.
+      * @param asset Asset to supply
+      * @param amount The amount of asset to supply
       * @param from The customer's account which is pre-authorized for transfer
       * @return success or failure
       */
-    function customerDeposit(address asset, uint256 amount, address from) public returns (bool) {
+    function customerSupply(address asset, uint256 amount, address from) public returns (bool) {
         // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
         if (!checkTokenStore()) {
             return false;
         }
 
-        if (!checkSavingsInterestRateStorage()) {
+        if (!checkSupplierInterestRateStorage()) {
             return false;
         }
 
-        if (!accrueDepositInterest(from, asset)) {
+        if (!accrueSupplyInterest(from, asset)) {
             return false;
         }
 
         // Transfer `tokenStore` the asset from `from`
         if (!Token(asset).transferFrom(from, address(tokenStore), amount)) {
-            failure("Savings::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
+            failure("Supplier::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
             return false;
         }
 
-        debit(LedgerReason.CustomerDeposit, LedgerAccount.Cash, from, asset, amount);
-        credit(LedgerReason.CustomerDeposit, LedgerAccount.Deposit, from, asset, amount);
+        debit(LedgerReason.CustomerSupply, LedgerAccount.Cash, from, asset, amount);
+        credit(LedgerReason.CustomerSupply, LedgerAccount.Supply, from, asset, amount);
 
         return true;
     }
@@ -119,35 +119,35 @@ contract Savings is Graceful, Owned, Ledger {
             return false;
         }
 
-        if (!checkSavingsInterestRateStorage()) {
+        if (!checkSupplierInterestRateStorage()) {
             return false;
         }
 
         // accrue interest, which is likely to increase the balance, before checking balance.
-        if (!accrueDepositInterest(msg.sender, asset)) {
+        if (!accrueSupplyInterest(msg.sender, asset)) {
             return false;
         }
 
-        // TODO: Use collateral-adjusted balance.  If a customer has loans, we shouldn't let them
+        // TODO: Use collateral-adjusted balance.  If a customer has borrows, we shouldn't let them
         // withdraw below their minimum collateral value.
-        uint256 balance = getBalance(msg.sender, LedgerAccount.Deposit, asset);
+        uint256 balance = getBalance(msg.sender, LedgerAccount.Supply, asset);
         if (amount > balance) {
-            failure("Savings::InsufficientBalance", uint256(asset), uint256(amount), uint256(to), uint256(balance));
+            failure("Supplier::InsufficientBalance", uint256(asset), uint256(amount), uint256(to), uint256(balance));
             return false;
         }
 
-        debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
+        debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Supply, msg.sender, asset, amount);
         credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
 
         // Transfer asset out to `to` address
         if (!tokenStore.transferAssetOut(asset, to, amount)) {
             // TODO: We've marked the debits and credits, maybe we should reverse those?
             // Can we just do the following?
-            // credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Deposit, msg.sender, asset, amount);
+            // credit(LedgerReason.CustomerWithdrawal, LedgerAccount.Supply, msg.sender, asset, amount);
             // debit(LedgerReason.CustomerWithdrawal, LedgerAccount.Cash, msg.sender, asset, amount);
             // We probably ought to add LedgerReason.CustomerWithdrawalFailed and use that instead of LedgerReason.CustomerWithdrawal.
             // Either way, we'll likely need changes in Farmer and/or Data to process the resulting logs.
-            failure("Savings::TokenTransferToFail", uint256(asset), uint256(amount), uint256(to), uint256(balance));
+            failure("Supplier::TokenTransferToFail", uint256(asset), uint256(amount), uint256(to), uint256(balance));
             return false;
         }
 
@@ -155,43 +155,43 @@ contract Savings is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `getDepositBalance` returns the balance (with interest) for
+      * @notice `getSupplyBalance` returns the balance (with interest) for
       *         the given account in the given asset (e.g. W-Eth or OMG)
       * @param customer The customer
       * @param asset The asset to check the balance of
       * @return The balance (with interest)
       */
-    function getDepositBalance(address customer, address asset) public view returns (uint256) {
-        return savingsInterestRateStorage.getCurrentBalance(
+    function getSupplyBalance(address customer, address asset) public view returns (uint256) {
+        return supplyInterestRateStorage.getCurrentBalance(
             asset,
-            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Deposit), asset),
-            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset)
+            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset),
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset)
         );
     }
 
     /**
-      * @notice `accrueDepositInterest` accrues any current interest on an
-      *         savings account.
+      * @notice `accrueSupplyInterest` accrues any current interest on an
+      *         supply account.
       * @param customer The customer
-      * @param asset The asset to accrue savings interest on
+      * @param asset The asset to accrue supply interest on
       * @return success or failure
       */
-    function accrueDepositInterest(address customer, address asset) public returns (bool) {
-        if (!checkSavingsInterestRateStorage()) {
+    function accrueSupplyInterest(address customer, address asset) public returns (bool) {
+        if (!checkSupplierInterestRateStorage()) {
             return false;
         }
 
-        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Deposit), asset);
+        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
 
         if (blockNumber != block.number) {
             // We need to true up balance
 
-            uint balanceWithInterest = getDepositBalance(customer, asset);
-            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Deposit), asset);
+            uint balanceWithInterest = getSupplyBalance(customer, asset);
+            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset);
 
             if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
                 // Interest should never be negative
-                failure("Savings::InterestUnderflow", uint256(asset), uint256(customer), balanceWithInterest, balanceLessInterest);
+                failure("Supplier::InterestUnderflow", uint256(asset), uint256(customer), balanceWithInterest, balanceLessInterest);
                 return false;
             }
 
@@ -199,8 +199,8 @@ contract Savings is Graceful, Owned, Ledger {
 
             if (interest != 0) {
                 debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
-                credit(LedgerReason.Interest, LedgerAccount.Deposit, customer, asset, interest);
-                if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Deposit), asset)) {
+                credit(LedgerReason.Interest, LedgerAccount.Supply, customer, asset, interest);
+                if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Supply), asset)) {
                     revert();
                 }
           }
@@ -218,7 +218,7 @@ contract Savings is Graceful, Owned, Ledger {
       */
     function getScaledSupplyRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
         uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
+        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
 
         // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
         uint256 denominator = cash + borrows;
@@ -226,22 +226,22 @@ contract Savings is Graceful, Owned, Ledger {
             denominator = 1;
         }
 
-        // `deposit r` == (1-`reserve ratio`) * 10%
+        // `supply r` == (1-`reserve ratio`) * 10%
         // note: this is done in one-line since intermediate results would be truncated
         // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
-        return uint64( (( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * savingsRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
+        return uint64( (( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
     }
 
     /**
-      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block unit
+      * @notice `snapshotSupplierInterestRate` snapshots the current interest rate for the block unit
       * @param asset address of asset
       * @return true on success, false if failure (e.g. snapshot already taken for this block unit)
       */
-    function snapshotSavingsInterestRate(address asset) public returns (bool) {
+    function snapshotSupplierInterestRate(address asset) public returns (bool) {
       uint64 rate = getScaledSupplyRatePerGroup(asset,
-          savingsInterestRateStorage.getInterestRateScale(),
-          savingsInterestRateStorage.getBlockUnitsPerYear());
+          supplyInterestRateStorage.getInterestRateScale(),
+          supplyInterestRateStorage.getBlockUnitsPerYear());
 
-      return savingsInterestRateStorage.snapshotCurrentRate(asset, rate);
+      return supplyInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }

@@ -1,7 +1,7 @@
 pragma solidity ^0.4.18;
 
 import "./base/Owned.sol";
-import "./Vault.sol";
+import "./MoneyMarket.sol";
 import "./tokens/EtherToken.sol";
 
 /**
@@ -11,78 +11,78 @@ import "./tokens/EtherToken.sol";
   *         the Compound core contracts.
   */
 contract Wallet is Owned {
-    Vault public vault;
+    MoneyMarket public moneyMarket;
     EtherToken public etherToken;
 
-    event Deposit(address acct, address asset, uint256 amount);
+    event Supply(address acct, address asset, uint256 amount);
     event Withdrawal(address acct, address asset, uint256 amount);
     event Borrow(address acct, address asset, uint256 amount);
 
     /**
       * @notice Creates a new Wallet.
-      * @param vaultAddress Address of Compound Vault contract
+      * @param moneyMarketAddress Address of Compound MoneyMarket contract
       * @param etherTokenAddress Address of EtherToken contract
       */
-    function Wallet(address owner_, address vaultAddress, address etherTokenAddress) public {
+    function Wallet(address owner_, address moneyMarketAddress, address etherTokenAddress) public {
         owner = owner_;
-        vault = Vault(vaultAddress);
+        moneyMarket = MoneyMarket(moneyMarketAddress);
         etherToken = EtherToken(etherTokenAddress);
     }
 
     /**
-      * @notice Deposits eth into the Compound Vault contract
+      * @notice Supplies eth into the Compound MoneyMarket contract
       * @return success or failure
       */
-    function depositEth() public payable returns (bool) {
+    function supplyEth() public payable returns (bool) {
         // Transfer eth into EtherToken
         // This should only fail if out-of-gas
         etherToken.deposit.value(msg.value)();
 
-        return depositDirect(address(etherToken), msg.value);
+        return supplyDirect(address(etherToken), msg.value);
     }
 
     /**
-      * @notice Deposits token into Compound Vault contract
+      * @notice Supplies token into Compound MoneyMarket contract
       * @param asset Address of token
       * @param amount Amount of token to transfer
       * @return success or failure
       */
-    function depositAsset(address asset, uint256 amount) public returns (bool) {
+    function supplyAsset(address asset, uint256 amount) public returns (bool) {
         // First, transfer in to this wallet
         if (!Token(asset).transferFrom(msg.sender, address(this), amount)) {
             failure("Wallet::TokenTransferFailed");
             return false;
         }
 
-        return depositDirect(asset, amount);
+        return supplyDirect(asset, amount);
     }
 
     /**
-      * @notice Deposits token into Compound Vault contract from this Wallet
+      * @notice Supplies token into Compound MoneyMarket contract from this Wallet
       * @param asset Address of token (must be owned by this contract)
       * @param amount Amount of token to transfer
       * @return success or failure
       */
-    function depositDirect(address asset, uint256 amount) public returns (bool) {
-        // Approve the vault to pull in this asset
-        if (!Token(asset).approve(address(vault), amount)) {
+    function supplyDirect(address asset, uint256 amount) public returns (bool) {
+        // Approve the moneyMarket to pull in this asset
+        if (!Token(asset).approve(address(moneyMarket), amount)) {
             failure("Wallet::AssetApproveFailed", uint256(msg.sender), uint256(asset), uint256(amount));
             return false;
         }
 
-        // Deposit asset in Compound Vault contract
-        if (!vault.customerDeposit(asset, amount, address(this))) {
+        // Supply asset in Compound MoneyMarket contract
+        if (!moneyMarket.customerSupply(asset, amount, address(this))) {
             return false;
         }
 
-        // Log this deposit
-        Deposit(msg.sender, asset, amount);
+        // Log this supply
+        Supply(msg.sender, asset, amount);
 
         return true;
     }
 
     /**
-      * @notice Withdraws eth from Compound Vault contract
+      * @notice Withdraws eth from Compound MoneyMarket contract
       * @param amount Amount to withdraw
       * @param to Address to withdraw to
       * @return success or failure
@@ -92,8 +92,8 @@ contract Wallet is Owned {
             return false;
         }
 
-        // Withdraw from Compound Vault contract to EtherToken
-        if (!vault.customerWithdraw(address(etherToken), amount, address(this))) {
+        // Withdraw from Compound MoneyMarket contract to EtherToken
+        if (!moneyMarket.customerWithdraw(address(etherToken), amount, address(this))) {
             return false;
         }
 
@@ -116,7 +116,7 @@ contract Wallet is Owned {
     }
 
     /**
-      * @notice Withdraws asset from Compound Vault contract
+      * @notice Withdraws asset from Compound MoneyMarket contract
       * @param asset Asset to withdraw
       * @param amount Amount to withdraw
       * @param to Address to withdraw to
@@ -128,7 +128,7 @@ contract Wallet is Owned {
         }
 
         // Withdraw the asset
-        if (!vault.customerWithdraw(asset, amount, to)) {
+        if (!moneyMarket.customerWithdraw(asset, amount, to)) {
             return false;
         }
 
@@ -139,7 +139,7 @@ contract Wallet is Owned {
     }
 
     /**
-      * @notice Borrows eth from Compound Vault contract
+      * @notice Borrows eth from Compound MoneyMarket contract
       * @param amount Amount to borrow
       * @param to Address to withdraw to
       * @return success or failure
@@ -150,7 +150,7 @@ contract Wallet is Owned {
         }
 
         // Borrow the ether asset
-        if (!vault.customerBorrow(address(etherToken), amount)) {
+        if (!moneyMarket.customerBorrow(address(etherToken), amount)) {
             return false;
         }
 
@@ -162,7 +162,7 @@ contract Wallet is Owned {
     }
 
     /**
-      * @notice Borrows asset from Compound Vault contract
+      * @notice Borrows asset from Compound MoneyMarket contract
       * @param asset Asset to borrow
       * @param amount Amount to borrow
       * @param to Address to withdraw to
@@ -174,7 +174,7 @@ contract Wallet is Owned {
         }
 
         // Borrow the asset
-        if (!vault.customerBorrow(asset, amount)) {
+        if (!moneyMarket.customerBorrow(asset, amount)) {
             return false;
         }
 
@@ -186,24 +186,24 @@ contract Wallet is Owned {
     }
 
     /**
-      * @notice Returns the balance of Eth in this wallet via Vault Contract
-      * @return Eth balance from Vault Contract
+      * @notice Returns the balance of Eth in this wallet via MoneyMarket Contract
+      * @return Eth balance from MoneyMarket Contract
       */
     function balanceEth() public view returns (uint256) {
         return balance(address(etherToken));
     }
 
     /**
-      * @notice Returns the balance of given asset in this wallet via Vault Contract
-      * @return Asset balance from Vault Contract
+      * @notice Returns the balance of given asset in this wallet via MoneyMarket Contract
+      * @return Asset balance from MoneyMarket Contract
       */
     function balance(address asset) public view returns (uint256) {
-        return vault.getDepositBalance(address(this), asset);
+        return moneyMarket.getSupplyBalance(address(this), asset);
     }
 
     /**
-      * @notice Deposit Eth into Compound Vault contract.
-      * @dev We allow arbitrary deposits in from `etherToken`
+      * @notice Supply Eth into Compound MoneyMarket contract.
+      * @dev We allow arbitrary supplys in from `etherToken`
       *      Note: Fallback functions cannot have return values.
       */
     function() public payable {
@@ -212,13 +212,13 @@ contract Wallet is Owned {
              *
              * When we unwrap a token, EtherToken sends this contract
              * the value of the tokens in Ether. We should not treat this
-             * as a new deposit (!!), and as such, we choose to not call
-             * `depositEth` for Ether transfers from EtherToken.
+             * as a new supply (!!), and as such, we choose to not call
+             * `supplyEth` for Ether transfers from EtherToken.
              */
 
             return;
         } else {
-            depositEth();
+            supplyEth();
         }
     }
 }

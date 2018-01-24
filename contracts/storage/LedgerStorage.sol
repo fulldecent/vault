@@ -19,7 +19,7 @@ contract LedgerStorage is Graceful, Allowed {
     event BalanceIncrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
     event BalanceDecrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
 
-	// A map of customer -> LedgerAccount{Deposit, Loan} -> asset -> balance
+	// A map of customer -> LedgerAccount{Supply, Borrow} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
     // Balance Sheet

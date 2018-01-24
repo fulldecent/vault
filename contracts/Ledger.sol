@@ -18,18 +18,18 @@ contract Ledger is Graceful, Owned {
     uint16 basisPointMultiplier = 10000;
 
     enum LedgerReason {
-        CustomerDeposit,
+        CustomerSupply,
         CustomerWithdrawal,
         Interest,
         CustomerBorrow,
-        CustomerPayLoan,
-        CollateralPayLoan
+        CustomerPayBorrow,
+        CollateralPayBorrow
     }
     enum LedgerType { Debit, Credit }
     enum LedgerAccount {
         Cash,
-        Loan,
-        Deposit,
+        Borrow,
+        Supply,
         InterestExpense,
         InterestIncome,
         Trading
@@ -42,9 +42,9 @@ contract Ledger is Graceful, Owned {
         address         customer,         // Customer associated with entry
         address         asset,            // Asset associated with this entry
         uint256         amount,           // Amount of asset associated with this entry
-        uint256         balance,          // Ledger account is Deposit or Loan, the new balance
+        uint256         balance,          // Ledger account is Supply or Borrow, the new balance
         uint64          interestRateBPS,  // Interest rate in basis point if fixed
-        uint256         nextPaymentDate); // Next payment date if associated with loan
+        uint256         nextPaymentDate); // Next payment date if associated with borrow
 
     /**
       * @notice `Ledger` tracks balances for a given customer by asset with interest
@@ -70,7 +70,7 @@ contract Ledger is Graceful, Owned {
     /**
       * @notice Debit a ledger account.
       * @param ledgerReason What caused this debit?
-      * @param ledgerAccount Which ledger account to adjust (e.g. Deposit or Loan)
+      * @param ledgerAccount Which ledger account to adjust (e.g. Supply or Borrow)
       * @param customer The customer associated with this debit
       * @param asset The asset which is being debited
       * @param amount The amount to debit
@@ -110,7 +110,7 @@ contract Ledger is Graceful, Owned {
     /**
       * @notice Credit a ledger account.
       * @param ledgerReason What caused this credit?
-      * @param ledgerAccount Which ledger account to adjust (e.g. Deposit or Loan)
+      * @param ledgerAccount Which ledger account to adjust (e.g. Supply or Borrow)
       * @param customer The customer associated with this credit
       * @param asset The asset which is being credited
       * @param amount The amount to credit
@@ -159,23 +159,23 @@ contract Ledger is Graceful, Owned {
 
     /**
       * @notice `isAsset` indicates if this account is the type that has an associated balance
-      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @param ledgerAccount the account type (e.g. Supply or Borrow)
       * @return true if the account is an asset false otherwise
       */
     function isAsset(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
-            ledgerAccount == LedgerAccount.Loan
+            ledgerAccount == LedgerAccount.Borrow
         );
     }
 
     /**
       * @notice `isLiability` indicates if this account is the type that has an associated balance
-      * @param ledgerAccount the account type (e.g. Deposit or Loan)
+      * @param ledgerAccount the account type (e.g. Supply or Borrow)
       * @return true if the account is an asset false otherwise
       */
     function isLiability(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
-            ledgerAccount == LedgerAccount.Deposit
+            ledgerAccount == LedgerAccount.Supply
         );
     }
 }

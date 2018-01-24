@@ -5,13 +5,13 @@ import "../base/Allowed.sol";
 import "../base/ArrayHelper.sol";
 
 /**
- * @title The Compound Oracle
+ * @title The Compound Price Oracle
  * @author Compound
- * @notice The Compound Oracle specifies the value of a set of assets
+ * @notice The Compound Price Oracle specifies the value of a set of assets
  *         as determined by Compound. These asset values are used to make
- *         fair terms for loan contracts in Compound.
+ *         fair terms for borrow contracts in Compound.
  */
-contract Oracle is Owned, Allowed, ArrayHelper {
+contract PriceOracle is Owned, Allowed, ArrayHelper {
     int public assetMultiplier = 10 ** 9;
     mapping(address => uint) public values;
     address[] public assets;
@@ -20,12 +20,12 @@ contract Oracle is Owned, Allowed, ArrayHelper {
     event AssetValueUpdate(address indexed asset, uint valueInWei);
 
     /**
-     * @notice Constructs a new Oracle object
+     * @notice Constructs a new PriceOracle object
      */
-    function Oracle() public {}
+    function PriceOracle() public {}
 
     /**
-     * @dev `getSupportedAssets` returns assets which have Oracle values
+     * @dev `getSupportedAssets` returns assets which have PriceOracle values
      *
      * @return assets List of supported asset addresses
      */
@@ -43,7 +43,7 @@ contract Oracle is Owned, Allowed, ArrayHelper {
     }
 
     /**
-     * `getAssetValue` returns the Oracle's view of the current
+     * `getAssetValue` returns the PriceOracle's view of the current
      * value of a given asset, or zero if unknown.
      *
      * @param asset The address of the asset to query
@@ -56,7 +56,7 @@ contract Oracle is Owned, Allowed, ArrayHelper {
     }
 
     /**
-     * `getConvertedAssetValue` returns the Oracle's view of the current
+     * `getConvertedAssetValue` returns the PriceOracle's view of the current
      * value of srcAsset in terms of targetAsset, or 0 if either asset is unknown.
      *
      * @param srcAsset The address of the asset to query

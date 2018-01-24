@@ -1,29 +1,29 @@
-var Vault = artifacts.require("Vault.sol");
+var MoneyMarket = artifacts.require("MoneyMarket.sol");
 var EtherToken = artifacts.require("EtherToken.sol");
 var PigToken = artifacts.require("PigToken.sol");
 var WalletFactory = artifacts.require("WalletFactory.sol");
 var TokenFactory = artifacts.require("TokenFactory.sol");
-var SavingsInterestRateStorage = artifacts.require("SavingsInterestRateStorage.sol");
+var SupplyInterestRateStorage = artifacts.require("SupplyInterestRateStorage.sol");
 var BorrowInterestRateStorage = artifacts.require("BorrowInterestRateStorage.sol");
 var LedgerStorage = artifacts.require("LedgerStorage.sol");
-var LoanerStorage = artifacts.require("LoanerStorage.sol");
-var Oracle = artifacts.require("Oracle.sol");
+var BorrowStorage = artifacts.require("BorrowStorage.sol");
+var PriceOracle = artifacts.require("PriceOracle.sol");
 var TokenStore = artifacts.require("TokenStore.sol");
 
 const MINIMUM_COLLATERAL_RATIO = 2;
 
 module.exports = function(deployer, network) {
-  return deployer.deploy(Vault).then(() => {
+  return deployer.deploy(MoneyMarket).then(() => {
     return deployer.deploy(EtherToken).then(() => {
       return EtherToken.deployed().then(etherToken => {
-        return SavingsInterestRateStorage.deployed().then(savingsInterestRateStorage => {
+        return SupplyInterestRateStorage.deployed().then(supplyInterestRateStorage => {
           return BorrowInterestRateStorage.deployed().then(borrowInterestRateStorage => {
             return LedgerStorage.deployed().then(ledgerStorage => {
-              return LoanerStorage.deployed().then(loanerStorage => {
-                return Oracle.deployed().then(oracle => {
+              return BorrowStorage.deployed().then(borrowStorage => {
+                return PriceOracle.deployed().then(priceOracle => {
                   return TokenStore.deployed().then(tokenStore => {
-                    return Vault.deployed().then(vault => {
-                      return deployer.deploy(WalletFactory, vault.address, etherToken.address).then(() => {
+                    return MoneyMarket.deployed().then(moneyMarket => {
+                      return deployer.deploy(WalletFactory, moneyMarket.address, etherToken.address).then(() => {
                         const contracts = [];
 
                         if (network == "development" || network == "mission" || network == "rinkeby") {
@@ -33,19 +33,19 @@ module.exports = function(deployer, network) {
 
                         return deployer.deploy(contracts).then(() => {
                           return Promise.all([
-                            loanerStorage.setMinimumCollateralRatio(MINIMUM_COLLATERAL_RATIO),
-                            savingsInterestRateStorage.allow(vault.address),
-                            borrowInterestRateStorage.allow(vault.address),
-                            ledgerStorage.allow(vault.address),
-                            loanerStorage.allow(vault.address),
-                            oracle.allow(vault.address),
-                            tokenStore.allow(vault.address),
-                            vault.setSavingsInterestRateStorage(savingsInterestRateStorage.address),
-                            vault.setBorrowInterestRateStorage(borrowInterestRateStorage.address),
-                            vault.setLedgerStorage(ledgerStorage.address),
-                            vault.setLoanerStorage(loanerStorage.address),
-                            vault.setOracle(oracle.address),
-                            vault.setTokenStore(tokenStore.address),
+                            borrowStorage.setMinimumCollateralRatio(MINIMUM_COLLATERAL_RATIO),
+                            supplyInterestRateStorage.allow(moneyMarket.address),
+                            borrowInterestRateStorage.allow(moneyMarket.address),
+                            ledgerStorage.allow(moneyMarket.address),
+                            borrowStorage.allow(moneyMarket.address),
+                            priceOracle.allow(moneyMarket.address),
+                            tokenStore.allow(moneyMarket.address),
+                            moneyMarket.setSupplyInterestRateStorage(supplyInterestRateStorage.address),
+                            moneyMarket.setBorrowInterestRateStorage(borrowInterestRateStorage.address),
+                            moneyMarket.setLedgerStorage(ledgerStorage.address),
+                            moneyMarket.setBorrowStorage(borrowStorage.address),
+                            moneyMarket.setPriceOracle(priceOracle.address),
+                            moneyMarket.setTokenStore(tokenStore.address),
                           ]);
                         });
                       });

@@ -14,18 +14,18 @@ contract WalletFactory is Owned {
      * Note: These state variables are immuatable.
      * We must create a new factory to change either address.
      */
-    address public vaultAddress;
+    address public moneyMarketAddress;
     address public etherTokenAddress;
 
     event NewWallet(address walletOwner, address newWalletAddress, address walletFactoryAddress);
 
     /**
       * @notice Creates a new Wallet Factory.
-      * @param vaultAddress_ Address of Compound Vault contract
+      * @param moneyMarketAddress_ Address of Compound MoneyMarket contract
       * @param etherTokenAddress_ Address of Compound EtherToken contract
       */
-    function WalletFactory(address vaultAddress_, address etherTokenAddress_) public {
-        vaultAddress = vaultAddress_;
+    function WalletFactory(address moneyMarketAddress_, address etherTokenAddress_) public {
+        moneyMarketAddress = moneyMarketAddress_;
         etherTokenAddress = etherTokenAddress_;
     }
 
@@ -35,7 +35,7 @@ contract WalletFactory is Owned {
       * !!SECURITY!! Add back `ownerOnly` check
       */
     function newWallet(address walletOwner) public returns (Wallet) {
-        Wallet wallet = new Wallet(walletOwner, vaultAddress, etherTokenAddress);
+        Wallet wallet = new Wallet(walletOwner, moneyMarketAddress, etherTokenAddress);
 
         NewWallet(walletOwner, address(wallet), address(this));
 

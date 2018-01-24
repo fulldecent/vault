@@ -262,13 +262,13 @@ module.exports = {
     await etherToken.transfer(transferrable, 100, {from: account});
   },
 
-  depositEth: async function(savings, etherToken, amount, account) {
-    await createAndApproveWeth(savings, etherToken, amount, account);
-    await savings.customerDeposit(etherToken.address, amount, account);
+  supplyEth: async function(supplier, etherToken, amount, account) {
+    await createAndApproveWeth(supplier, etherToken, amount, account);
+    await supplier.customerSupply(etherToken.address, amount, account);
   },
 
   ledgerAccountBalance: async (ledger, account, token) =>
-    await ledger.getDepositBalance.call(account, token).valueOf()
+    await ledger.getSupplyBalance.call(account, token).valueOf()
   ,
 
   tokenBalance: async function(token, account) {
@@ -283,8 +283,8 @@ module.exports = {
     return await oracle.setAssetValue(asset.address, toAssetValue(amountInWei), {from: web3.eth.accounts[0]});
   },
 
-  addLoanableAsset: async function(loaner, asset, web3) {
-    return await loaner.addLoanableAsset(asset.address, {from: web3.eth.accounts[0]});
+  addBorrowableAsset: async function(borrower, asset, web3) {
+    return await borrower.addBorrowableAsset(asset.address, {from: web3.eth.accounts[0]});
   },
 
   assertInterestRate: async function(assert, interestRateStorage, etherTokenAddress, blockNumber, expectedBlockUnit, expectedBlockUnitInterestRate, expectedCompoundInterestRate) {
@@ -298,8 +298,8 @@ module.exports = {
 //
 // Where:
 //
-// A = the future value of the investment/loan, including interest
-// P = the principal investment amount (the initial deposit or loan amount)
+// A = the future value of the investment/borrow, including interest
+// P = the principal investment amount (the initial supply or borrow amount)
 // r = the annual interest rate (decimal)
 // n = the number of times that interest is compounded per year
 // t = the number of years the money is invested or borrowed for

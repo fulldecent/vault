@@ -3,7 +3,7 @@
 const BigNumber = require('bignumber.js');
 const WalletFactory = artifacts.require("./WalletFactory.sol");
 const Wallet = artifacts.require("./Wallet.sol");
-const Vault = artifacts.require("./Vault.sol");
+const MoneyMarket = artifacts.require("./MoneyMarket.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
@@ -13,30 +13,30 @@ const moment = require('moment');
 
 contract('WalletFactory', function(accounts) {
   var walletFactory;
-  var vault;
+  var moneyMarket;
   var etherToken;
   var tokenStore;
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
     const ledgerStorage = await LedgerStorage.new();
-    const savingsInterestRateStorage = await InterestRateStorage.new(10);
+    const supplyInterestRateStorage = await InterestRateStorage.new(10);
     const borrowInterestRateStorage = await InterestRateStorage.new(10);
-    [vault, etherToken] = await Promise.all([Vault.new(), EtherToken.new()]);
+    [moneyMarket, etherToken] = await Promise.all([MoneyMarket.new(), EtherToken.new()]);
 
-    await tokenStore.allow(vault.address);
-    await vault.setTokenStore(tokenStore.address);
+    await tokenStore.allow(moneyMarket.address);
+    await moneyMarket.setTokenStore(tokenStore.address);
 
-    await ledgerStorage.allow(vault.address);
-    await vault.setLedgerStorage(ledgerStorage.address);
+    await ledgerStorage.allow(moneyMarket.address);
+    await moneyMarket.setLedgerStorage(ledgerStorage.address);
 
-    await borrowInterestRateStorage.allow(vault.address);
-    await vault.setSavingsInterestRateStorage(borrowInterestRateStorage.address);
+    await borrowInterestRateStorage.allow(moneyMarket.address);
+    await moneyMarket.setSupplyInterestRateStorage(borrowInterestRateStorage.address);
 
-    await savingsInterestRateStorage.allow(vault.address);
-    await vault.setBorrowInterestRateStorage(savingsInterestRateStorage.address);
+    await supplyInterestRateStorage.allow(moneyMarket.address);
+    await moneyMarket.setBorrowInterestRateStorage(supplyInterestRateStorage.address);
 
-    walletFactory = await WalletFactory.new(vault.address, etherToken.address);
+    walletFactory = await WalletFactory.new(moneyMarket.address, etherToken.address);
   });
 
   describe("#newWallet", () => {
@@ -50,8 +50,8 @@ contract('WalletFactory', function(accounts) {
       // Make a Wallet variable pointed at the address from above
       const wallet = Wallet.at(walletAddress);
 
-      // Deposit eth into wallet
-      await wallet.depositEth({from: web3.eth.accounts[1], value: 55});
+      // Supply eth into wallet
+      await wallet.supplyEth({from: web3.eth.accounts[1], value: 55});
 
       // Verify balance
       assert.equal((await wallet.balanceEth.call()).valueOf(), 55);
@@ -77,8 +77,8 @@ contract('WalletFactory', function(accounts) {
       // Make a Wallet variable pointed at the address from above
       const wallet = Wallet.at(walletAddress);
 
-      // Deposit eth into wallet
-      await wallet.depositEth({from: web3.eth.accounts[1], value: 55});
+      // Supply eth into wallet
+      await wallet.supplyEth({from: web3.eth.accounts[1], value: 55});
 
       await utils.assertOnlyOwner(wallet, wallet.withdrawEth.bind(null, 22, web3.eth.accounts[1]), web3.eth.accounts[1], web3.eth.accounts[2]);
     });

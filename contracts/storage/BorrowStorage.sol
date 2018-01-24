@@ -6,30 +6,32 @@ import "../base/ArrayHelper.sol";
 import "../base/Owned.sol";
 
 /**
-  * @title The Compound Loaner Storage Contract
+  * @title The Compound Borrow Storage Contract
   * @author Compound
-  * @notice The Loaner Storage contract is a simple contract to keep track of loaner information: which assets can be borrowed and the global minimum collateral ratio
+  * @notice The Borrow Storage contract is a simple contract to
+  *         keep track of borrower information: which assets can be
+  *         borrowed and the global minimum collateral ratio.
   */
-contract LoanerStorage is Owned, Allowed, ArrayHelper {
-	address[] public loanableAssets;
+contract BorrowStorage is Owned, Allowed, ArrayHelper {
+    address[] public borrowableAssets;
     uint public minimumCollateralRatio;
 
-    event NewLoanableAsset(address asset);
+    event NewBorrowableAsset(address asset);
     event MinimumCollateralRatioChange(uint newMinimumCollateralRatio);
 
     /**
-      * @notice `addLoanableAsset` adds an asset to the list of loanable assets
+      * @notice `addBorrowableAsset` adds an asset to the list of borrowable assets
       * @param asset The address of the assets to add
       * @return success or failure
       */
-    function addLoanableAsset(address asset) public returns (bool) {
+    function addBorrowableAsset(address asset) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        loanableAssets.push(asset);
+        borrowableAssets.push(asset);
 
-        NewLoanableAsset(asset);
+        NewBorrowableAsset(asset);
 
         return true;
     }
@@ -37,7 +39,7 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
     /**
       * @notice `setMinimumCollateralRatio` sets the minimum collateral ratio
       * @param minimumCollateralRatio_ the minimum collateral ratio to be set
-      * @dev used like this to gate loan creation: borrower_account_value * minimumCollateralRatio >= loan_amount
+      * @dev used like this to gate borrow creation: borrower_account_value * minimumCollateralRatio >= borrow_amount
       * @return success or failure
       */
     function setMinimumCollateralRatio(uint minimumCollateralRatio_) public returns (bool) {
@@ -53,11 +55,11 @@ contract LoanerStorage is Owned, Allowed, ArrayHelper {
     }
 
     /**
-      * @notice `loanableAsset` determines if the asset is loanable
+      * @notice `borrowableAsset` determines if the asset is borrowable
       * @param asset the assets to query
-      * @return boolean true if the asset is loanable, false if not
+      * @return boolean true if the asset is borrowable, false if not
       */
-    function loanableAsset(address asset) public view returns (bool) {
-        return arrayContainsAddress(loanableAssets, asset);
+    function borrowableAsset(address asset) public view returns (bool) {
+        return arrayContainsAddress(borrowableAssets, asset);
     }
 }
