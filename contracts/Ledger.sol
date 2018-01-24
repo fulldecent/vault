@@ -13,7 +13,9 @@ import "./storage/InterestRateStorage.sol";
   */
 contract Ledger is Graceful, Owned {
     LedgerStorage public ledgerStorage;
-    uint16 basisPointMultiplier = 1000;
+    // Given a real number decimal, to convert it to basis points you multiply by 10000.
+    // For example, we know 100 basis points = 1% = .01.  We get the basis points from the decimal: .01 * 10000 = 100
+    uint16 basisPointMultiplier = 10000;
 
     enum LedgerReason {
         CustomerDeposit,

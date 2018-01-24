@@ -210,26 +210,37 @@ contract Savings is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `getSavingsInterestRateBPS` returns the current savings interest rate based on the balance sheet
+      * @notice `getScaledSupplyRatePerGroup` returns the current borrow interest rate based on the balance sheet
       * @param asset address of asset
-      * @return the current savings interest rate (in basis points)
+      * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
+      * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
+      * @return the current supply interest rate (in scale points, aka divide by 10^16 to get real rate)
       */
-    function getSavingsInterestRateBPS(address asset) public view returns (uint64) {
-      uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-      uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
+    function getScaledSupplyRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
+        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Loan));
 
-      // `deposit r` == (1-`reserve ratio`) * 10%
-      // note: this is done in one-line since intermediate results would be truncated
-      return uint64( ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( cash + borrows ) ) ) * savingsRateSlopeBPS / basisPointMultiplier );
+        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
+        uint256 denominator = cash + borrows;
+        if(denominator == 0) {
+            denominator = 1;
+        }
+
+        // `deposit r` == (1-`reserve ratio`) * 10%
+        // note: this is done in one-line since intermediate results would be truncated
+        // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
+        return uint64( (( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * savingsRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
     }
 
     /**
-      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block uint
+      * @notice `snapshotSavingsInterestRate` snapshots the current interest rate for the block unit
       * @param asset address of asset
-      * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
+      * @return true on success, false if failure (e.g. snapshot already taken for this block unit)
       */
     function snapshotSavingsInterestRate(address asset) public returns (bool) {
-      uint64 rate = getSavingsInterestRateBPS(asset);
+      uint64 rate = getScaledSupplyRatePerGroup(asset,
+          savingsInterestRateStorage.getInterestRateScale(),
+          savingsInterestRateStorage.getBlockUnitsPerYear());
 
       return savingsInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
