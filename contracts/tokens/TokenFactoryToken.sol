@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "./PigToken.sol";
+import "./FaucetToken.sol";
 
 /**
   * @title The Compound Token Factory Token
@@ -8,7 +8,7 @@ import "./PigToken.sol";
   * @notice The base contract for Compound test tokens
   */
 
-contract TokenFactoryToken is PigToken {
+contract TokenFactoryToken is FaucetToken {
   string public name; 
   string public symbol;
   uint public decimals;

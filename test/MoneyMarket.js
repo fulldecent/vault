@@ -9,7 +9,7 @@ const BorrowInterestRateStorage = artifacts.require("./storage/BorrowInterestRat
 const SupplyInterestRateStorage = artifacts.require("./storage/SupplyInterestRateStorage.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
-const PigToken = artifacts.require("./token/PigToken.sol");
+const FaucetToken = artifacts.require("./token/FaucetToken.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
@@ -43,7 +43,7 @@ const LedgerAccount = {
 contract('MoneyMarket', function(accounts) {
   var moneyMarket;
   var etherToken;
-  var pigToken;
+  var faucetToken;
   var borrowInterestRateStorage;
   var supplyInterestRateStorage;
   var borrowStorage;
@@ -61,7 +61,7 @@ contract('MoneyMarket', function(accounts) {
     priceOracle = await PriceOracle.new();
     testLedgerStorage = await TestLedgerStorage.new();
 
-    [moneyMarket, etherToken, pigToken] = await Promise.all([MoneyMarket.new(), EtherToken.new(), PigToken.new()]);
+    [moneyMarket, etherToken, faucetToken] = await Promise.all([MoneyMarket.new(), EtherToken.new(), FaucetToken.new()]);
 
     await ledgerStorage.allow(moneyMarket.address);
     await borrowStorage.allow(moneyMarket.address);
@@ -249,19 +249,19 @@ contract('MoneyMarket', function(accounts) {
   describe('#getValueEquivalent', () => {
     it('should get value of assets', async () => {
       // supply Ether tokens for acct 1
-      await borrowStorage.addBorrowableAsset(pigToken.address);
-      await pigToken.allocate(web3.eth.accounts[0], 100);
+      await borrowStorage.addBorrowableAsset(faucetToken.address);
+      await faucetToken.allocate(web3.eth.accounts[0], 100);
 
       // // Approve wallet for 55 tokens
-      await pigToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});
-      await moneyMarket.customerSupply(pigToken.address, 100, web3.eth.accounts[0], {from: web3.eth.accounts[0]});
+      await faucetToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});
+      await moneyMarket.customerSupply(faucetToken.address, 100, web3.eth.accounts[0], {from: web3.eth.accounts[0]});
       await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[1]);
       //
       // set PriceOracle value (each Eth is now worth two Eth!)
       await utils.setAssetValue(priceOracle, etherToken, 2, web3);
-      await utils.setAssetValue(priceOracle, pigToken, 2, web3);
-      await moneyMarket.customerBorrow(pigToken.address, 1, {from: web3.eth.accounts[1]});
-      await moneyMarket.customerWithdraw(pigToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
+      await utils.setAssetValue(priceOracle, faucetToken, 2, web3);
+      await moneyMarket.customerBorrow(faucetToken.address, 1, {from: web3.eth.accounts[1]});
+      await moneyMarket.customerWithdraw(faucetToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
       // get value of acct 1
       const eqValue = await moneyMarket.getValueEquivalent.call(web3.eth.accounts[1]);

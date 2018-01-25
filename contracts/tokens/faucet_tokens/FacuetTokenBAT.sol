@@ -7,8 +7,8 @@ import "../FaucetToken.sol";
   * @author Compound
   * @notice A simple token for test that follows faucet rules.
   */
-contract FacuetTokenBAT is FaucetToken {
-    string constant public name = "BAT Facuet Token";
+contract FaucetTokenBAT is FaucetToken {
+    string constant public name = "BAT Faucet Token";
     string constant public symbol = "BAT";
     uint8 constant public decimals = 10;
 }

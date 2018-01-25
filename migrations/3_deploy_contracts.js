@@ -1,9 +1,9 @@
 var MoneyMarket = artifacts.require("MoneyMarket.sol");
 var EtherToken = artifacts.require("EtherToken.sol");
-var FacuetTokenBAT = artifacts.require("FacuetTokenBAT.sol");
-var FacuetTokenDRGN = artifacts.require("FacuetTokenDRGN.sol");
-var FacuetTokenOMG = artifacts.require("FacuetTokenOMG.sol");
-var FacuetTokenZRX = artifacts.require("FacuetTokenZRX.sol");
+var FaucetTokenBAT = artifacts.require("FaucetTokenBAT.sol");
+var FaucetTokenDRGN = artifacts.require("FaucetTokenDRGN.sol");
+var FaucetTokenOMG = artifacts.require("FaucetTokenOMG.sol");
+var FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
 var WalletFactory = artifacts.require("WalletFactory.sol");
 var TokenFactory = artifacts.require("TokenFactory.sol");
 var SupplyInterestRateStorage = artifacts.require("SupplyInterestRateStorage.sol");
@@ -30,10 +30,10 @@ module.exports = function(deployer, network) {
                         const contracts = [];
 
                         if (network == "development" || network == "mission" || network == "rinkeby") {
-                          contracts.push(FacuetTokenBAT);
-                          contracts.push(FacuetTokenDRGN);
-                          contracts.push(FacuetTokenOMG);
-                          contracts.push(FacuetTokenZRX);
+                          contracts.push(FaucetTokenBAT);
+                          contracts.push(FaucetTokenDRGN);
+                          contracts.push(FaucetTokenOMG);
+                          contracts.push(FaucetTokenZRX);
                           contracts.push(TokenFactory);
                         }
 

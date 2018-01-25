@@ -1,9 +1,9 @@
 var MoneyMarket = artifacts.require("./MoneyMarket.sol");
 var EtherToken = artifacts.require("./tokens/EtherToken.sol");
-var FacuetTokenBAT = artifacts.require("FacuetTokenBAT.sol");
-var FacuetTokenDRGN = artifacts.require("FacuetTokenDRGN.sol");
-var FacuetTokenOMG = artifacts.require("FacuetTokenOMG.sol");
-var FacuetTokenZRX = artifacts.require("FacuetTokenZRX.sol");
+var FaucetTokenBAT = artifacts.require("FaucetTokenBAT.sol");
+var FaucetTokenDRGN = artifacts.require("FaucetTokenDRGN.sol");
+var FaucetTokenOMG = artifacts.require("FaucetTokenOMG.sol");
+var FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
 var WalletFactory = artifacts.require("./WalletFactory.sol");
 var TokenFactory = artifacts.require("./TokenFactory.sol");
 
@@ -31,16 +31,16 @@ module.exports = async function(callback) {
 	var tokenFactoryAddress;
 
 	try {
-		const facuetTokenBAT = await FacuetTokenBAT.deployed();
+		const facuetTokenBAT = await FaucetTokenBAT.deployed();
 		tokens[facuetTokenBAT.address] = "bat";
 
-		const facuetTokenDRGN = await FacuetTokenDRGN.deployed();
+		const facuetTokenDRGN = await FaucetTokenDRGN.deployed();
 		tokens[facuetTokenDRGN.address] = "drgn";
 
-		const facuetTokenOMG = await FacuetTokenOMG.deployed();
+		const facuetTokenOMG = await FaucetTokenOMG.deployed();
 		tokens[facuetTokenOMG.address] = "omg";
 
-		const facuetTokenZRX = await FacuetTokenZRX.deployed();
+		const facuetTokenZRX = await FaucetTokenZRX.deployed();
 		tokens[facuetTokenZRX.address] = "zrx";
 	} catch (e) {
 		// Faucet tokens not deployed

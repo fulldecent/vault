@@ -7,8 +7,8 @@ import "../FaucetToken.sol";
   * @author Compound
   * @notice A simple token for test that follows faucet rules.
   */
-contract FacuetTokenDRGN is FaucetToken {
-    string constant public name = "DRGN Facuet Token";
+contract FaucetTokenDRGN is FaucetToken {
+    string constant public name = "DRGN Faucet Token";
     string constant public symbol = "DRGN";
     uint8 constant public decimals = 10;
 }
