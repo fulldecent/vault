@@ -1,6 +1,9 @@
 var MoneyMarket = artifacts.require("./MoneyMarket.sol");
 var EtherToken = artifacts.require("./tokens/EtherToken.sol");
-var PigToken = artifacts.require("./tokens/PigToken.sol");
+var FacuetTokenBAT = artifacts.require("FacuetTokenBAT.sol");
+var FacuetTokenDRGN = artifacts.require("FacuetTokenDRGN.sol");
+var FacuetTokenOMG = artifacts.require("FacuetTokenOMG.sol");
+var FacuetTokenZRX = artifacts.require("FacuetTokenZRX.sol");
 var WalletFactory = artifacts.require("./WalletFactory.sol");
 var TokenFactory = artifacts.require("./TokenFactory.sol");
 
@@ -28,10 +31,19 @@ module.exports = async function(callback) {
 	var tokenFactoryAddress;
 
 	try {
-		const pigToken = await PigToken.deployed();
-		tokens[pigToken.address] = "pig";
+		const facuetTokenBAT = await FacuetTokenBAT.deployed();
+		tokens[facuetTokenBAT.address] = "bat";
+
+		const facuetTokenDRGN = await FacuetTokenDRGN.deployed();
+		tokens[facuetTokenDRGN.address] = "drgn";
+
+		const facuetTokenOMG = await FacuetTokenOMG.deployed();
+		tokens[facuetTokenOMG.address] = "omg";
+
+		const facuetTokenZRX = await FacuetTokenZRX.deployed();
+		tokens[facuetTokenZRX.address] = "zrx";
 	} catch (e) {
-		// Pig token not deployed
+		// Faucet tokens not deployed
 	}
 
 	try {

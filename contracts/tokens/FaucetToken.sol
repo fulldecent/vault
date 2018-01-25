@@ -3,11 +3,11 @@ pragma solidity ^0.4.18;
 import "./../base/StandardToken.sol";
 
 /**
-  * @title The Compound Pig Test Token
+  * @title The Compound Faucet Test Token
   * @author Compound
-  * @notice A simple token to be used only in testing of contracts.
+  * @notice A simple token that lets anyone get more of it.
   */
-contract PigToken is StandardToken {
+contract FaucetToken is StandardToken {
 
     string constant public name = "Pig Token";
     string constant public symbol = "PIG";
