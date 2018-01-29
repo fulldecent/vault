@@ -16,15 +16,20 @@ module.exports = function(deployer, network) {
             return PriceOracle.deployed().then(priceOracle => {
               return TokenStore.deployed().then(tokenStore => {
                 return MoneyMarket.deployed().then(moneyMarket => {
-                  return Promise.all([
-                    moneyMarket.setBorrowInterestRateStorage(borrowInterestRateStorage.address),
-                    moneyMarket.setSupplyInterestRateStorage(supplyInterestRateStorage.address),
-                    moneyMarket.setLedgerStorage(ledgerStorage.address),
-                    moneyMarket.setBorrowStorage(loanerStorage.address),
-                    moneyMarket.setPriceOracle(priceOracle.address),
-                    moneyMarket.setTokenStore(tokenStore.address),
-                  ]).then(() => {
-                    console.log("Deployed all contracts and storage.");
+                  return moneyMarket.setBorrowInterestRateStorage(borrowInterestRateStorage.address).then(() => {
+                    return moneyMarket.setSupplyInterestRateStorage(supplyInterestRateStorage.address).then(() => {
+                      return moneyMarket.setLedgerStorage(ledgerStorage.address).then(() => {
+                        return moneyMarket.setBorrowStorage(loanerStorage.address).then(() => {
+                          return moneyMarket.setPriceOracle(priceOracle.address).then(() => {
+                            return moneyMarket.setTokenStore(tokenStore.address).then(() => {
+                              console.log("Deployed all contracts and storage.");
+
+                              return true;
+                            });
+                          });
+                        });
+                      });
+                    });
                   });
                 });
               });
