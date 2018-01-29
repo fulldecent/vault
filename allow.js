@@ -1,24 +1,27 @@
-var Vault = artifacts.require("./Vault.sol");
+var MoneyMarket = artifacts.require("./MoneyMarket.sol");
 
-var InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+var BorrowInterestRateStorage = artifacts.require("./storage/BorrowInterestRateStorage.sol");
+var SupplyInterestRateStorage = artifacts.require("./storage/SupplyInterestRateStorage.sol");
 var LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
-var LoanerStorage = artifacts.require("./storage/LoanerStorage.sol");
-var Oracle = artifacts.require("./storage/Oracle.sol");
+var BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
+var PriceOracle = artifacts.require("./storage/PriceOracle.sol");
 var TokenStore = artifacts.require("./storage/TokenStore.sol");
 
 module.exports = async function(callback) {
-	const vault = await Vault.deployed();
-	const interestRateStorage = await InterestRateStorage.deployed();
+	const moneyMarket = await MoneyMarket.deployed();
+	const borrowInterestRateStorage = await BorrowInterestRateStorage.deployed();
+	const supplyInterestRateStorage = await SupplyInterestRateStorage.deployed();
 	const ledgerStorage = await LedgerStorage.deployed();
-	const loanerStorage = await LoanerStorage.deployed();
-	const oracle = await Oracle.deployed();
+	const borrowStorage = await BorrowStorage.deployed();
+	const priceOracle = await PriceOracle.deployed();
 	const tokenStore = await TokenStore.deployed();
 
 	return await Promise.all([
-		interestRateStorage.allow(vault.address),
-		ledgerStorage.allow(vault.address),
-		loanerStorage.allow(vault.address),
-		oracle.allow(vault.address),
-		tokenStore.allow(vault.address)
+		borrowInterestRateStorage.allow(moneyMarket.address),
+		supplyInterestRateStorage.allow(moneyMarket.address),
+		ledgerStorage.allow(moneyMarket.address),
+		borrowStorage.allow(moneyMarket.address),
+		priceOracle.allow(moneyMarket.address),
+		tokenStore.allow(moneyMarket.address)
 	]);
 };

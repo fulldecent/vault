@@ -147,10 +147,6 @@ contract Borrower is Graceful, Owned, Ledger {
             return false;
         }
 
-        if(!validPriceOracle()) {
-            return false;
-        }
-
         // true up balance first
         if(!accrueBorrowInterest(borrower, borrowAsset)) {
             return false;
@@ -286,48 +282,6 @@ contract Borrower is Graceful, Owned, Ledger {
         }
 
         return balance;
-    }
-
-    /**
-      * @notice `validPriceOracle` verifies that the PriceOracle is correct initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validPriceOracle() public returns (bool) {
-        bool result = true;
-
-        if (priceOracle == address(0)) {
-            failure("Borrower::PriceOracleInitialized");
-            result = false;
-        }
-
-        if (priceOracle.allowed() != address(this)) {
-            failure("Borrower::PriceOracleNotAllowed");
-            result = false;
-        }
-
-        return result;
-    }
-
-    /**
-      * @notice `validBorrowStorage` verifies that the BorrowStorage is correctly initialized
-      * @dev This is just for sanity checking.
-      * @return true if successfully initialized, false otherwise
-      */
-    function validBorrowStorage() public returns (bool) {
-        bool result = true;
-
-        if (borrowStorage == address(0)) {
-            failure("Borrower::BorrowStorageInitialized");
-            result = false;
-        }
-
-        if (borrowStorage.allowed() != address(this)) {
-            failure("Borrower::BorrowStorageNotAllowed");
-            result = false;
-        }
-
-        return result;
     }
 
     /**
