@@ -264,7 +264,7 @@ module.exports = {
 
   supplyEth: async function(supplier, etherToken, amount, account) {
     await createAndApproveWeth(supplier, etherToken, amount, account);
-    await supplier.customerSupply(etherToken.address, amount, account);
+    await supplier.customerSupply(etherToken.address, amount, {from: account});
   },
 
   ledgerAccountBalance: async (ledger, account, token) =>

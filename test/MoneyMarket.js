@@ -254,7 +254,7 @@ contract('MoneyMarket', function(accounts) {
 
       // // Approve wallet for 55 tokens
       await faucetToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});
-      await moneyMarket.customerSupply(faucetToken.address, 100, web3.eth.accounts[0], {from: web3.eth.accounts[0]});
+      await moneyMarket.customerSupply(faucetToken.address, 100, {from: web3.eth.accounts[0]});
       await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[1]);
       //
       // set PriceOracle value (each Eth is now worth two Eth!)

@@ -78,11 +78,9 @@ contract Supplier is Graceful, Owned, Ledger {
       * @notice `customerSupply` supplies a given asset in a customer's supplier account.
       * @param asset Asset to supply
       * @param amount The amount of asset to supply
-      * @param from The customer's account which is pre-authorized for transfer
       * @return success or failure
       */
-    function customerSupply(address asset, uint256 amount, address from) public returns (bool) {
-        // TODO: Should we verify that from matches `msg.sender` or `msg.originator`?
+    function customerSupply(address asset, uint256 amount) public returns (bool) {
         if (!checkTokenStore()) {
             return false;
         }
@@ -91,18 +89,18 @@ contract Supplier is Graceful, Owned, Ledger {
             return false;
         }
 
-        if (!accrueSupplyInterest(from, asset)) {
+        if (!accrueSupplyInterest(msg.sender, asset)) {
             return false;
         }
 
-        // Transfer `tokenStore` the asset from `from`
-        if (!Token(asset).transferFrom(from, address(tokenStore), amount)) {
-            failure("Supplier::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(from));
+        // Transfer `tokenStore` the asset from `msg.sender`
+        if (!Token(asset).transferFrom(msg.sender, address(tokenStore), amount)) {
+            failure("Supplier::TokenTransferFromFail", uint256(asset), uint256(amount), uint256(msg.sender));
             return false;
         }
 
-        debit(LedgerReason.CustomerSupply, LedgerAccount.Cash, from, asset, amount);
-        credit(LedgerReason.CustomerSupply, LedgerAccount.Supply, from, asset, amount);
+        debit(LedgerReason.CustomerSupply, LedgerAccount.Cash, msg.sender, asset, amount);
+        credit(LedgerReason.CustomerSupply, LedgerAccount.Supply, msg.sender, asset, amount);
 
         return true;
     }

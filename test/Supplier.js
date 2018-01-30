@@ -65,7 +65,7 @@ contract('Supplier', function(accounts) {
       assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 100);
 
       // commit supply in supplier
-      await supplier.customerSupply(etherToken.address, 100, web3.eth.accounts[1]);
+      await supplier.customerSupply(etherToken.address, 100, {from: web3.eth.accounts[1]});
 
       // verify balance in supplier
       assert.equal((await utils.ledgerAccountBalance(supplier, web3.eth.accounts[1], etherToken.address)).toNumber(), 100);
@@ -114,16 +114,16 @@ contract('Supplier', function(accounts) {
       await utils.createAndApproveWeth(supplier, etherToken, 100, web3.eth.accounts[1], 99);
 
       await utils.assertGracefulFailure(supplier, "Supplier::TokenTransferFromFail", [null, 100, null], async () => {
-        await supplier.customerSupply(etherToken.address, 100, web3.eth.accounts[1]);
+        await supplier.customerSupply(etherToken.address, 100, {from: web3.eth.accounts[1]});
       });
 
       // works okay for 99
-      await supplier.customerSupply(etherToken.address, 99, web3.eth.accounts[1]);
+      await supplier.customerSupply(etherToken.address, 99, {from: web3.eth.accounts[1]});
     });
 
     it("should fail for unknown assets", async () => {
       try {
-        await supplier.customerSupply(0, 100, web3.eth.accounts[1]);
+        await supplier.customerSupply(0, 100, {from: web3.eth.accounts[1]});
         assert.fail('should have thrown');
       } catch(error) {
         assert.equal(error.message, "VM Exception while processing transaction: revert")

@@ -71,7 +71,7 @@ contract Wallet is Owned {
         }
 
         // Supply asset in Compound MoneyMarket contract
-        if (!moneyMarket.customerSupply(asset, amount, address(this))) {
+        if (!moneyMarket.customerSupply(asset, amount)) {
             return false;
         }
 
