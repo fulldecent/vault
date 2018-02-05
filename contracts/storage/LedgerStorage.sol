@@ -160,43 +160,45 @@ contract LedgerStorage is Graceful, Allowed {
         return true;
     }
 
-    function interestBetweenBlocks(uint8 ledgerAccount, address asset) {
-        // Then, get the interest rate that's stored
-        uint256 baseInterest;
-        uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
+    function getCurrentBalance(uint8 ledgerAccount, address asset, address customer) public returns (uint256) {
+        // uint256 startingBlock, uint256 endingBlock
+        uint256 staringBlock = getBalanceBlockNumber(customer, uint8(ledgerAccount), asset);
+        uint256 principal = getBalance(customer, uint8(ledgerAccount), asset)
+        uint256 endingBlock = block.number;
 
-        if (currentBlockInterestBlock == 0) {
-            baseInterest = 1;
-        } else {
-            baseInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
+        // Then, get the total interest rates which are stored.
+        uint startingTotalInterest = blockInterest[ledgerAccount][asset][startingBlock];
+        uint endingTotalInterest = blockInterest[ledgerAccount][asset][endingBlock];
+
+        if (startingTotalInterest == 0 || endingTotalInterest == 0) {
+            // This data must have been added previously
+            revert();
         }
 
-        
+        return multiplyInterestRate(
+            principal,
+            endingTotalInterest - startingTotalInterest
+        );
     }
 
     function saveBlockInterest(uint8 ledgerAccount, address asset, uint256 amount) internal {
-        // First, calculate the current interest rate
-        uint64 interestRate;
-        if (ledgerAccount == LedgerAccount.Borrow) {
-            interestRate = getScaledBorrowRatePerGroup(asset);
-        } else if (ledgerAccount == LedgerAccount.Supply) {
-            interestRate = getScaledSupplyRatePerGroup(asset);
-        } else {
-            return; // No effect
-        }
+        uint64 currentInterestRate = getInterestRate(ledgerAccount, asset);
+
+        // TODO: Handle when interest rate is not set?
 
         // Then, get the interest rate that's stored
-        uint256 baseInterest;
+        uint256 previousTotalInterest;
         uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
 
         if (currentBlockInterestBlock == 0) {
-            baseInterest = 1;
+            previousTotalInterest = 1;
         } else {
-            baseInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
+            previousTotalInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
         }
 
         // Finally calculate a new total interest
-        uint256 totalInterest = multiplyInterestRate(baseInterest, currentInterestRate);
+        // TODO: This should be applied for the time between then and now :(
+        uint256 totalInterest = multiplyInterestRate(previousTotalInterest, currentInterestRate);
 
         blockInterest[ledgerAccount][asset][block.number] = totalInterest;
         blockInterestBlock[ledgerAccount][asset] = block.number;
@@ -210,6 +212,17 @@ contract LedgerStorage is Graceful, Allowed {
       */
     function multiplyInterestRate(uint256 principal, uint256 interestRate) pure private returns (uint256) {
         return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
+    }
+
+    function getInterestRate(uint8 ledgerAccount, address asset) public returns (uint64) {
+        // First, calculate the current interest rate
+        if (ledgerAccount == LedgerAccount.Borrow) {
+            return getScaledBorrowRatePerGroup(asset);
+        } else if (ledgerAccount == LedgerAccount.Supply) {
+            return getScaledSupplyRatePerGroup(asset);
+        } else {
+            return 0; // No effect
+        }
     }
 
     /**

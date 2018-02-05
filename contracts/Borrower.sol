@@ -51,35 +51,6 @@ contract Borrower is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `setBorrowInterestRateStorage` sets the interest rate storage location for this borrow contract
-      * @dev This is for long-term data storage (TODO: Test)
-      * @param borrowInterestRateStorage_ The contract which acts as the long-term data store
-      * @return Success of failure of operation
-      */
-    function setBorrowInterestRateStorage(InterestRateStorage borrowInterestRateStorage_) public returns (bool) {
-        if (!checkOwner()) {
-            return false;
-        }
-
-        borrowInterestRateStorage = borrowInterestRateStorage_;
-
-        return true;
-    }
-
-    /**
-      * @notice `checkBorrowInterestRateStorage` verifies interest rate store has been set
-      * @return True if interest rate store is initialized, false otherwise
-      */
-    function checkBorrowInterestRateStorage() internal returns (bool) {
-        if (borrowInterestRateStorage == address(0)) {
-            failure("Borrower::InterestRateStorageUnitialized");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
       * @notice `customerBorrow` creates a new borrow and supplies the requested asset into the user's account.
       * @param asset The asset to borrow
       * @param amount The amount to borrow
@@ -187,10 +158,10 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return The borrow balance of given account
       */
     function getBorrowBalance(address customer, address asset) public view returns (uint256) {
-        return borrowInterestRateStorage.getCurrentBalance(
+        return ledgerStorage.getCurrentBalance(
+            LedgerAccount.Borrow,
             asset,
-            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset),
-            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset)
+            customer
         );
     }
 
@@ -201,10 +172,6 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return success or failure
       */
     function accrueBorrowInterest(address customer, address asset) public returns (bool) {
-        if (!checkBorrowInterestRateStorage()) {
-            return false;
-        }
-
         uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset);
 
         if (blockNumber != block.number) {
@@ -221,6 +188,7 @@ contract Borrower is Graceful, Owned, Ledger {
 
             if (interest != 0) {
                 credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
+                // Uck, this is going to change things again!
                 debit(LedgerReason.Interest, LedgerAccount.Borrow, customer, asset, interest);
                 if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Borrow), asset)) {
                     revert();

@@ -44,35 +44,6 @@ contract Supplier is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `setSupplyInterestRateStorage` sets the interest rate storage location for this supply contract
-      * @dev This is for long-term data storage
-      * @param supplyInterestRateStorage_ The contract which acts as the long-term data store
-      * @return Success of failure of operation
-      */
-    function setSupplyInterestRateStorage(InterestRateStorage supplyInterestRateStorage_) public returns (bool) {
-        if (!checkOwner()) {
-            return false;
-        }
-
-        supplyInterestRateStorage = supplyInterestRateStorage_;
-
-        return true;
-    }
-
-    /**
-      * @notice `checkSupplierInterestRateStorage` verifies interest rate store has been set
-      * @return True if interest rate store is initialized, false otherwise
-      */
-    function checkSupplierInterestRateStorage() internal returns (bool) {
-        if (supplyInterestRateStorage == address(0)) {
-            failure("Supplier::InterestRateStorageUnitialized");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
       * @notice `customerSupply` supplies a given asset in a customer's supplier account.
       * @param asset Asset to supply
       * @param amount The amount of asset to supply
@@ -80,10 +51,6 @@ contract Supplier is Graceful, Owned, Ledger {
       */
     function customerSupply(address asset, uint256 amount) public returns (bool) {
         if (!checkTokenStore()) {
-            return false;
-        }
-
-        if (!checkSupplierInterestRateStorage()) {
             return false;
         }
 
@@ -112,10 +79,6 @@ contract Supplier is Graceful, Owned, Ledger {
       */
     function customerWithdraw(address asset, uint256 amount, address to) public returns (bool) {
         if (!checkTokenStore()) {
-            return false;
-        }
-
-        if (!checkSupplierInterestRateStorage()) {
             return false;
         }
 
@@ -158,10 +121,10 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return The balance (with interest)
       */
     function getSupplyBalance(address customer, address asset) public view returns (uint256) {
-        return supplyInterestRateStorage.getCurrentBalance(
+        return ledgerStorage.getCurrentBalance(
+            LedgerAccount.Supply,
             asset,
-            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset),
-            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset)
+            customer
         );
     }
 
@@ -173,10 +136,6 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return success or failure
       */
     function accrueSupplyInterest(address customer, address asset) public returns (bool) {
-        if (!checkSupplierInterestRateStorage()) {
-            return false;
-        }
-
         uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
 
         if (blockNumber != block.number) {
@@ -195,6 +154,7 @@ contract Supplier is Graceful, Owned, Ledger {
 
             if (interest != 0) {
                 debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
+                // Uck, this is going to change things again!
                 credit(LedgerReason.Interest, LedgerAccount.Supply, customer, asset, interest);
                 if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Supply), asset)) {
                     revert();
