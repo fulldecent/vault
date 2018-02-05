@@ -61,11 +61,10 @@ contract LedgerStorage is Graceful, Allowed {
             return false;
         }
 
-        uint256 balanceSheetAmount = balanceSheetBalance + amount;
-        balanceSheet[ledgerAccount][asset] = balanceSheetAmount;
-        checkpoint.balance += amount;
+        saveBlockInterest(ledgerAccount, asset);
 
-        saveBlockInterest(ledgerAccount, asset, balanceSheetAmount);
+        balanceSheet[ledgerAccount][asset] = balanceSheetBalance + amount;
+        checkpoint.balance += amount;
 
         BalanceIncrease(customer, ledgerAccount, asset, amount);
 
@@ -98,11 +97,10 @@ contract LedgerStorage is Graceful, Allowed {
             return false;
         }
 
-        uint256 balanceSheetAmount = balanceSheetBalance - amount;
-        balanceSheet[ledgerAccount][asset] = balanceSheetAmount;
-        checkpoint.balance -= amount;
+        saveBlockInterest(ledgerAccount, asset);
 
-        saveBlockInterest(ledgerAccount, asset, balanceSheetAmount);
+        balanceSheet[ledgerAccount][asset] = balanceSheetBalance - amount;
+        checkpoint.balance -= amount;
 
         BalanceDecrease(customer, ledgerAccount, asset, amount);
 
@@ -181,26 +179,24 @@ contract LedgerStorage is Graceful, Allowed {
         );
     }
 
-    function saveBlockInterest(uint8 ledgerAccount, address asset, uint256 amount) internal {
-        uint64 currentInterestRate = getInterestRate(ledgerAccount, asset);
-
-        // TODO: Handle when interest rate is not set?
-
-        // Then, get the interest rate that's stored
-        uint256 previousTotalInterest;
-        uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
+    function saveBlockInterest(uint8 ledgerAccount, address asset) internal {
         uint256 totalInterest;
 
+        // Take current interest rate
+        uint64 currentInterestRate = getInterestRate(ledgerAccount, asset);
+
+        // Grab last snapshot
+        uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
+
         if (currentBlockInterestBlock == 0) {
-            // Start with no applied interest
+            // There is no current snapshot, so let's start with a base multiplier
             totalInterest = interestRateScale;
         } else {
+            // Let's apply interest since last block to current
             uint256 blocksSincePrevious = block.number - currentBlockInterestBlock;
+            uint256 previousTotalInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
 
-            previousTotalInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
-
-            // Finally calculate a new total interest
-            // TODO: This should be applied for the time between then and now :(
+            // Finally calculate a new total interest (which is previous * currentInterestRate * # blocks)
             totalInterest = multiplyInterestRate(previousTotalInterest, currentInterestRate * blocksSincePrevious);
         }
 
