@@ -10,19 +10,10 @@ import "../base/Allowed.sol";
   */
 contract InterestRateStorage is Owned, Allowed {
 	uint constant interestRateScale = 10 ** 16;
-	uint constant blocksPerYear = 2102400; // = (365 * 24 * 60 * 60) seconds per year / 15 seconds per block
-
-	// the number of blocks in a single interest rate period.
-	uint blockScale;
-
-	uint blockUnitsPerYear;
 
 	/* @param blockScale_ is the number of blocks that constitutes an interest rate period
 	*/
-	function InterestRateStorage(uint8 blockScale_) public {
-		blockScale = blockScale_;
-
-		blockUnitsPerYear = blocksPerYear/blockScale;
+	function InterestRateStorage() public {
 	}
 
 	struct Snapshot {

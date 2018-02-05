@@ -15,9 +15,6 @@ import "./storage/BorrowStorage.sol";
 contract Borrower is Graceful, Owned, Ledger {
     PriceOracle public priceOracle;
     BorrowStorage public borrowStorage;
-    InterestRateStorage public borrowInterestRateStorage;
-    uint16 public borrowRateSlopeBPS = 2000;
-    uint16 public minimumBorrowRateBPS = 1000;
 
     function Borrower () public {}
 
@@ -282,43 +279,5 @@ contract Borrower is Graceful, Owned, Ledger {
         }
 
         return balance;
-    }
-
-    /**
-      * @notice `getScaledBorrowRatePerGroup` returns the current borrow interest rate based on the balance sheet
-      * @param asset address of asset
-      * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
-      * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
-      * @return the current borrow interest rate (in scale points, aka divide by 10^16 to get real rate)
-      */
-    function getScaledBorrowRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
-        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
-
-        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
-        uint256 denominator = cash + borrows;
-        if(denominator == 0) {
-            denominator = 1;
-        }
-
-        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
-        // note: this is done in one-line since intermediate results would be truncated
-
-        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
-    }
-
-
-    /**
-      * @notice `snapshotBorrowInterestRate` snapshots the current interest rate for the block uint
-      * @param asset address of asset
-      * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
-      * TODO: Test
-      */
-    function snapshotBorrowInterestRate(address asset) public returns (bool) {
-      uint64 rate = getScaledBorrowRatePerGroup(asset,
-          borrowInterestRateStorage.getInterestRateScale(),
-          borrowInterestRateStorage.getBlockUnitsPerYear());
-
-      return borrowInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }

@@ -13,8 +13,6 @@ import "./storage/TokenStore.sol";
   */
 contract Supplier is Graceful, Owned, Ledger {
     TokenStore public tokenStore;
-    uint16 public supplyRateSlopeBPS = 1000;
-    InterestRateStorage public supplyInterestRateStorage;
 
     /**
       * @notice `setTokenStore` sets the token store contract
@@ -205,41 +203,5 @@ contract Supplier is Graceful, Owned, Ledger {
         }
 
         return true;
-    }
-
-    /**
-      * @notice `getScaledSupplyRatePerGroup` returns the current borrow interest rate based on the balance sheet
-      * @param asset address of asset
-      * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
-      * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
-      * @return the current supply interest rate (in scale points, aka divide by 10^16 to get real rate)
-      */
-    function getScaledSupplyRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
-        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
-
-        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
-        uint256 denominator = cash + borrows;
-        if(denominator == 0) {
-            denominator = 1;
-        }
-
-        // `supply r` == (1-`reserve ratio`) * 10%
-        // note: this is done in one-line since intermediate results would be truncated
-        // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
-        return uint64( (( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
-    }
-
-    /**
-      * @notice `snapshotSupplierInterestRate` snapshots the current interest rate for the block unit
-      * @param asset address of asset
-      * @return true on success, false if failure (e.g. snapshot already taken for this block unit)
-      */
-    function snapshotSupplierInterestRate(address asset) public returns (bool) {
-      uint64 rate = getScaledSupplyRatePerGroup(asset,
-          supplyInterestRateStorage.getInterestRateScale(),
-          supplyInterestRateStorage.getBlockUnitsPerYear());
-
-      return supplyInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }

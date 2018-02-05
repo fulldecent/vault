@@ -9,6 +9,11 @@ import "../base/Graceful.sol";
   * @notice The Ledger Storage contract is a simple contract to keep track of ledger entries.
   */
 contract LedgerStorage is Graceful, Allowed {
+    uint constant interestRateScale = 10 ** 16;
+    uint16 public supplyRateSlopeBPS = 1000;
+    uint16 public borrowRateSlopeBPS = 2000;
+    uint16 public minimumBorrowRateBPS = 1000;
+
     struct BalanceCheckpoint {
         uint256 balance;
         uint256 blockNumber;
@@ -19,11 +24,16 @@ contract LedgerStorage is Graceful, Allowed {
     event BalanceIncrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
     event BalanceDecrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
 
-	// A map of customer -> LedgerAccount{Supply, Borrow} -> asset -> balance
+    // A map of customer -> LedgerAccount{Supply, Borrow} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
-    // Balance Sheet
+    // Balance Sheet is a map of LedgerAccount{Supply, Borrow} -> asset -> balance
     mapping(uint8 => mapping(address => uint256)) balanceSheet;
+
+    // Block interest map is a map of LedgerAccount{Supply, Borrow} -> block number -> total interest
+    // Total interest is the total interest accumlated since the beginning of time
+    mapping(uint8 => mapping(uint256 => uint256)) blockInterest;
+    uint256 blockInterestBlock;
 
     /**
       * @notice `increaseBalanceByAmount` increases a balances account by a given amount
@@ -51,8 +61,11 @@ contract LedgerStorage is Graceful, Allowed {
             return false;
         }
 
-        balanceSheet[ledgerAccount][asset] = balanceSheetBalance + amount;
+        uint256 balanceSheetAmount = balanceSheetBalance + amount;
+        balanceSheet[ledgerAccount][asset] = balanceSheetAmount;
         checkpoint.balance += amount;
+
+        saveBlockInterest(ledgerAccount, asset, balanceSheetAmount);
 
         BalanceIncrease(customer, ledgerAccount, asset, amount);
 
@@ -85,8 +98,11 @@ contract LedgerStorage is Graceful, Allowed {
             return false;
         }
 
-        balanceSheet[ledgerAccount][asset] = balanceSheetBalance - amount;
+        uint256 balanceSheetAmount = balanceSheetBalance - amount;
+        balanceSheet[ledgerAccount][asset] = balanceSheetAmount;
         checkpoint.balance -= amount;
+
+        saveBlockInterest(ledgerAccount, asset, balanceSheetAmount);
 
         BalanceDecrease(customer, ledgerAccount, asset, amount);
 
@@ -112,7 +128,7 @@ contract LedgerStorage is Graceful, Allowed {
       * @return balance of given asset
       */
     function getBalance(address customer, uint8 ledgerAccount, address asset) public view returns (uint256) {
-    	return balanceCheckpoints[customer][ledgerAccount][asset].balance;
+        return balanceCheckpoints[customer][ledgerAccount][asset].balance;
     }
 
     /**
@@ -142,5 +158,99 @@ contract LedgerStorage is Graceful, Allowed {
         checkpoint.blockNumber = block.number;
 
         return true;
+    }
+
+    function interestBetweenBlocks(uint8 ledgerAccount, address asset) {
+        // Then, get the interest rate that's stored
+        uint256 baseInterest;
+        uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
+
+        if (currentBlockInterestBlock == 0) {
+            baseInterest = 1;
+        } else {
+            baseInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
+        }
+
+        
+    }
+
+    function saveBlockInterest(uint8 ledgerAccount, address asset, uint256 amount) internal {
+        // First, calculate the current interest rate
+        uint64 interestRate;
+        if (ledgerAccount == LedgerAccount.Borrow) {
+            interestRate = getScaledBorrowRatePerGroup(asset);
+        } else if (ledgerAccount == LedgerAccount.Supply) {
+            interestRate = getScaledSupplyRatePerGroup(asset);
+        } else {
+            return; // No effect
+        }
+
+        // Then, get the interest rate that's stored
+        uint256 baseInterest;
+        uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
+
+        if (currentBlockInterestBlock == 0) {
+            baseInterest = 1;
+        } else {
+            baseInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
+        }
+
+        // Finally calculate a new total interest
+        uint256 totalInterest = multiplyInterestRate(baseInterest, currentInterestRate);
+
+        blockInterest[ledgerAccount][asset][block.number] = totalInterest;
+        blockInterestBlock[ledgerAccount][asset] = block.number;
+    }
+
+    /**
+      * @notice `multiplyInterestRate` multiples the principal by a given interest rate which was scaled
+      * @param principal original amount to scale (may be an interest rate itself)
+      * @param interestRate the interest rate to apply
+      * @return principal times interest rate after scaling up and back down
+      */
+    function multiplyInterestRate(uint256 principal, uint256 interestRate) pure private returns (uint256) {
+        return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
+    }
+
+    /**
+      * @notice `getScaledBorrowRatePerGroup` returns the current borrow interest rate based on the balance sheet
+      * @param asset address of asset
+      * @return the current borrow interest rate (in scale points, aka divide by 10^16 to get real rate)
+      */
+    function getScaledBorrowRatePerGroup(address asset) public view returns (uint64) {
+        uint256 cash = getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 borrows = getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
+
+        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
+        uint256 denominator = cash + borrows;
+
+        if (denominator == 0) {
+            denominator = 1;
+        }
+
+        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
+        // note: this is done in one-line since intermediate results would be truncated
+        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / basisPointMultiplier));
+    }
+
+    /**
+      * @notice `getScaledSupplyRatePerGroup` returns the current borrow interest rate based on the balance sheet
+      * @param asset address of asset
+      * @return the current supply interest rate (in scale points, aka divide by 10^16 to get real rate)
+      */
+    function getScaledSupplyRatePerGroup(address asset) public view returns (uint64) {
+        uint256 cash = getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 borrows = getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
+
+        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
+        uint256 denominator = cash + borrows;
+        if (denominator == 0) {
+            denominator = 1;
+        }
+
+        // `supply r` == (1-`reserve ratio`) * 10%
+        // note: this is done in one-line since intermediate results would be truncated
+        // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
+        return uint64( (( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / basisPointMultiplier));
     }
 }
