@@ -154,7 +154,6 @@ contract Supplier is Graceful, Owned, Ledger {
 
             if (interest != 0) {
                 debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
-                // Uck, this is going to change things again!
                 credit(LedgerReason.Interest, LedgerAccount.Supply, customer, asset, interest);
                 if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Supply), asset)) {
                     revert();

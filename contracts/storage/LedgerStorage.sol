@@ -189,16 +189,20 @@ contract LedgerStorage is Graceful, Allowed {
         // Then, get the interest rate that's stored
         uint256 previousTotalInterest;
         uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
+        uint256 totalInterest;
 
         if (currentBlockInterestBlock == 0) {
-            previousTotalInterest = 1;
+            // Start with no applied interest
+            totalInterest = interestRateScale;
         } else {
-            previousTotalInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
-        }
+            uint256 blocksSincePrevious = block.number - currentBlockInterestBlock;
 
-        // Finally calculate a new total interest
-        // TODO: This should be applied for the time between then and now :(
-        uint256 totalInterest = multiplyInterestRate(previousTotalInterest, currentInterestRate);
+            previousTotalInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
+
+            // Finally calculate a new total interest
+            // TODO: This should be applied for the time between then and now :(
+            totalInterest = multiplyInterestRate(previousTotalInterest, currentInterestRate * blocksSincePrevious);
+        }
 
         blockInterest[ledgerAccount][asset][block.number] = totalInterest;
         blockInterestBlock[ledgerAccount][asset] = block.number;
