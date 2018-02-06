@@ -104,24 +104,23 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param borrowAsset the asset that was borrowed; must differ from paymentAsset
      **/
     function convertCollateral(address borrower, address paymentAsset, uint256 amountInPaymentAsset, address borrowAsset) public returns (bool) {
-
-        if(borrowAsset == paymentAsset) {
+        if (borrowAsset == paymentAsset) {
             failure("Borrower::CollateralSameAsBorrow", uint256(borrowAsset));
             return false;
         }
 
-        if(amountInPaymentAsset == 0) {
+        if (amountInPaymentAsset == 0) {
             failure("Borrower::ZeroCollateralAmount", uint256(borrowAsset));
             return false;
         }
 
         // true up balance first
-        if(!accrueBorrowInterest(borrower, borrowAsset)) {
+        if (!accrueBorrowInterest(borrower, borrowAsset)) {
             return false;
         }
 
-        uint borrowBalance = getBalance(borrower, LedgerAccount.Borrow, borrowAsset);
-        if(borrowBalance == 0) {
+        uint256 borrowBalance = getBalance(borrower, LedgerAccount.Borrow, borrowAsset);
+        if (borrowBalance == 0) {
             failure("Borrower::ZeroBorrowBalance", uint256(borrowAsset));
             return false;
         }
@@ -132,9 +131,8 @@ contract Borrower is Graceful, Owned, Ledger {
             return false;
         }
 
-        uint amountInBorrowAsset = priceOracle.getConvertedAssetValue(paymentAsset, amountInPaymentAsset, borrowAsset);
-
-        if(amountInBorrowAsset > borrowBalance) {
+        uint256 amountInBorrowAsset = priceOracle.getConvertedAssetValue(paymentAsset, amountInPaymentAsset, borrowAsset);
+        if (amountInBorrowAsset > borrowBalance) {
             failure("Borrower::TooMuchCollateral", uint256(amountInBorrowAsset), uint256(borrowBalance), amountInPaymentAsset);
             return false;
         }
@@ -158,10 +156,11 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return The borrow balance of given account
       */
     function getBorrowBalance(address customer, address asset) public view returns (uint256) {
-        return ledgerStorage.getCurrentBalance(
-            LedgerAccount.Borrow,
+        return interestRateStorage.getCurrentBalance(
+            uint8(LedgerAccount.Borrow),
             asset,
-            customer
+            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset),
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset)
         );
     }
 

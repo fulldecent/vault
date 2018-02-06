@@ -121,10 +121,11 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return The balance (with interest)
       */
     function getSupplyBalance(address customer, address asset) public view returns (uint256) {
-        return ledgerStorage.getCurrentBalance(
-            LedgerAccount.Supply,
+        return interestRateStorage.getCurrentBalance(
+            uint8(LedgerAccount.Supply),
             asset,
-            customer
+            ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset),
+            ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset)
         );
     }
 
