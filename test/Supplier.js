@@ -5,6 +5,7 @@ const Supplier = artifacts.require("./Supplier.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const InterestModel = artifacts.require("./InterestModel.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
@@ -37,12 +38,14 @@ contract('Supplier', function(accounts) {
   var etherToken;
   var tokenStore;
   var interestRateStorage;
+  var interestModel;
   var testLedgerStorage;
 
   beforeEach(async () => {
     const ledgerStorage = await LedgerStorage.new();
     tokenStore = await TokenStore.new();
-    interestRateStorage = await InterestRateStorage.new(10);
+    interestRateStorage = await InterestRateStorage.new();
+    interestModel = await InterestModel.new();
     testLedgerStorage = await TestLedgerStorage.new();
 
     [supplier, etherToken] = await Promise.all([Supplier.new(), EtherToken.new()]);
@@ -50,7 +53,8 @@ contract('Supplier', function(accounts) {
     await tokenStore.allow(supplier.address);
     await interestRateStorage.allow(supplier.address);
     await supplier.setLedgerStorage(ledgerStorage.address);
-    await supplier.setSupplyInterestRateStorage(interestRateStorage.address);
+    await supplier.setInterestRateStorage(interestRateStorage.address);
+    await supplier.setInterestModel(interestModel.address);
     await supplier.setTokenStore(tokenStore.address);
   });
 

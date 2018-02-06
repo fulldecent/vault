@@ -28,7 +28,7 @@ contract InterestRateStorage is Owned, Allowed {
         uint endingTotalInterest = blockInterest[ledgerAccount][asset][endingBlock];
 
         if (startingTotalInterest == 0 || endingTotalInterest == 0) {
-            // This data must have been added previously
+            // This data *must* have been added previously
             revert();
         }
 
@@ -53,7 +53,7 @@ contract InterestRateStorage is Owned, Allowed {
             totalInterest = interestRateScale;
         } else if (currentBlockInterestBlock == block.number) {
             // Don't take a second snapshot
-            return;
+            return true;
         } else {
             // Let's apply interest since last block to current
             uint256 blocksSincePrevious = block.number - currentBlockInterestBlock;

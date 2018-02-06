@@ -107,12 +107,8 @@ contract Ledger is Graceful, Owned {
       * @dev This throws on any error
       */
     function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
-        uint64 interestRate = getInterestRate(asset, ledgerAccount);
-
-        if (interestRate > 0) {
-            if (!interestRateStorage.saveBlockInterest(uint8(ledgerAccount), asset, interestRate)) {
-                revert();
-            }
+        if (!saveBlockInterest(asset, ledgerAccount)) {
+            revert();
         }
 
         if(isAsset(ledgerAccount)) {
@@ -155,12 +151,8 @@ contract Ledger is Graceful, Owned {
       * @dev This throws on any error
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
-        uint64 interestRate = getInterestRate(asset, ledgerAccount);
-
-        if (interestRate > 0) {
-            if (!interestRateStorage.saveBlockInterest(uint8(ledgerAccount), asset, interestRate)) {
-                revert();
-            }
+        if (!saveBlockInterest(asset, ledgerAccount)) {
+            revert();
         }
 
         if(isAsset(ledgerAccount)) {
@@ -223,6 +215,17 @@ contract Ledger is Graceful, Owned {
         return (
             ledgerAccount == LedgerAccount.Supply
         );
+    }
+
+    // saveBlockInterest
+    function saveBlockInterest(address asset, LedgerAccount ledgerAccount) internal returns (bool) {
+        uint64 interestRate = getInterestRate(asset, ledgerAccount);
+
+        if (interestRate > 0) {
+            return interestRateStorage.saveBlockInterest(uint8(ledgerAccount), asset, interestRate);
+        }
+
+        return true;
     }
 
     /**

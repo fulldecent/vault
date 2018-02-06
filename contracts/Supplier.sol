@@ -54,6 +54,11 @@ contract Supplier is Graceful, Owned, Ledger {
             return false;
         }
 
+        if (!saveBlockInterest(asset, LedgerAccount.Supply)) {
+            failure("Supplier::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Supply));
+            return false;
+        }
+
         if (!accrueSupplyInterest(msg.sender, asset)) {
             return false;
         }
@@ -79,6 +84,11 @@ contract Supplier is Graceful, Owned, Ledger {
       */
     function customerWithdraw(address asset, uint256 amount, address to) public returns (bool) {
         if (!checkTokenStore()) {
+            return false;
+        }
+
+        if (!saveBlockInterest(asset, LedgerAccount.Supply)) {
+            failure("Supplier::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Supply));
             return false;
         }
 
@@ -121,6 +131,10 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return The balance (with interest)
       */
     function getSupplyBalance(address customer, address asset) public view returns (uint256) {
+        if (!saveBlockInterest(asset, LedgerAccount.Supply)) {
+            revert();
+        }
+
         return interestRateStorage.getCurrentBalance(
             uint8(LedgerAccount.Supply),
             asset,
@@ -139,7 +153,7 @@ contract Supplier is Graceful, Owned, Ledger {
     function accrueSupplyInterest(address customer, address asset) public returns (bool) {
         uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
 
-        if (blockNumber != block.number) {
+        if (blockNumber != 0 && blockNumber != block.number) {
             // We need to true up balance
 
             uint balanceWithInterest = getSupplyBalance(customer, asset);
@@ -159,7 +173,7 @@ contract Supplier is Graceful, Owned, Ledger {
                 if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Supply), asset)) {
                     revert();
                 }
-          }
+            }
         }
 
         return true;

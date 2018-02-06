@@ -67,6 +67,11 @@ contract Borrower is Graceful, Owned, Ledger {
             return false;
         }
 
+        if (!saveBlockInterest(asset, LedgerAccount.Borrow)) {
+            failure("Borrower::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Borrow));
+            return false;
+        }
+
         // TODO: If customer already has a borrow of asset, we need to make sure we can handle the change.
         // Before adding the new amount we will need to either calculate interest on existing borrow amount or snapshot
         // the current borrow balance.
@@ -86,6 +91,11 @@ contract Borrower is Graceful, Owned, Ledger {
       */
     function customerPayBorrow(address asset, uint amount) public returns (bool) {
         if (!accrueBorrowInterest(msg.sender, asset)) {
+            return false;
+        }
+
+        if (!saveBlockInterest(asset, LedgerAccount.Borrow)) {
+            failure("Borrower::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Borrow));
             return false;
         }
 
@@ -111,6 +121,11 @@ contract Borrower is Graceful, Owned, Ledger {
 
         if (amountInPaymentAsset == 0) {
             failure("Borrower::ZeroCollateralAmount", uint256(borrowAsset));
+            return false;
+        }
+
+        if (!saveBlockInterest(borrowAsset, LedgerAccount.Borrow)) {
+            failure("Borrower::FailedToSaveBlockInterest", uint256(borrowAsset), uint256(LedgerAccount.Borrow));
             return false;
         }
 
@@ -156,6 +171,10 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return The borrow balance of given account
       */
     function getBorrowBalance(address customer, address asset) public view returns (uint256) {
+        if (!saveBlockInterest(asset, LedgerAccount.Borrow)) {
+            revert();
+        }
+
         return interestRateStorage.getCurrentBalance(
             uint8(LedgerAccount.Borrow),
             asset,
