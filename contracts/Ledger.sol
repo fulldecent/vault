@@ -69,15 +69,15 @@ contract Ledger is Graceful, Owned {
 
     /**
       * @notice `setInterestModel` sets the interest helper for this contract
-      * @param interestCalculatorModel The contract which acts as the interest calculator
+      * @param interestModelAddress The contract which acts as the interest model
       * @return Success of failure of operation
       */
-    function setInterestModel(address interestCalculatorModel) public returns (bool) {
+    function setInterestModel(address interestModelAddress) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        interestModel = InterestModel(interestCalculatorModel);
+        interestModel = InterestModel(interestModelAddress);
 
         return true;
     }
@@ -231,7 +231,7 @@ contract Ledger is Graceful, Owned {
       * @param ledgerAccount the account type (e.g. Supply or Borrow)
       * @return the interest rate scaled or something
       */
-    function getInterestRate(address asset, LedgerAccount ledgerAccount) public returns (uint64) {
+    function getInterestRate(address asset, LedgerAccount ledgerAccount) public view returns (uint64) {
         uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
         uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
 
