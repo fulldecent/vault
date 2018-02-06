@@ -3,7 +3,7 @@ pragma solidity ^0.4.18;
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
 import "./storage/LedgerStorage.sol";
-import "./InterestCalculator.sol";
+import "./InterestModel.sol";
 import "./storage/InterestRateStorage.sol";
 
 /**
@@ -14,7 +14,7 @@ import "./storage/InterestRateStorage.sol";
   */
 contract Ledger is Graceful, Owned {
     LedgerStorage public ledgerStorage;
-    InterestCalculator public interestCalculator;
+    InterestModel public interestModel;
     InterestRateStorage public interestRateStorage;
 
     enum LedgerReason {
@@ -68,16 +68,16 @@ contract Ledger is Graceful, Owned {
     }
 
     /**
-      * @notice `setInterestCalculator` sets the interest helper for this contract
-      * @param interestCalculatorAddress The contract which acts as the interest calculator
+      * @notice `setInterestModel` sets the interest helper for this contract
+      * @param interestCalculatorModel The contract which acts as the interest calculator
       * @return Success of failure of operation
       */
-    function setInterestCalculator(address interestCalculatorAddress) public returns (bool) {
+    function setInterestModel(address interestCalculatorModel) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }
 
-        interestCalculator = InterestCalculator(interestCalculatorAddress);
+        interestModel = InterestModel(interestCalculatorModel);
 
         return true;
     }
@@ -236,9 +236,9 @@ contract Ledger is Graceful, Owned {
         uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
 
         if (ledgerAccount == LedgerAccount.Borrow) {
-            return interestCalculator.getScaledBorrowRatePerGroup(cash, borrows);
+            return interestModel.getScaledBorrowRatePerGroup(cash, borrows);
         } else if (ledgerAccount == LedgerAccount.Supply) {
-            return interestCalculator.getScaledSupplyRatePerGroup(cash, borrows);
+            return interestModel.getScaledSupplyRatePerGroup(cash, borrows);
         } else {
             return 0;
         }

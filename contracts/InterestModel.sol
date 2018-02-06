@@ -3,11 +3,11 @@ pragma solidity ^0.4.18;
 import "./base/Owned.sol";
 
 /**
-  * @title The Compound Interest Calculator Contract
+  * @title The Compound Interest Model Contract
   * @author Compound
-  * @notice This contract holds the math for calculating the current interest rates
+  * @notice This contract holds the math for calculating interest rates
   */
-contract InterestCalculator {
+contract InterestModel {
     uint16 public supplyRateSlopeBPS = 1000;
     uint16 public borrowRateSlopeBPS = 2000;
     uint16 public minimumBorrowRateBPS = 1000;
