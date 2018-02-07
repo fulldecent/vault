@@ -13,29 +13,34 @@ contract InterestRateStorage is Owned, Allowed {
 
     // Block interest map is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> total interest
     // Total interest is the total interest accumlated since the beginning of time
-    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockInterest;
+    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockTotalInterest;
 
     // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> most recent block number
     mapping(uint8 => mapping(address => uint256)) public blockInterestBlock;
 
-    // return ( compoundedInterestRate * principal ) / interestRateScale;
+    // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> interest rate
+    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockInterestRate;
 
-	function getCurrentBalance(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 principal) public view returns (uint256) {
-        uint256 endingBlock = block.number;
+    event Debug(uint256 startingBlock, uint256 endingBlock, uint256 principal, uint256 startingTotalInterest, uint256 endingTotalInterest);
+    event TotalInterest(uint256 previousTotalInterest, uint256 currentInterestRate, uint256 blocksSincePrevious, uint256 totalInterest);
 
+    function getCurrentBalance(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 principal) public view returns (uint256) {
+        return getBalanceAt(ledgerAccount, asset, startingBlock, block.number, principal);
+    }
+
+    function getBalanceAt(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 endingBlock, uint256 principal) public returns (uint256) {
         // Then, get the total interest rates which are stored.
-        uint startingTotalInterest = blockInterest[ledgerAccount][asset][startingBlock];
-        uint endingTotalInterest = blockInterest[ledgerAccount][asset][endingBlock];
+        uint startingTotalInterest = blockTotalInterest[ledgerAccount][asset][startingBlock];
+        uint endingTotalInterest = blockTotalInterest[ledgerAccount][asset][endingBlock];
 
         if (startingTotalInterest == 0 || endingTotalInterest == 0) {
             // This data *must* have been added previously
             revert();
         }
 
-        return multiplyInterestRate(
-            principal,
-            endingTotalInterest - startingTotalInterest
-        );
+        Debug(startingBlock, endingBlock, principal, startingTotalInterest, endingTotalInterest);
+
+        return principal * endingTotalInterest / startingTotalInterest;
     }
 
     function saveBlockInterest(uint8 ledgerAccount, address asset, uint64 currentInterestRate) public returns (bool) {
@@ -50,21 +55,24 @@ contract InterestRateStorage is Owned, Allowed {
 
         if (currentBlockInterestBlock == 0) {
             // There is no current snapshot, so let's start with a base multiplier
-            totalInterest = currentInterestRate + interestRateScale;
+            totalInterest = interestRateScale;
         } else if (currentBlockInterestBlock == block.number) {
             // Don't take a second snapshot
             return true;
         } else {
             // Let's apply interest since last block to current
             uint256 blocksSincePrevious = block.number - currentBlockInterestBlock;
-            uint256 previousTotalInterest = blockInterest[ledgerAccount][asset][currentBlockInterestBlock];
+            uint256 previousTotalInterest = blockTotalInterest[ledgerAccount][asset][currentBlockInterestBlock];
+            uint256 previousBlockInterestRate = blockInterestRate[ledgerAccount][asset][currentBlockInterestBlock];
 
             // Finally calculate a new total interest (which is previous * currentInterestRate * # blocks)
-            totalInterest = multiplyInterestRate(previousTotalInterest, currentInterestRate * blocksSincePrevious);
+            totalInterest = multiplyInterestRate(previousTotalInterest * blocksSincePrevious, previousBlockInterestRate);
+            TotalInterest(previousTotalInterest, previousBlockInterestRate, blocksSincePrevious, totalInterest);
         }
 
-        blockInterest[ledgerAccount][asset][block.number] = totalInterest;
         blockInterestBlock[ledgerAccount][asset] = block.number;
+        blockInterestRate[ledgerAccount][asset][block.number] = currentInterestRate;
+        blockTotalInterest[ledgerAccount][asset][block.number] = totalInterest;
 
         return true;
     }
