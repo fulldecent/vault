@@ -239,9 +239,9 @@ contract Ledger is Graceful, Owned {
         uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
 
         if (ledgerAccount == LedgerAccount.Borrow) {
-            return interestModel.getScaledBorrowRatePerGroup(cash, borrows);
+            return interestModel.getScaledBorrowRatePerBlock(cash, borrows);
         } else if (ledgerAccount == LedgerAccount.Supply) {
-            return interestModel.getScaledSupplyRatePerGroup(cash, borrows);
+            return interestModel.getScaledSupplyRatePerBlock(cash, borrows);
         } else {
             return 0;
         }

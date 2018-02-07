@@ -5,29 +5,34 @@ var Promise = require("bluebird");
 var BigNumber = require('bignumber.js');
 var one = new BigNumber(1);
 const toAssetValue = (value) => (value * 10 ** 9);
-const interestRateScale =  10 ** 16;
-const groupsPerYear = 210240; // 2102400 blocks per year / 10 blocks per group
-const annualBPSToScaledPerGroupRate = (value) => Math.trunc((value * interestRateScale) / (10000 * groupsPerYear));
-const annualBPSToScaledPerGroupRateNonTrunc = (value) => (value * interestRateScale) / (10000 * groupsPerYear);
+const interestRateScale = 10 ** 17;
+const blocksPerYear = 2102400;
+const annualBPSToScaledPerBlockRate = (value) => Math.trunc((value * interestRateScale) / (10000 * blocksPerYear));
+const annualBPSToScaledPerBlockRateNonTrunc = (value) => (value * interestRateScale) / (10000 * blocksPerYear);
 
-function validateRate(assert, annual_bps, actual, expected, msg) {
-  validateRateWithMaxRatio(assert, annual_bps, actual, expected, 0.0000002, msg)
+function validateRate(assert, annualBPS, actual, expected, msg) {
+  validateRateWithMaxRatio(assert, annualBPS, actual, expected, 0.0000002, msg)
 }
 
-function validateRateWithMaxRatio(assert, annual_bps, actual, expected, max_ratio, msg, debug=true) {
-    var group_rate_derived_from_annual_bps = annualBPSToScaledPerGroupRateNonTrunc(annual_bps);
-    var delta = expected - group_rate_derived_from_annual_bps;
-    // error_ratio: How does our blockchain computed per group rate compare to the annual bps
-    // that has been converted to a per group rate?
-    var error_ratio = 0;
-    if(group_rate_derived_from_annual_bps != 0) {
-        error_ratio = Math.abs(delta) / group_rate_derived_from_annual_bps;
-    }
-    if(error_ratio >= max_ratio || debug) {
-        console.log(msg+", annual_bps="+annual_bps+", expected="+expected+", actual="+actual+", error_ratio="+error_ratio+", group_rate_derived_from_annual_bps="+group_rate_derived_from_annual_bps);
-    }
-    assert.isBelow(error_ratio, max_ratio, "bad error ratio");
-    assert.equal(actual, expected, msg);
+function validateRateWithMaxRatio(assert, annualBPS, actual, expected, maxRatio, msg, debug=false) {
+  const blockRateDerivedFromAnnualBPS = annualBPSToScaledPerBlockRateNonTrunc(annualBPS);
+
+  const delta = expected - blockRateDerivedFromAnnualBPS;
+
+  // errorRatio: How does our blockchain computed per block rate compare to the annual bps
+  // that has been converted to a per block rate?
+  var errorRatio = 0;
+
+  if (blockRateDerivedFromAnnualBPS != 0) {
+    errorRatio = Math.abs(delta) / blockRateDerivedFromAnnualBPS;
+  }
+
+  if (errorRatio >= maxRatio || debug) {
+    console.log(`${msg}, annualBPS=${annualBPS}, expected=${expected}, actual=${actual}, errorRatio=${errorRatio}, blockRateDerivedFromAnnualBPS=${blockRateDerivedFromAnnualBPS}`);
+  }
+
+  assert.isBelow(errorRatio, maxRatio, "bad error ratio");
+  assert.equal(actual, expected, msg);
 }
 
 async function createAndApproveWeth(ledger, etherToken, amount, account, approvalAmount) {
@@ -133,41 +138,9 @@ async function mineBlocks(web3, blocksToMine) {
   return await Promise.all(promises);
 }
 
-async function mineUntilBlockNumberEndsWith(web3, endsWith) {
-  const blockNumber = web3.eth.blockNumber;
-
-  const blocksToMine = 10 - ( blockNumber % 10 ) + endsWith;
-
-  return await mineBlocks(web3, blocksToMine);
-}
-
-async function buildSnapshots(web3, etherToken, interestRateStorage) {
-  await mineUntilBlockNumberEndsWith(web3, 7);  // To make this concrete, let's say we are at block 1257 now, which is group 125
-  const startingBlockNumber = web3.eth.blockNumber;
-  const startingBlockUnit = (await interestRateStorage.getBlockUnit.call(startingBlockNumber)).toNumber()
-
-  await interestRateStorage.snapshotCurrentRate(etherToken.address, annualBPSToScaledPerGroupRate(100));
-
-  // Mine one more block unit
-  await mineUntilBlockNumberEndsWith(web3, 6); // assuming we started at 1257, now at block 1266, group 126
-  await interestRateStorage.snapshotCurrentRate(etherToken.address, annualBPSToScaledPerGroupRate(200));
-
-  // Mine one more block unit
-  await mineUntilBlockNumberEndsWith(web3, 5); // assuming we started at 1257, now at block 1275, group 127
-  await interestRateStorage.snapshotCurrentRate(etherToken.address, annualBPSToScaledPerGroupRate(300));
-
-  // Mine one more block unit
-  await mineUntilBlockNumberEndsWith(web3, 1); // assuming we started at 1257, now at block 1281, group 128
-  await interestRateStorage.snapshotCurrentRate(etherToken.address, annualBPSToScaledPerGroupRate(400));
-
-  return [startingBlockNumber, startingBlockUnit];
-}
-
 module.exports = {
-  buildSnapshots: buildSnapshots,
   mineBlocks: mineBlocks,
-  mineUntilBlockNumberEndsWith: mineUntilBlockNumberEndsWith,
-  annualBPSToScaledPerGroupRate: annualBPSToScaledPerGroupRate,
+  annualBPSToScaledPerBlockRate: annualBPSToScaledPerBlockRate,
   validateRate: validateRate,
   validateRateWithMaxRatio: validateRateWithMaxRatio,
 

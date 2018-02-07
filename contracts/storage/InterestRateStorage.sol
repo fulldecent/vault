@@ -9,14 +9,14 @@ import "../base/Allowed.sol";
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
 contract InterestRateStorage is Owned, Allowed {
-	uint constant interestRateScale = 10 ** 16;
+	uint constant interestRateScale = 10 ** 17;
 
     // Block interest map is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> total interest
     // Total interest is the total interest accumlated since the beginning of time
-    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) blockInterest;
+    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockInterest;
 
     // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> most recent block number
-    mapping(uint8 => mapping(address => uint256)) blockInterestBlock;
+    mapping(uint8 => mapping(address => uint256)) public blockInterestBlock;
 
     // return ( compoundedInterestRate * principal ) / interestRateScale;
 
@@ -50,7 +50,7 @@ contract InterestRateStorage is Owned, Allowed {
 
         if (currentBlockInterestBlock == 0) {
             // There is no current snapshot, so let's start with a base multiplier
-            totalInterest = interestRateScale;
+            totalInterest = currentInterestRate + interestRateScale;
         } else if (currentBlockInterestBlock == block.number) {
             // Don't take a second snapshot
             return true;

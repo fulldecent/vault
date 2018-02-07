@@ -159,8 +159,7 @@ contract('Supplier', function(accounts) {
 
         await utils.supplyEth(supplier, etherToken, supplyAmount, web3.eth.accounts[1]);
 
-        await interestRateStorage.allow(web3.eth.accounts[0]);
-        const [snapshotStartingBlockNumber, startingBlockUnit] = await utils.buildSnapshots(web3, etherToken, interestRateStorage);
+        await utils.mineBlocks(web3, 30);
 
         await supplier.customerWithdraw(etherToken.address, withdrawAmount, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
@@ -203,7 +202,7 @@ contract('Supplier', function(accounts) {
               ledgerAccount: LedgerAccount.InterestExpense,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('8561645008'),
+              amount: web3.toBigNumber('29490052000'),
               balance: web3.toBigNumber('0'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
@@ -217,8 +216,8 @@ contract('Supplier', function(accounts) {
               ledgerAccount: LedgerAccount.Supply,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('8561645008'),
-              balance: web3.toBigNumber('20000008561645008'),
+              amount: web3.toBigNumber('29490052000'),
+              balance: web3.toBigNumber('20000029490052000'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -233,7 +232,7 @@ contract('Supplier', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: web3.toBigNumber(withdrawAmount),
-              balance: web3.toBigNumber('10000008561645008'),
+              balance: web3.toBigNumber('10000029490052000'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -319,84 +318,26 @@ contract('Supplier', function(accounts) {
       });
     });
 
-    describe('#getScaledSupplyRatePerGroup', async () => {
-      it('should return correct rate with liquidity ratio of 25% (supply rate 25%)', async () => {
-        await supplier.setLedgerStorage(testLedgerStorage.address);
+    // TODO: Add tests for `saveBlockInterest`
+    // TODO: Check effects of `saveBlockInterest`
 
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
+    // describe('#snapshotSupplierInterestRate', async () => {
+    //   it('should snapshot the current balance', async () => {
+    //     await supplier.setLedgerStorage(testLedgerStorage.address);
 
-        const interestRateBPS = await supplier.getScaledSupplyRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
+    //     await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
+    //     await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
 
-        utils.validateRate(assert, 750, interestRateBPS.toNumber(), 3567351000, "25%");
-        //                                           exact value is 3567351598
-      });
+    //     const blockNumber = web3.eth.blockNumber;
+    //     await supplier.snapshotSupplierInterestRate(etherToken.address);
 
-      it('should return correct rate with liquidity ratio of 0% (supply rate 10%)', async () => {
-        await supplier.setLedgerStorage(testLedgerStorage.address);
+    //     utils.validateRate(assert, 750, (await interestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
+    //         3567351000, "7.5%");
+    //     //  3567351598 is the exact value
+    //   });
 
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
-
-        const interestRateBPS = await supplier.getScaledSupplyRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-        utils.validateRate(assert, 1000, interestRateBPS.toNumber(), 4756468000, "10%");
-        //                                            exact value is 4756468797
-      });
-
-      it('should return correct rate with liquidity ratio of 100% (supply rate 0%)', async () => {
-        await supplier.setLedgerStorage(testLedgerStorage.address);
-
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 0);
-
-        const interestRateBPS = await supplier.getScaledSupplyRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-        utils.validateRate(assert, 0, interestRateBPS.toNumber(), 0, "0%");
-      });
-
-      it('should return correct rate with liquidity ratio of 50% (supply rate 5%)', async () => {
-        await supplier.setLedgerStorage(testLedgerStorage.address);
-
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 100);
-
-        const interestRateBPS = await supplier.getScaledSupplyRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-        utils.validateRate(assert, 500, interestRateBPS.toNumber(), 2378234000, "5%");
-        //                                           exact value is 2378234398
-      });
-
-      it('should return correct rate with liquidity ratio of 0.99% (supply rate 9.91%)', async () => {
-        await supplier.setLedgerStorage(testLedgerStorage.address);
-
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 10000);
-
-        const interestRateBPS = await supplier.getScaledSupplyRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-        utils.validateRateWithMaxRatio(assert, 991, interestRateBPS.toNumber(), 4708903320, 0.0011, "9.91%");
-        //                                                       exact value is 4708904109
-      });
-    });
-
-    describe('#snapshotSupplierInterestRate', async () => {
-      it('should snapshot the current balance', async () => {
-        await supplier.setLedgerStorage(testLedgerStorage.address);
-
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-        await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
-
-        const blockNumber = web3.eth.blockNumber;
-        await supplier.snapshotSupplierInterestRate(etherToken.address);
-
-        utils.validateRate(assert, 750, (await interestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-            3567351000, "7.5%");
-        //  3567351598 is the exact value
-      });
-
-      it('should be called once per block unit');
-    });
+    //   it('should be called once per block unit');
+    // });
   });
 
 });
