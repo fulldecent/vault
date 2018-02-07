@@ -73,7 +73,7 @@ contract('MoneyMarket', function(accounts) {
     await moneyMarket.setLedgerStorage(ledgerStorage.address);
     await moneyMarket.setBorrowStorage(borrowStorage.address);
     await moneyMarket.setInterestRateStorage(interestRateStorage.address);
-    await moneyMarket.setInterestModel(interstModel.address);
+    await moneyMarket.setInterestModel(interestModel.address);
     await moneyMarket.setPriceOracle(priceOracle.address);
     await moneyMarket.setTokenStore(tokenStore.address);
 
@@ -118,16 +118,14 @@ contract('MoneyMarket', function(accounts) {
     });
   });
 
-  // TODO (as part of CE-62) : Get interest to be applied and uncomment the expected events with ledgerReason: LedgerReason.Interest
   describe('#customerPayBorrow', () => {
     it("accrues interest and reduces the balance", async () => {
-      await borrowInterestRateStorage.snapshotCurrentRate(etherToken.address, 50000);
       await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[1]);
       await moneyMarket.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
       await utils.mineBlocks(web3, 10);
       await moneyMarket.customerPayBorrow(etherToken.address, 18, {from: web3.eth.accounts[1]});
       await utils.assertEvents(moneyMarket, [
-      /*  {
+        {
           event: "LedgerEntry",
           args: {
             ledgerReason: LedgerReason.Interest,
@@ -135,7 +133,7 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.InterestIncome,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('2'),
+            amount: web3.toBigNumber('200'),
             balance: web3.toBigNumber('0'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
@@ -149,12 +147,12 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Borrow,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('2'),
-            balance: web3.toBigNumber('22'),
+            amount: web3.toBigNumber('200'),
+            balance: web3.toBigNumber('220'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
-        }, */
+        },
         {
           event: "LedgerEntry",
           args: {
@@ -164,7 +162,7 @@ contract('MoneyMarket', function(accounts) {
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
             amount: web3.toBigNumber('18'),
-            balance: web3.toBigNumber('2'),
+            balance: web3.toBigNumber('202'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -270,26 +268,33 @@ contract('MoneyMarket', function(accounts) {
     });
   });
 
-  it("sets the owner", async () => {
-    const owner = await moneyMarket.getOwner.call();
-    assert.equal(owner, web3.eth.accounts[0]);
+  describe('owned', () => {
+    it("sets the owner", async () => {
+      const owner = await moneyMarket.getOwner.call();
+      assert.equal(owner, web3.eth.accounts[0]);
+    });
   });
   
   describe('#snapshotBorrowInterestRate', async () => {
-    it('should snapshot the current balance', async () => {
+    it.only('should snapshot the current balance', async () => {
       await moneyMarket.setLedgerStorage(testLedgerStorage.address);
 
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
+      await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Cash, 50);
+      await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Borrow, 150);
 
-      const blockNumber = web3.eth.blockNumber;
+      // Approve wallet for 55 tokens and supply them
+      await faucetToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});
+      await moneyMarket.customerSupply(faucetToken.address, 100, {from: web3.eth.accounts[0]});
 
-      await moneyMarket.snapshotBorrowInterestRate(etherToken.address);
+      // const blockNumber = await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address);
 
-        utils.validateRate(assert, 2500, (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-            11891170000, "25%");
+      // assert.equal(await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address), 0);
+      // assert.equal(await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber), 0);
+      // assert.equal(await interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber), 0);
     });
 
     it('should be called once per block unit');
   });
+
+  // TODO: Make sure we store correct rates for all operations
 });
