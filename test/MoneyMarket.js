@@ -120,10 +120,10 @@ contract('MoneyMarket', function(accounts) {
 
   describe('#customerPayBorrow', () => {
     it("accrues interest and reduces the balance", async () => {
-      await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[1]);
-      await moneyMarket.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await utils.mineBlocks(web3, 10);
-      await moneyMarket.customerPayBorrow(etherToken.address, 18, {from: web3.eth.accounts[1]});
+      await utils.supplyEth(moneyMarket, etherToken, 1000000000000, web3.eth.accounts[1]);
+      await moneyMarket.customerBorrow(etherToken.address, 200000000000, {from: web3.eth.accounts[1]});
+      await utils.mineBlocks(web3, 20);
+      await moneyMarket.customerPayBorrow(etherToken.address, 180000000000, {from: web3.eth.accounts[1]});
       await utils.assertEvents(moneyMarket, [
         {
           event: "LedgerEntry",
@@ -133,7 +133,7 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.InterestIncome,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('200'),
+            amount: web3.toBigNumber('599314'),
             balance: web3.toBigNumber('0'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
@@ -147,8 +147,8 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Borrow,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('200'),
-            balance: web3.toBigNumber('220'),
+            amount: web3.toBigNumber('599314'),
+            balance: web3.toBigNumber('200000599314'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -161,8 +161,8 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Borrow,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('18'),
-            balance: web3.toBigNumber('202'),
+            amount: web3.toBigNumber('180000000000'),
+            balance: web3.toBigNumber('20000599314'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -175,8 +175,8 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Supply,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('18'),
-            balance: web3.toBigNumber('102'),
+            amount: web3.toBigNumber('180000000000'),
+            balance: web3.toBigNumber('1020000000000'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -288,7 +288,7 @@ contract('MoneyMarket', function(accounts) {
 
       const blockNumber = await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address);
 
-      assert.equal((await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 100000000000000000);
+      assert.equal((await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 0);
       assert.equal((await interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 3567351000);
     });
 

@@ -72,7 +72,7 @@ contract('Supplier', function(accounts) {
       await supplier.customerSupply(etherToken.address, 100, {from: web3.eth.accounts[1]});
 
       // verify balance in supplier
-      assert.equal((await utils.ledgerAccountBalance(supplier, web3.eth.accounts[1], etherToken.address)).toNumber(), 100);
+      assert.equal(await utils.ledgerAccountBalance(supplier, web3.eth.accounts[1], etherToken.address), 100);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 100);
@@ -202,7 +202,7 @@ contract('Supplier', function(accounts) {
               ledgerAccount: LedgerAccount.InterestExpense,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('29490052000'),
+              amount: web3.toBigNumber('29490101600'),
               balance: web3.toBigNumber('0'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
@@ -216,8 +216,8 @@ contract('Supplier', function(accounts) {
               ledgerAccount: LedgerAccount.Supply,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber('29490052000'),
-              balance: web3.toBigNumber('20000029490052000'),
+              amount: web3.toBigNumber('29490101600'),
+              balance: web3.toBigNumber('20000029490101600'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }
@@ -232,7 +232,7 @@ contract('Supplier', function(accounts) {
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
               amount: web3.toBigNumber(withdrawAmount),
-              balance: web3.toBigNumber('10000029490052000'),
+              balance: web3.toBigNumber('10000029490101600'),
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }

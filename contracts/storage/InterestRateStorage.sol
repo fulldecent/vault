@@ -21,9 +21,6 @@ contract InterestRateStorage is Owned, Allowed {
     // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> interest rate
     mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockInterestRate;
 
-    event Debug(uint256 startingBlock, uint256 endingBlock, uint256 principal, uint256 startingTotalInterest, uint256 endingTotalInterest);
-    event TotalInterest(uint256 previousTotalInterest, uint256 currentInterestRate, uint256 blocksSincePrevious, uint256 totalInterest);
-
     function getCurrentBalance(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 principal) public view returns (uint256) {
         return getBalanceAt(ledgerAccount, asset, startingBlock, block.number, principal);
     }
@@ -37,8 +34,6 @@ contract InterestRateStorage is Owned, Allowed {
             // This data *must* have been added previously
             revert();
         }
-
-        Debug(startingBlock, endingBlock, principal, startingTotalInterest, endingTotalInterest);
 
         return multiplyInterestRate(principal, endingTotalInterest - startingTotalInterest);
     }
@@ -66,7 +61,6 @@ contract InterestRateStorage is Owned, Allowed {
             uint256 previousBlockInterestRate = blockInterestRate[ledgerAccount][asset][currentBlockInterestBlock];
 
             totalInterest = previousTotalInterest + previousBlockInterestRate * blocksSincePrevious;
-            TotalInterest(previousTotalInterest, previousBlockInterestRate, blocksSincePrevious, totalInterest);
         }
 
         blockInterestBlock[ledgerAccount][asset] = block.number;
