@@ -249,7 +249,7 @@ module.exports = {
   },
 
   ethBalance: async function(account) {
-    return web3.toBigNumber((await web3.eth.getBalance(account)).toNumber());
+    return await web3.eth.getBalance(account);
   },
 
   setAssetValue: async function(oracle, asset, amountInWei, web3) {

@@ -40,6 +40,12 @@ contract('InterestRateStorage', function(accounts) {
       const secondaryBlockNumber = await interestRateStorage.blockInterestBlock(0, 1);
       const secondaryTotalInterest = (await interestRateStorage.blockTotalInterest(0, 1, secondaryBlockNumber)).toNumber();
 
+      await utils.mineBlocks(web3, 20);
+      await interestRateStorage.saveBlockInterest(0, 1, 6000000);
+
+      const tertiaryBlockNumber = await interestRateStorage.blockInterestBlock(0, 1);
+      const tertiaryTotalInterest = (await interestRateStorage.blockTotalInterest(0, 1, tertiaryBlockNumber)).toNumber();
+
       assert.equal((await interestRateStorage.getBalanceAt.call(0, 1, primaryBlockNumber + 1, secondaryBlockNumber, 100)).toNumber(), 100);
 
       await interestRateStorage.getBalanceAt(999, 1, primaryBlockNumber, secondaryBlockNumber, 100);
@@ -48,10 +54,12 @@ contract('InterestRateStorage', function(accounts) {
       // Make sure it works normally, correctly
       await interestRateStorage.getBalanceAt(0, 1, primaryBlockNumber, secondaryBlockNumber, 100);
 
-      // TODO: Should this revert?
-      //await utils.assertFailure('VM Exception while processing transaction: revert', async () => {
-        await interestRateStorage.getBalanceAt(0, 1, primaryBlockNumber, secondaryBlockNumber + 1, 100);
-      //});
+      // Okay because primary interest is 0
+      await interestRateStorage.getBalanceAt(0, 1, primaryBlockNumber, secondaryBlockNumber + 1, 100);
+
+      await utils.assertFailure('VM Exception while processing transaction: revert', async () => {
+        await interestRateStorage.getBalanceAt(0, 1, secondaryBlockNumber, tertiaryBlockNumber + 1, 100);
+      });
     });
 
     it('calculates correct interest', async () => {

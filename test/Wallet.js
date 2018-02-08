@@ -14,6 +14,8 @@ const Wallet = artifacts.require("./Wallet.sol");
 const utils = require('./utils');
 const moment = require('moment');
 
+const randomAddress = '0xa4715d7950e39e2ac90ca3300855bc358253685e';
+
 async function supplyEth(wallet, amount, account) {
   await wallet.sendTransaction({value: amount, from: account});
 }
@@ -158,8 +160,7 @@ contract('Wallet', function(accounts) {
   });
 
   describe('#withdrawEth', () => {
-    // TODO: Look into this test
-    it.skip('should withdraw assets from moneyMarket', async () => {
+    it('should withdraw assets from moneyMarket', async () => {
       // fill initial balance
       await wallet.sendTransaction({value: 55});
 
@@ -168,13 +169,11 @@ contract('Wallet', function(accounts) {
 
       await utils.assertDifference(assert, 22, async () => {
         // get eth balance
-        // TODO: This balance isn't changing, even though everything
-        //       else looks like it's working here. This may be a bug in Ganache.
-        const balance = await utils.ethBalance(web3.eth.accounts[5]);
+        const balance = await utils.ethBalance(randomAddress);
         return balance;
       }, async () => {
         // withdraw eth
-        const result = await wallet.withdrawEth(22, web3.eth.accounts[5], {from: web3.eth.accounts[1]})
+        const result = await wallet.withdrawEth(22, randomAddress, {from: web3.eth.accounts[1]})
         return result;
       });
 
