@@ -7,6 +7,7 @@ const MoneyMarket = artifacts.require("./MoneyMarket.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const InterestModel = artifacts.require("./InterestModel.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const utils = require('./utils');
 const moment = require('moment');
@@ -20,8 +21,8 @@ contract('WalletFactory', function(accounts) {
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
     const ledgerStorage = await LedgerStorage.new();
-    const supplyInterestRateStorage = await InterestRateStorage.new(10);
-    const borrowInterestRateStorage = await InterestRateStorage.new(10);
+    const interestRateStorage = await InterestRateStorage.new();
+    const interestModel = await InterestModel.new();
     [moneyMarket, etherToken] = await Promise.all([MoneyMarket.new(), EtherToken.new()]);
 
     await tokenStore.allow(moneyMarket.address);
@@ -30,11 +31,10 @@ contract('WalletFactory', function(accounts) {
     await ledgerStorage.allow(moneyMarket.address);
     await moneyMarket.setLedgerStorage(ledgerStorage.address);
 
-    await borrowInterestRateStorage.allow(moneyMarket.address);
-    await moneyMarket.setSupplyInterestRateStorage(borrowInterestRateStorage.address);
+    await interestRateStorage.allow(moneyMarket.address);
+    await moneyMarket.setInterestRateStorage(interestRateStorage.address);
 
-    await supplyInterestRateStorage.allow(moneyMarket.address);
-    await moneyMarket.setBorrowInterestRateStorage(supplyInterestRateStorage.address);
+    await moneyMarket.setInterestModel(interestModel.address);
 
     walletFactory = await WalletFactory.new(moneyMarket.address, etherToken.address);
   });

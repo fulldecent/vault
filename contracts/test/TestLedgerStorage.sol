@@ -14,4 +14,8 @@ contract TestLedgerStorage {
 	function getBalanceSheetBalance(address asset, uint8 ledgerAccount) public view returns (uint256) {
         return balanceSheet[ledgerAccount][asset];
     }
+
+    function getBalanceBlockNumber(address customer, uint8 ledgerAccount, address asset) public view returns (uint256) {
+        return block.number;
+    }
 }

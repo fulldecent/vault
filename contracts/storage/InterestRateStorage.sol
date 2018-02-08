@@ -33,14 +33,14 @@ contract InterestRateStorage is Owned, Allowed {
         uint startingTotalInterest = blockTotalInterest[ledgerAccount][asset][startingBlock];
         uint endingTotalInterest = blockTotalInterest[ledgerAccount][asset][endingBlock];
 
-        if (startingTotalInterest == 0 || endingTotalInterest == 0) {
+        if (endingTotalInterest < startingTotalInterest) {
             // This data *must* have been added previously
             revert();
         }
 
         Debug(startingBlock, endingBlock, principal, startingTotalInterest, endingTotalInterest);
 
-        return principal * endingTotalInterest / startingTotalInterest;
+        return multiplyInterestRate(principal, endingTotalInterest - startingTotalInterest);
     }
 
     function saveBlockInterest(uint8 ledgerAccount, address asset, uint64 currentInterestRate) public returns (bool) {
@@ -54,8 +54,8 @@ contract InterestRateStorage is Owned, Allowed {
         uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
 
         if (currentBlockInterestBlock == 0) {
-            // There is no current snapshot, so let's start with a base multiplier
-            totalInterest = interestRateScale;
+            // There is no current snapshot, start with 0
+            totalInterest = 0;
         } else if (currentBlockInterestBlock == block.number) {
             // Don't take a second snapshot
             return true;
@@ -65,8 +65,7 @@ contract InterestRateStorage is Owned, Allowed {
             uint256 previousTotalInterest = blockTotalInterest[ledgerAccount][asset][currentBlockInterestBlock];
             uint256 previousBlockInterestRate = blockInterestRate[ledgerAccount][asset][currentBlockInterestBlock];
 
-            // Finally calculate a new total interest (which is previous * currentInterestRate * # blocks)
-            totalInterest = multiplyInterestRate(previousTotalInterest * blocksSincePrevious, previousBlockInterestRate);
+            totalInterest = previousTotalInterest + previousBlockInterestRate * blocksSincePrevious;
             TotalInterest(previousTotalInterest, previousBlockInterestRate, blocksSincePrevious, totalInterest);
         }
 

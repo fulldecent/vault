@@ -275,8 +275,8 @@ contract('MoneyMarket', function(accounts) {
     });
   });
   
-  describe('#snapshotBorrowInterestRate', async () => {
-    it.only('should snapshot the current balance', async () => {
+  describe('#saveBlockInterest', async () => {
+    it('should snapshot the current balance', async () => {
       await moneyMarket.setLedgerStorage(testLedgerStorage.address);
 
       await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Cash, 50);
@@ -286,11 +286,10 @@ contract('MoneyMarket', function(accounts) {
       await faucetToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});
       await moneyMarket.customerSupply(faucetToken.address, 100, {from: web3.eth.accounts[0]});
 
-      // const blockNumber = await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address);
+      const blockNumber = await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address);
 
-      // assert.equal(await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address), 0);
-      // assert.equal(await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber), 0);
-      // assert.equal(await interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber), 0);
+      assert.equal((await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 100000000000000000);
+      assert.equal((await interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 3567351000);
     });
 
     it('should be called once per block unit');

@@ -168,7 +168,7 @@ module.exports = {
 
     const end = await checkFn();
 
-    return assert.equal(end.minus(start), difference);
+    return assert.equal(end.minus(start).toNumber(), difference);
   },
 
   assertMatchingArray: function(firstArray, secondArray) {
@@ -240,16 +240,16 @@ module.exports = {
     await supplier.customerSupply(etherToken.address, amount, {from: account});
   },
 
-  ledgerAccountBalance: async (ledger, account, token) =>
-    await ledger.getSupplyBalance.call(account, token).valueOf()
-  ,
+  ledgerAccountBalance: async function(ledger, account, token) {
+    return (await ledger.getSupplyBalance.call(account, token)).toNumber();
+  },
 
   tokenBalance: async function(token, account) {
-    return web3.toBigNumber((await token.balanceOf(account)).valueOf());
+    return web3.toBigNumber((await token.balanceOf(account)).toNumber());
   },
 
   ethBalance: async function(account) {
-    return web3.toBigNumber((await web3.eth.getBalance(account)).valueOf());
+    return web3.toBigNumber((await web3.eth.getBalance(account)).toNumber());
   },
 
   setAssetValue: async function(oracle, asset, amountInWei, web3) {
