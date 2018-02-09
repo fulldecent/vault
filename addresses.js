@@ -7,8 +7,8 @@ var FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
 var WalletFactory = artifacts.require("./WalletFactory.sol");
 var TokenFactory = artifacts.require("./TokenFactory.sol");
 
-var SupplyInterestRateStorage = artifacts.require("./storage/SupplyInterestRateStorage.sol");
-var BorrowInterestRateStorage = artifacts.require("./storage/BorrowInterestRateStorage.sol");
+var InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+var InterestModel = artifacts.require("./InterestModel.sol");
 var LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 var BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
 var PriceOracle = artifacts.require("./storage/PriceOracle.sol");
@@ -18,8 +18,8 @@ module.exports = async function(callback) {
 	const moneyMarket = await MoneyMarket.deployed();
 	const etherToken = await EtherToken.deployed();
 	const walletFactory = await WalletFactory.deployed();
-	const supplyInterestRateStorage = await SupplyInterestRateStorage.deployed();
-	const borrowInterestRateStorage = await BorrowInterestRateStorage.deployed();
+	const interestRateStorage = await InterestRateStorage.deployed();
+	const interestModel = await InterestModel.deployed();
 	const ledgerStorage = await LedgerStorage.deployed();
 	const borrowStorage = await BorrowStorage.deployed();
 	const priceOracle = await PriceOracle.deployed();
@@ -59,8 +59,8 @@ module.exports = async function(callback) {
 			"ether_token": etherToken.address,
 			"tokens": tokens,
 			"token_factory": tokenFactoryAddress,
-			"supply_interest_rate_storage": supplyInterestRateStorage.address,
-			"borrow_interest_rate_storage": borrowInterestRateStorage.address,
+			"interest_rate_storage": interestRateStorage.address,
+			"interest_model": interestModel.address,
 			"ledger_storage": ledgerStorage.address,
 			"borrow_storage": borrowStorage.address,
 			"price_oracle": priceOracle.address,

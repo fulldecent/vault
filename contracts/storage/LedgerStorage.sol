@@ -9,6 +9,7 @@ import "../base/Graceful.sol";
   * @notice The Ledger Storage contract is a simple contract to keep track of ledger entries.
   */
 contract LedgerStorage is Graceful, Allowed {
+
     struct BalanceCheckpoint {
         uint256 balance;
         uint256 blockNumber;
@@ -19,10 +20,10 @@ contract LedgerStorage is Graceful, Allowed {
     event BalanceIncrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
     event BalanceDecrease(address indexed customer, uint8 ledgerAccount, address indexed asset, uint256 amount);
 
-	// A map of customer -> LedgerAccount{Supply, Borrow} -> asset -> balance
+    // A map of customer -> LedgerAccount{Supply, Borrow} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
-    // Balance Sheet
+    // Balance Sheet is a map of LedgerAccount{Supply, Borrow} -> asset -> balance
     mapping(uint8 => mapping(address => uint256)) balanceSheet;
 
     /**
@@ -112,7 +113,7 @@ contract LedgerStorage is Graceful, Allowed {
       * @return balance of given asset
       */
     function getBalance(address customer, uint8 ledgerAccount, address asset) public view returns (uint256) {
-    	return balanceCheckpoints[customer][ledgerAccount][asset].balance;
+        return balanceCheckpoints[customer][ledgerAccount][asset].balance;
     }
 
     /**

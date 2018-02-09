@@ -9,189 +9,103 @@ import "../base/Allowed.sol";
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
 contract InterestRateStorage is Owned, Allowed {
-	uint constant interestRateScale = 10 ** 16;
-	uint constant blocksPerYear = 2102400; // = (365 * 24 * 60 * 60) seconds per year / 15 seconds per block
+	uint64 constant interestRateScale = 10 ** 17;
 
-	// the number of blocks in a single interest rate period.
-	uint blockScale;
+    // Block interest map is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> total interest
+    // Total interest is the total interest accumlated since the beginning of time
+    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockTotalInterest;
 
-	uint blockUnitsPerYear;
+    // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> most recent block number
+    mapping(uint8 => mapping(address => uint256)) public blockInterestBlock;
 
-	/* @param blockScale_ is the number of blocks that constitutes an interest rate period
-	*/
-	function InterestRateStorage(uint8 blockScale_) public {
-		blockScale = blockScale_;
+    // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> interest rate
+    mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockInterestRate;
 
-		blockUnitsPerYear = blocksPerYear/blockScale;
-	}
-
-	struct Snapshot {
-		uint64 blockUnit;
-		uint64 blockUnitInterestRate; // log_2(10**16) ~= 53, meaning we have around 11 bits before the decimal
-		uint256 compoundedInterestRate;
-	}
-
-	// Snapshots map a timestamp to a "rate to date"
-	mapping(address => uint64) public firstSnapshotBlockUnits;
-	mapping(address => uint64) public lastSnapshotBlockUnits;
-	mapping(address => mapping(uint64 => Snapshot)) public snapshots;
-
-	event NewSnapshot(address asset, uint blockUnit, uint64 blockUnitInterestRate);
-
-    function getInterestRateScale() public pure returns (uint)  {
-        return interestRateScale;
-    }
-
-    function getBlockUnitsPerYear() public view returns (uint) {
-        return blockUnitsPerYear;
+    /**
+      * @notice `getCurrentBalance` returns the given balance with interest of an account
+      * @param ledgerAccount the ledger account to check (i.e. supply or borrow)
+      * @param asset the asset to check the balance of
+      * @param startingBlock the block that the balance was added at
+      * @param principal the principal when the balance was added
+      * @dev this will fail if `saveBlockInterest` hasn't been called for `startingBlock` or for this block
+      * @return the principal (with interest) as of this block
+      */
+    function getCurrentBalance(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 principal) public view returns (uint256) {
+        return getBalanceAt(ledgerAccount, asset, startingBlock, block.number, principal);
     }
 
     /**
-      * @notice `getSnapshotBlockNumber` returns the block number of the first snapshot on or after the given time
-      * @param asset The asset which was snapshotted
-      * @param blockNumber The block number to get the snapshot for
-      * @return The block unit of the first snapshot on or after the given block
+      * @notice `getCurrentBalance` returns the given balance with interest of an account
+      * @param ledgerAccount the ledger account to check (i.e. supply or borrow)
+      * @param asset the asset to check the balance of
+      * @param startingBlock the block that the balance was added at
+      * @param endingBlock the block the balance is to be checked at
+      * @param principal the principal when the balance was added
+      * @dev this will fail if `saveBlockInterest` hasn't been called for block `startingBlock` or `endingBlock`
+      * @return the principal (with interest) as of `endingBlock`
       */
-	function getSnapshotBlockUnit(address asset, uint256 blockNumber) public view returns (uint64) {
-		return getSnapshot(asset, blockNumber).blockUnit;
-	}
+    function getBalanceAt(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 endingBlock, uint256 principal) public returns (uint256) {
+        // Then, get the total interest rates which are stored.
+        uint256 startingTotalInterest = blockTotalInterest[ledgerAccount][asset][startingBlock];
+        uint256 endingTotalInterest = blockTotalInterest[ledgerAccount][asset][endingBlock];
 
-	/**
-	  * @notice `getSnapshotBlockUnitInterestRate` returns the block unit interest rate of the first snapshot on or after the given block
-	  * @param asset The asset which was snapshotted
-	  * @param blockNumber The block number to get the snapshot for
-	  * @return The block unit interest rate of the first snapshot on or after the given block, scaled up by `interestRateScale`
-	  */
-	function getSnapshotBlockUnitInterestRate(address asset, uint256 blockNumber) public view returns (uint64) {
-		return getSnapshot(asset, blockNumber).blockUnitInterestRate;
-	}
+        if (endingTotalInterest < startingTotalInterest) {
+            // This data *must* have been added previously
+            revert();
+        }
 
-	/**
-	  * @notice `getCompoundedInterestRate` returns the compounded interest rate up until now of the first snapshot on or after the given time
-	  * @param asset The asset which was snapshotted
-	  * @param blockNumber The block number to get the snapshot for
-	  * @return The compounded interest rate for this given asset since given block, scaled up by `interestRateScale`
-	  */
-	function getCompoundedInterestRate(address asset, uint256 blockNumber) public view returns (uint256) {
-		return getSnapshot(asset, blockNumber).compoundedInterestRate;
-	}
+        return multiplyInterestRate(principal, endingTotalInterest - startingTotalInterest);
+    }
 
-	/**
-	  * @notice `getCurrentBalance` returns the princiapl with compounded interest rate up until now applied
-	  * @param asset The asset which was snapshotted
-	  * @param blockNumber The block number to get the snapshot for
-	  * @param principal The starting principal before interest is to be applied
-	  * @return The compounded interest rate applied for the given principal to bring that principal up to date
-	  */
-	function getCurrentBalance(address asset, uint256 blockNumber, uint256 principal) public view returns (uint256) {
-		uint256 compoundedInterestRate = getCompoundedInterestRate(asset, blockNumber);
-
-		return ( compoundedInterestRate * principal ) / interestRateScale;
-	}
-
-	/**
-	  * @notice `snapshotCurrentRate` takes a block unit snapshot of a given asset's rate
-	  * @param asset The asset to snapshot
-	  * @param scaledPerGroupRate The interest rate to snapshot.  THIS SHOULD COME IN SCALED BY interestRateScale. in python: scaled_group_rate = ((group_rate_bps * interest_rate_scale)/basis_points_multiplier).quantize(0, rounding=ROUND_FLOOR)
-	  * @dev This will fail if we have a current snapshot for the given block unit
-	  * @dev Note: this is public and anyone can call it.
-	  * @return Success or failure of given snapshot.
-	  */
-	function snapshotCurrentRate(address asset, uint64 scaledPerGroupRate) public returns (bool) {
-		if (!checkAllowed()) {
+    /**
+      * @notice `saveBlockInterest` takes a snapshot of the current block interest
+      *         and total interest since the last snapshot
+      * @param ledgerAccount the ledger account to snapshot
+      * @param asset the asset to snapshot
+      * @param currentInterestRate the current interest rate
+      * @dev this function can be called idempotently within a block
+      * @return success or failure
+      */
+    function saveBlockInterest(uint8 ledgerAccount, address asset, uint64 currentInterestRate) public returns (bool) {
+        if (!checkAllowed()) {
             return false;
         }
 
-		uint64 firstSnapshotBlockUnit = firstSnapshotBlockUnits[asset];
-		uint64 currentBlockUnit = getBlockUnit(block.number);
-		Snapshot storage existingSnapshot = snapshots[asset][currentBlockUnit];
+        uint256 totalInterest;
 
-		if (existingSnapshot.blockUnit > 0) {
-			failure("InterestRateStorage::RateExists", existingSnapshot.blockUnit, existingSnapshot.blockUnitInterestRate, existingSnapshot.compoundedInterestRate);
-			return false;
-		}
+        // Grab last snapshot
+        uint256 currentBlockInterestBlock = blockInterestBlock[ledgerAccount][asset];
 
-		lastSnapshotBlockUnits[asset] = currentBlockUnit;
+        if (currentBlockInterestBlock == 0) {
+            // There is no current snapshot, start with 0
+            totalInterest = 0;
+        } else if (currentBlockInterestBlock == block.number) {
+            // Don't take a second snapshot
+            return true;
+        } else {
+            // Let's apply interest since last block to current
+            uint256 blocksSincePrevious = block.number - currentBlockInterestBlock;
+            uint256 previousTotalInterest = blockTotalInterest[ledgerAccount][asset][currentBlockInterestBlock];
+            uint256 previousBlockInterestRate = blockInterestRate[ledgerAccount][asset][currentBlockInterestBlock];
 
-		snapshots[asset][currentBlockUnit] = Snapshot(
-			currentBlockUnit, // blockUnit
-			scaledPerGroupRate, // blockUnitInterestRate
-			interestRateScale // compoundedInterestRate
-		);
+            totalInterest = previousTotalInterest + previousBlockInterestRate * blocksSincePrevious;
+        }
 
-		NewSnapshot(asset, currentBlockUnit, scaledPerGroupRate);
+        blockInterestBlock[ledgerAccount][asset] = block.number;
+        blockInterestRate[ledgerAccount][asset][block.number] = currentInterestRate;
+        blockTotalInterest[ledgerAccount][asset][block.number] = totalInterest;
 
-		if (firstSnapshotBlockUnit == 0) {
-			firstSnapshotBlockUnits[asset] = currentBlockUnit;
-		} else {
-			for (uint64 blockUnit = currentBlockUnit - 1; blockUnit >= firstSnapshotBlockUnit; blockUnit--) {
-				if (snapshots[asset][blockUnit].blockUnit == 0) {
-					// Handle the case of filling in missing snapshots
-					snapshots[asset][blockUnit] = Snapshot(
-						blockUnit,
-						snapshots[asset][blockUnit+1].blockUnitInterestRate,
-						multiplyInterestRate(snapshots[asset][blockUnit+1].compoundedInterestRate, snapshots[asset][blockUnit+1].blockUnitInterestRate)
-					);
+        return true;
+    }
 
-					// Let's start compounding this rate as well.
-					// TODO: This is right?
-					scaledPerGroupRate = uint64(multiplyInterestRate(interestRateScale + snapshots[asset][blockUnit+1].blockUnitInterestRate, scaledPerGroupRate) - interestRateScale);
-				} else {
-					// Compound interest rate with current block unit's interest
-					snapshots[asset][blockUnit].compoundedInterestRate = multiplyInterestRate(snapshots[asset][blockUnit].compoundedInterestRate, scaledPerGroupRate);
-				}
-			}
-		}
-
-		return true;
-	}
-
-	/**
-	  * @notice `getSnapshot` returns the given block unit's snapshot
-	  * @param asset The asset to snapshot
-	  * @param blockNumber The block number to get the snapshot for
-	  * @return The snapshot for the given asset based on the block unit, or the first if block number is before the first snapshot
-	  */
-	function getSnapshot(address asset, uint256 blockNumber) internal view returns (Snapshot) {
-		uint64 blockUnit = getBlockUnit(blockNumber);
-		uint64 firstSnapshotBlockUnit = firstSnapshotBlockUnits[asset];
-		uint64 lastSnapshotBlockUnit = lastSnapshotBlockUnits[asset];
-
-		if (firstSnapshotBlockUnit == 0) {
-			return Snapshot(
-				0,
-				0,
-				interestRateScale); // No snapshotted interest
-		}
-
-		if (blockUnit < firstSnapshotBlockUnit) {
-			blockUnit = firstSnapshotBlockUnit; // Start from first available block unit
-		}
-
-		if (blockUnit > lastSnapshotBlockUnit) {
-			blockUnit = lastSnapshotBlockUnit; // Go to end if no further block units
-		}
-
-		return snapshots[asset][blockUnit];
-	}
-
-	/**
-	  * @notice `getBlockUnit` returns the block unit associated with a given block number
-	  * @param blockNumber The given block number
-	  * @return The given block unit, which is the floor of `blockNumber / blockScale`
-	  */
-	function getBlockUnit(uint blockNumber) public view returns (uint64) {
-		return uint64(blockNumber / blockScale);
-	}
-
-	/**
-	  * @notice `multiplyInterestRate` multiples the principal by a given interest rate which was scaled
-	  * @param principal original amount to scale (may be an interest rate itself)
-	  * @param interestRate the interest rate to apply
-	  * @return principal times interest rate after scaling up and back down
-	  */
-	function multiplyInterestRate(uint256 principal, uint256 interestRate) pure private returns (uint256) {
-		return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
-	}
+    /**
+      * @notice `multiplyInterestRate` multiples the principal by a given interest rate which was scaled
+      * @param principal original amount to scale (may be an interest rate itself)
+      * @param interestRate the interest rate to apply
+      * @return principal times interest rate after scaling up and back down
+      */
+    function multiplyInterestRate(uint256 principal, uint256 interestRate) pure private returns (uint256) {
+        return ( ( interestRateScale + interestRate ) * principal ) / interestRateScale;
+    }
 
 }

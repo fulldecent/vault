@@ -3,6 +3,7 @@ pragma solidity ^0.4.18;
 import "./base/Owned.sol";
 import "./base/Graceful.sol";
 import "./storage/LedgerStorage.sol";
+import "./InterestModel.sol";
 import "./storage/InterestRateStorage.sol";
 
 /**
@@ -13,9 +14,8 @@ import "./storage/InterestRateStorage.sol";
   */
 contract Ledger is Graceful, Owned {
     LedgerStorage public ledgerStorage;
-    // Given a real number decimal, to convert it to basis points you multiply by 10000.
-    // For example, we know 100 basis points = 1% = .01.  We get the basis points from the decimal: .01 * 10000 = 100
-    uint16 basisPointMultiplier = 10000;
+    InterestModel public interestModel;
+    InterestRateStorage public interestRateStorage;
 
     enum LedgerReason {
         CustomerSupply,
@@ -68,6 +68,36 @@ contract Ledger is Graceful, Owned {
     }
 
     /**
+      * @notice `setInterestModel` sets the interest helper for this contract
+      * @param interestModelAddress The contract which acts as the interest model
+      * @return Success of failure of operation
+      */
+    function setInterestModel(address interestModelAddress) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        interestModel = InterestModel(interestModelAddress);
+
+        return true;
+    }
+
+    /**
+      * @notice `setInterestRateStorage` sets the interest rate storage for this contract
+      * @param interestRateStorageAddress The contract which acts as the interest rate storage
+      * @return Success of failure of operation
+      */
+    function setInterestRateStorage(address interestRateStorageAddress) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        interestRateStorage = InterestRateStorage(interestRateStorageAddress);
+
+        return true;
+    }
+
+    /**
       * @notice Debit a ledger account.
       * @param ledgerReason What caused this debit?
       * @param ledgerAccount Which ledger account to adjust (e.g. Supply or Borrow)
@@ -77,6 +107,10 @@ contract Ledger is Graceful, Owned {
       * @dev This throws on any error
       */
     function debit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
+        if (!saveBlockInterest(asset, ledgerAccount)) {
+            revert();
+        }
+
         if(isAsset(ledgerAccount)) {
             if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
                 revert();
@@ -117,6 +151,10 @@ contract Ledger is Graceful, Owned {
       * @dev This throws on any error
       */
     function credit(LedgerReason ledgerReason, LedgerAccount ledgerAccount, address customer, address asset, uint256 amount) internal {
+        if (!saveBlockInterest(asset, ledgerAccount)) {
+            revert();
+        }
+
         if(isAsset(ledgerAccount)) {
             if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
                 revert();
@@ -177,5 +215,42 @@ contract Ledger is Graceful, Owned {
         return (
             ledgerAccount == LedgerAccount.Supply
         );
+    }
+
+    /**
+      * @notice `saveBlockInterest` takes a snapshot of the current block interest
+      *         and total interest since the last snapshot
+      * @param ledgerAccount the ledger account to snapshot
+      * @param asset the asset to snapshot
+      * @dev this function can be called idempotently within a block
+      * @return success or failure
+      */
+    function saveBlockInterest(address asset, LedgerAccount ledgerAccount) internal returns (bool) {
+        uint64 interestRate = getInterestRate(asset, ledgerAccount);
+
+        if (interestRate > 0) {
+            return interestRateStorage.saveBlockInterest(uint8(ledgerAccount), asset, interestRate);
+        }
+
+        return true;
+    }
+
+    /**
+      * @notice `getInterestRate` returns the current interest rate for the given asset
+      * @param asset The asset to query
+      * @param ledgerAccount the account type (e.g. Supply or Borrow)
+      * @return the interest rate scaled or something
+      */
+    function getInterestRate(address asset, LedgerAccount ledgerAccount) public view returns (uint64) {
+        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
+
+        if (ledgerAccount == LedgerAccount.Borrow) {
+            return interestModel.getScaledBorrowRatePerBlock(cash, borrows);
+        } else if (ledgerAccount == LedgerAccount.Supply) {
+            return interestModel.getScaledSupplyRatePerBlock(cash, borrows);
+        } else {
+            return 0;
+        }
     }
 }

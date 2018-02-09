@@ -14,10 +14,10 @@ import "../base/Owned.sol";
   */
 contract BorrowStorage is Owned, Allowed, ArrayHelper {
     address[] public borrowableAssets;
-    uint public minimumCollateralRatio;
+    uint256 public minimumCollateralRatio;
 
     event NewBorrowableAsset(address asset);
-    event MinimumCollateralRatioChange(uint newMinimumCollateralRatio);
+    event MinimumCollateralRatioChange(uint256 newMinimumCollateralRatio);
 
     /**
       * @notice `addBorrowableAsset` adds an asset to the list of borrowable assets
@@ -42,7 +42,7 @@ contract BorrowStorage is Owned, Allowed, ArrayHelper {
       * @dev used like this to gate borrow creation: borrower_account_value * minimumCollateralRatio >= borrow_amount
       * @return success or failure
       */
-    function setMinimumCollateralRatio(uint minimumCollateralRatio_) public returns (bool) {
+    function setMinimumCollateralRatio(uint256 minimumCollateralRatio_) public returns (bool) {
         if (!checkOwner()) {
             return false;
         }

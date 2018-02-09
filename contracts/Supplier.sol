@@ -13,8 +13,6 @@ import "./storage/TokenStore.sol";
   */
 contract Supplier is Graceful, Owned, Ledger {
     TokenStore public tokenStore;
-    uint16 public supplyRateSlopeBPS = 1000;
-    InterestRateStorage public supplyInterestRateStorage;
 
     /**
       * @notice `setTokenStore` sets the token store contract
@@ -46,35 +44,6 @@ contract Supplier is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `setSupplyInterestRateStorage` sets the interest rate storage location for this supply contract
-      * @dev This is for long-term data storage
-      * @param supplyInterestRateStorage_ The contract which acts as the long-term data store
-      * @return Success of failure of operation
-      */
-    function setSupplyInterestRateStorage(InterestRateStorage supplyInterestRateStorage_) public returns (bool) {
-        if (!checkOwner()) {
-            return false;
-        }
-
-        supplyInterestRateStorage = supplyInterestRateStorage_;
-
-        return true;
-    }
-
-    /**
-      * @notice `checkSupplierInterestRateStorage` verifies interest rate store has been set
-      * @return True if interest rate store is initialized, false otherwise
-      */
-    function checkSupplierInterestRateStorage() internal returns (bool) {
-        if (supplyInterestRateStorage == address(0)) {
-            failure("Supplier::InterestRateStorageUnitialized");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
       * @notice `customerSupply` supplies a given asset in a customer's supplier account.
       * @param asset Asset to supply
       * @param amount The amount of asset to supply
@@ -85,7 +54,8 @@ contract Supplier is Graceful, Owned, Ledger {
             return false;
         }
 
-        if (!checkSupplierInterestRateStorage()) {
+        if (!saveBlockInterest(asset, LedgerAccount.Supply)) {
+            failure("Supplier::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Supply));
             return false;
         }
 
@@ -117,7 +87,8 @@ contract Supplier is Graceful, Owned, Ledger {
             return false;
         }
 
-        if (!checkSupplierInterestRateStorage()) {
+        if (!saveBlockInterest(asset, LedgerAccount.Supply)) {
+            failure("Supplier::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Supply));
             return false;
         }
 
@@ -160,7 +131,12 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return The balance (with interest)
       */
     function getSupplyBalance(address customer, address asset) public view returns (uint256) {
-        return supplyInterestRateStorage.getCurrentBalance(
+        if (!saveBlockInterest(asset, LedgerAccount.Supply)) {
+            revert();
+        }
+
+        return interestRateStorage.getCurrentBalance(
+            uint8(LedgerAccount.Supply),
             asset,
             ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset),
             ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset)
@@ -175,17 +151,13 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return success or failure
       */
     function accrueSupplyInterest(address customer, address asset) public returns (bool) {
-        if (!checkSupplierInterestRateStorage()) {
-            return false;
-        }
+        uint256 blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
 
-        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
-
-        if (blockNumber != block.number) {
+        if (blockNumber != 0 && blockNumber != block.number) {
             // We need to true up balance
 
-            uint balanceWithInterest = getSupplyBalance(customer, asset);
-            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset);
+            uint256 balanceWithInterest = getSupplyBalance(customer, asset);
+            uint256 balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset);
 
             if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
                 // Interest should never be negative
@@ -193,7 +165,7 @@ contract Supplier is Graceful, Owned, Ledger {
                 return false;
             }
 
-            uint interest = balanceWithInterest - balanceLessInterest;
+            uint256 interest = balanceWithInterest - balanceLessInterest;
 
             if (interest != 0) {
                 debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
@@ -201,45 +173,9 @@ contract Supplier is Graceful, Owned, Ledger {
                 if (!ledgerStorage.saveCheckpoint(customer, uint8(LedgerAccount.Supply), asset)) {
                     revert();
                 }
-          }
+            }
         }
 
         return true;
-    }
-
-    /**
-      * @notice `getScaledSupplyRatePerGroup` returns the current borrow interest rate based on the balance sheet
-      * @param asset address of asset
-      * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
-      * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
-      * @return the current supply interest rate (in scale points, aka divide by 10^16 to get real rate)
-      */
-    function getScaledSupplyRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
-        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
-
-        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
-        uint256 denominator = cash + borrows;
-        if(denominator == 0) {
-            denominator = 1;
-        }
-
-        // `supply r` == (1-`reserve ratio`) * 10%
-        // note: this is done in one-line since intermediate results would be truncated
-        // should scale 10**16 / basisPointMultiplier. Do the division by block units per year in int rate storage
-        return uint64( (( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
-    }
-
-    /**
-      * @notice `snapshotSupplierInterestRate` snapshots the current interest rate for the block unit
-      * @param asset address of asset
-      * @return true on success, false if failure (e.g. snapshot already taken for this block unit)
-      */
-    function snapshotSupplierInterestRate(address asset) public returns (bool) {
-      uint64 rate = getScaledSupplyRatePerGroup(asset,
-          supplyInterestRateStorage.getInterestRateScale(),
-          supplyInterestRateStorage.getBlockUnitsPerYear());
-
-      return supplyInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }

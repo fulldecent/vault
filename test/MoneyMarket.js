@@ -5,8 +5,8 @@ const MoneyMarket = artifacts.require("./MoneyMarket.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
 const BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
-const BorrowInterestRateStorage = artifacts.require("./storage/BorrowInterestRateStorage.sol");
-const SupplyInterestRateStorage = artifacts.require("./storage/SupplyInterestRateStorage.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const InterestModel = artifacts.require("./InterestModel.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
 const FaucetToken = artifacts.require("./token/FaucetToken.sol");
@@ -44,8 +44,8 @@ contract('MoneyMarket', function(accounts) {
   var moneyMarket;
   var etherToken;
   var faucetToken;
-  var borrowInterestRateStorage;
-  var supplyInterestRateStorage;
+  var interestRateStorage;
+  var interestModel;
   var borrowStorage;
   var priceOracle;
   var ledgerStorage;
@@ -54,8 +54,8 @@ contract('MoneyMarket', function(accounts) {
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    borrowInterestRateStorage = await BorrowInterestRateStorage.new(10);
-    supplyInterestRateStorage = await SupplyInterestRateStorage.new(10);
+    interestRateStorage = await InterestRateStorage.new();
+    interestModel = await InterestModel.new();
     ledgerStorage = await LedgerStorage.new();
     borrowStorage = await BorrowStorage.new();
     priceOracle = await PriceOracle.new();
@@ -66,15 +66,14 @@ contract('MoneyMarket', function(accounts) {
     await ledgerStorage.allow(moneyMarket.address);
     await borrowStorage.allow(moneyMarket.address);
     await borrowStorage.setMinimumCollateralRatio(2);
-    await supplyInterestRateStorage.allow(moneyMarket.address);
-    await borrowInterestRateStorage.allow(moneyMarket.address);
+    await interestRateStorage.allow(moneyMarket.address);
     await priceOracle.allow(moneyMarket.address);
     await tokenStore.allow(moneyMarket.address);
 
     await moneyMarket.setLedgerStorage(ledgerStorage.address);
     await moneyMarket.setBorrowStorage(borrowStorage.address);
-    await moneyMarket.setSupplyInterestRateStorage(supplyInterestRateStorage.address);
-    await moneyMarket.setBorrowInterestRateStorage(borrowInterestRateStorage.address);
+    await moneyMarket.setInterestRateStorage(interestRateStorage.address);
+    await moneyMarket.setInterestModel(interestModel.address);
     await moneyMarket.setPriceOracle(priceOracle.address);
     await moneyMarket.setTokenStore(tokenStore.address);
 
@@ -119,16 +118,14 @@ contract('MoneyMarket', function(accounts) {
     });
   });
 
-  // TODO (as part of CE-62) : Get interest to be applied and uncomment the expected events with ledgerReason: LedgerReason.Interest
   describe('#customerPayBorrow', () => {
     it("accrues interest and reduces the balance", async () => {
-      await borrowInterestRateStorage.snapshotCurrentRate(etherToken.address, 50000);
-      await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[1]);
-      await moneyMarket.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      await utils.mineBlocks(web3, 10);
-      await moneyMarket.customerPayBorrow(etherToken.address, 18, {from: web3.eth.accounts[1]});
+      await utils.supplyEth(moneyMarket, etherToken, 1000000000000, web3.eth.accounts[1]);
+      await moneyMarket.customerBorrow(etherToken.address, 200000000000, {from: web3.eth.accounts[1]});
+      await utils.mineBlocks(web3, 20);
+      await moneyMarket.customerPayBorrow(etherToken.address, 180000000000, {from: web3.eth.accounts[1]});
       await utils.assertEvents(moneyMarket, [
-      /*  {
+        {
           event: "LedgerEntry",
           args: {
             ledgerReason: LedgerReason.Interest,
@@ -136,7 +133,7 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.InterestIncome,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('2'),
+            amount: web3.toBigNumber('599314'),
             balance: web3.toBigNumber('0'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
@@ -150,12 +147,12 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Borrow,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('2'),
-            balance: web3.toBigNumber('22'),
+            amount: web3.toBigNumber('599314'),
+            balance: web3.toBigNumber('200000599314'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
-        }, */
+        },
         {
           event: "LedgerEntry",
           args: {
@@ -164,8 +161,8 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Borrow,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('18'),
-            balance: web3.toBigNumber('2'),
+            amount: web3.toBigNumber('180000000000'),
+            balance: web3.toBigNumber('20000599314'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -178,8 +175,8 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Supply,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('18'),
-            balance: web3.toBigNumber('102'),
+            amount: web3.toBigNumber('180000000000'),
+            balance: web3.toBigNumber('1020000000000'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -271,102 +268,32 @@ contract('MoneyMarket', function(accounts) {
     });
   });
 
-  it("sets the owner", async () => {
-    const owner = await moneyMarket.getOwner.call();
-    assert.equal(owner, web3.eth.accounts[0]);
+  describe('owned', () => {
+    it("sets the owner", async () => {
+      const owner = await moneyMarket.getOwner.call();
+      assert.equal(owner, web3.eth.accounts[0]);
+    });
   });
   
-  describe('#getScaledBorrowRatePerGroup', async () => {
-    it('should return correct balance with liquidity ratio of 25% (borrow rate 25%)', async () => {
-      await moneyMarket.setLedgerStorage(testLedgerStorage.address);
-
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
-
-      console.log("interestRateScale="+interestRateScale+", blockUnitsPerYear="+blockUnitsPerYear);
-      const interestRateBPS = (await moneyMarket.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear));
-      (await moneyMarket.getScaledBorrowRatePerGroup(etherToken.address, interestRateScale, blockUnitsPerYear));
-
-      console.log(["interestRateBPS=",interestRateBPS]);
-
-      utils.validateRate(assert, 2500, interestRateBPS.toNumber(), 11891170000, "25%");
-    });
-
-
-    it('should return correct balance with liquidity ratio of 0% (borrow rate 30%)', async () => {
-      await moneyMarket.setLedgerStorage(testLedgerStorage.address);
-
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 0);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
-
-      const interestRateBPS = await moneyMarket.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-    utils.validateRate(assert, 3000, interestRateBPS.toNumber(), 14269404000, "30%");
-    });
-
-    it('should return correct balance with liquidity ratio of 100% (borrow rate 10%)', async () => {
-      await moneyMarket.setLedgerStorage(testLedgerStorage.address);
-
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 0);
-
-      const interestRateBPS = await moneyMarket.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-      utils.validateRate(assert, 1000, interestRateBPS.toNumber(), 4756468000, "10%");
-    });
-
-    it('should return correct balance with liquidity ratio of 50% (borrow rate 20%)', async () => {
-      await moneyMarket.setLedgerStorage(testLedgerStorage.address);
-
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 100);
-
-      const interestRateBPS = await moneyMarket.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-      utils.validateRate(assert, 2000, interestRateBPS.toNumber(), 9512936000, "20%");
-    });
-
-    it('should return correct balance with liquidity ratio of 0.99% (borrow rate 29.82%)', async () => {
-      await moneyMarket.setLedgerStorage(testLedgerStorage.address);
-
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 100);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 10000);
-
-      const interestRateBPS = await moneyMarket.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-      // For this one, the error ratio is 0.00067.
-      utils.validateRateWithMaxRatio(assert, 2982, interestRateBPS.toNumber(), 14174274640, 0.00068, "29.82%");
-    });
-
-    it('should return correct balance with liquidity ratio of 0.559471% (borrow rate 18.8105726872247%)', async () => {
-        await moneyMarket.setLedgerStorage(testLedgerStorage.address);
-
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 127);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 100);
-
-      const interestRateBPS = await moneyMarket.getScaledBorrowRatePerGroup.call(etherToken.address, interestRateScale, blockUnitsPerYear);
-
-      // For this one, the error ratio is 0.00003061.
-      utils.validateRateWithMaxRatio(assert, 1881.05726872247, interestRateBPS.toNumber(), 8946916308, 0.0000307, "18.8105726872247%");
-      //                                                                      exact value  8947190205
-    });
-  });
-
-    describe('#snapshotBorrowInterestRate', async () => {
+  describe('#saveBlockInterest', async () => {
     it('should snapshot the current balance', async () => {
       await moneyMarket.setLedgerStorage(testLedgerStorage.address);
 
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-      await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
+      await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Cash, 50);
+      await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Borrow, 150);
 
-      const blockNumber = web3.eth.blockNumber;
+      // Approve wallet for 55 tokens and supply them
+      await faucetToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});
+      await moneyMarket.customerSupply(faucetToken.address, 100, {from: web3.eth.accounts[0]});
 
-      await moneyMarket.snapshotBorrowInterestRate(etherToken.address);
+      const blockNumber = await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address);
 
-        utils.validateRate(assert, 2500, (await borrowInterestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-            11891170000, "25%");
+      assert.equal((await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 0);
+      assert.equal((await interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 3567351000);
     });
 
     it('should be called once per block unit');
   });
+
+  // TODO: Make sure we store correct rates for all operations
 });

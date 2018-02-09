@@ -15,9 +15,6 @@ import "./storage/BorrowStorage.sol";
 contract Borrower is Graceful, Owned, Ledger {
     PriceOracle public priceOracle;
     BorrowStorage public borrowStorage;
-    InterestRateStorage public borrowInterestRateStorage;
-    uint16 public borrowRateSlopeBPS = 2000;
-    uint16 public minimumBorrowRateBPS = 1000;
 
     function Borrower () public {}
 
@@ -54,41 +51,12 @@ contract Borrower is Graceful, Owned, Ledger {
     }
 
     /**
-      * @notice `setBorrowInterestRateStorage` sets the interest rate storage location for this borrow contract
-      * @dev This is for long-term data storage (TODO: Test)
-      * @param borrowInterestRateStorage_ The contract which acts as the long-term data store
-      * @return Success of failure of operation
-      */
-    function setBorrowInterestRateStorage(InterestRateStorage borrowInterestRateStorage_) public returns (bool) {
-        if (!checkOwner()) {
-            return false;
-        }
-
-        borrowInterestRateStorage = borrowInterestRateStorage_;
-
-        return true;
-    }
-
-    /**
-      * @notice `checkBorrowInterestRateStorage` verifies interest rate store has been set
-      * @return True if interest rate store is initialized, false otherwise
-      */
-    function checkBorrowInterestRateStorage() internal returns (bool) {
-        if (borrowInterestRateStorage == address(0)) {
-            failure("Borrower::InterestRateStorageUnitialized");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
       * @notice `customerBorrow` creates a new borrow and supplies the requested asset into the user's account.
       * @param asset The asset to borrow
       * @param amount The amount to borrow
       * @return success or failure
       */
-    function customerBorrow(address asset, uint amount) public returns (bool) {
+    function customerBorrow(address asset, uint256 amount) public returns (bool) {
         if (!borrowStorage.borrowableAsset(asset)) {
             failure("Borrower::AssetNotBorrowable", uint256(asset));
             return false;
@@ -96,6 +64,11 @@ contract Borrower is Graceful, Owned, Ledger {
 
         if (!validCollateralRatio(amount, asset)) {
             failure("Borrower::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
+            return false;
+        }
+
+        if (!saveBlockInterest(asset, LedgerAccount.Borrow)) {
+            failure("Borrower::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Borrow));
             return false;
         }
 
@@ -116,8 +89,13 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param amount The amount to pay down
       * @return success or failure
       */
-    function customerPayBorrow(address asset, uint amount) public returns (bool) {
+    function customerPayBorrow(address asset, uint256 amount) public returns (bool) {
         if (!accrueBorrowInterest(msg.sender, asset)) {
+            return false;
+        }
+
+        if (!saveBlockInterest(asset, LedgerAccount.Borrow)) {
+            failure("Borrower::FailedToSaveBlockInterest", uint256(asset), uint256(LedgerAccount.Borrow));
             return false;
         }
 
@@ -136,24 +114,28 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param borrowAsset the asset that was borrowed; must differ from paymentAsset
      **/
     function convertCollateral(address borrower, address paymentAsset, uint256 amountInPaymentAsset, address borrowAsset) public returns (bool) {
-
-        if(borrowAsset == paymentAsset) {
+        if (borrowAsset == paymentAsset) {
             failure("Borrower::CollateralSameAsBorrow", uint256(borrowAsset));
             return false;
         }
 
-        if(amountInPaymentAsset == 0) {
+        if (amountInPaymentAsset == 0) {
             failure("Borrower::ZeroCollateralAmount", uint256(borrowAsset));
             return false;
         }
 
-        // true up balance first
-        if(!accrueBorrowInterest(borrower, borrowAsset)) {
+        if (!saveBlockInterest(borrowAsset, LedgerAccount.Borrow)) {
+            failure("Borrower::FailedToSaveBlockInterest", uint256(borrowAsset), uint256(LedgerAccount.Borrow));
             return false;
         }
 
-        uint borrowBalance = getBalance(borrower, LedgerAccount.Borrow, borrowAsset);
-        if(borrowBalance == 0) {
+        // true up balance first
+        if (!accrueBorrowInterest(borrower, borrowAsset)) {
+            return false;
+        }
+
+        uint256 borrowBalance = getBalance(borrower, LedgerAccount.Borrow, borrowAsset);
+        if (borrowBalance == 0) {
             failure("Borrower::ZeroBorrowBalance", uint256(borrowAsset));
             return false;
         }
@@ -164,9 +146,8 @@ contract Borrower is Graceful, Owned, Ledger {
             return false;
         }
 
-        uint amountInBorrowAsset = priceOracle.getConvertedAssetValue(paymentAsset, amountInPaymentAsset, borrowAsset);
-
-        if(amountInBorrowAsset > borrowBalance) {
+        uint256 amountInBorrowAsset = priceOracle.getConvertedAssetValue(paymentAsset, amountInPaymentAsset, borrowAsset);
+        if (amountInBorrowAsset > borrowBalance) {
             failure("Borrower::TooMuchCollateral", uint256(amountInBorrowAsset), uint256(borrowBalance), amountInPaymentAsset);
             return false;
         }
@@ -190,7 +171,12 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return The borrow balance of given account
       */
     function getBorrowBalance(address customer, address asset) public view returns (uint256) {
-        return borrowInterestRateStorage.getCurrentBalance(
+        if (!saveBlockInterest(asset, LedgerAccount.Borrow)) {
+            revert();
+        }
+
+        return interestRateStorage.getCurrentBalance(
+            uint8(LedgerAccount.Borrow),
             asset,
             ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset),
             ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset)
@@ -204,15 +190,11 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return success or failure
       */
     function accrueBorrowInterest(address customer, address asset) public returns (bool) {
-        if (!checkBorrowInterestRateStorage()) {
-            return false;
-        }
-
-        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset);
+        uint256 blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset);
 
         if (blockNumber != block.number) {
-            uint balanceWithInterest = getBorrowBalance(customer, asset);
-            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset);
+            uint256 balanceWithInterest = getBorrowBalance(customer, asset);
+            uint256 balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset);
 
             if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
                 // Interest should never be negative
@@ -220,7 +202,7 @@ contract Borrower is Graceful, Owned, Ledger {
                 return false;
             }
 
-            uint interest = balanceWithInterest - balanceLessInterest;
+            uint256 interest = balanceWithInterest - balanceLessInterest;
 
             if (interest != 0) {
                 credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
@@ -237,7 +219,7 @@ contract Borrower is Graceful, Owned, Ledger {
     /**
       * @notice `getMaxBorrowAvailable` gets the maximum borrow available
       * @param account the address of the account
-      * @return uint the maximum borrow amount available
+      * @return uint256 the maximum borrow amount available
       */
     function getMaxBorrowAvailable(address account) view public returns (uint) {
         return getValueEquivalent(account) * borrowStorage.minimumCollateralRatio();
@@ -249,7 +231,7 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param borrowAsset denomination of borrow
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatio(uint borrowAmount, address borrowAsset) view internal returns (bool) {
+    function validCollateralRatio(uint256 borrowAmount, address borrowAsset) view internal returns (bool) {
         return validCollateralRatioNotSender(msg.sender, borrowAmount, borrowAsset);
     }
 
@@ -260,7 +242,7 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param borrowAsset denomination of borrow
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatioNotSender(address borrower, uint borrowAmount, address borrowAsset) view internal returns (bool) {
+    function validCollateralRatioNotSender(address borrower, uint256 borrowAmount, address borrowAsset) view internal returns (bool) {
         return (getValueEquivalent(borrower) * borrowStorage.minimumCollateralRatio()) >= priceOracle.getAssetValue(borrowAsset, borrowAmount);
     }
 
@@ -282,43 +264,5 @@ contract Borrower is Graceful, Owned, Ledger {
         }
 
         return balance;
-    }
-
-    /**
-      * @notice `getScaledBorrowRatePerGroup` returns the current borrow interest rate based on the balance sheet
-      * @param asset address of asset
-      * @param interestRateScale multiplier used in interest rate storage. We need it here to reduce truncation issues.
-      * @param blockUnitsPerYear based on block group size in interest rate storage. We need it here to reduce truncation issues.
-      * @return the current borrow interest rate (in scale points, aka divide by 10^16 to get real rate)
-      */
-    function getScaledBorrowRatePerGroup(address asset, uint interestRateScale, uint blockUnitsPerYear) public view returns (uint64) {
-        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
-
-        // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
-        uint256 denominator = cash + borrows;
-        if(denominator == 0) {
-            denominator = 1;
-        }
-
-        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
-        // note: this is done in one-line since intermediate results would be truncated
-
-        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blockUnitsPerYear*basisPointMultiplier)));
-    }
-
-
-    /**
-      * @notice `snapshotBorrowInterestRate` snapshots the current interest rate for the block uint
-      * @param asset address of asset
-      * @return true on success, false if failure (e.g. snapshot already taken for this block uint)
-      * TODO: Test
-      */
-    function snapshotBorrowInterestRate(address asset) public returns (bool) {
-      uint64 rate = getScaledBorrowRatePerGroup(asset,
-          borrowInterestRateStorage.getInterestRateScale(),
-          borrowInterestRateStorage.getBlockUnitsPerYear());
-
-      return borrowInterestRateStorage.snapshotCurrentRate(asset, rate);
     }
 }
