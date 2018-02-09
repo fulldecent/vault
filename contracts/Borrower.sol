@@ -56,7 +56,7 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param amount The amount to borrow
       * @return success or failure
       */
-    function customerBorrow(address asset, uint amount) public returns (bool) {
+    function customerBorrow(address asset, uint256 amount) public returns (bool) {
         if (!borrowStorage.borrowableAsset(asset)) {
             failure("Borrower::AssetNotBorrowable", uint256(asset));
             return false;
@@ -89,7 +89,7 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param amount The amount to pay down
       * @return success or failure
       */
-    function customerPayBorrow(address asset, uint amount) public returns (bool) {
+    function customerPayBorrow(address asset, uint256 amount) public returns (bool) {
         if (!accrueBorrowInterest(msg.sender, asset)) {
             return false;
         }
@@ -190,11 +190,11 @@ contract Borrower is Graceful, Owned, Ledger {
       * @return success or failure
       */
     function accrueBorrowInterest(address customer, address asset) public returns (bool) {
-        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset);
+        uint256 blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Borrow), asset);
 
         if (blockNumber != block.number) {
-            uint balanceWithInterest = getBorrowBalance(customer, asset);
-            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset);
+            uint256 balanceWithInterest = getBorrowBalance(customer, asset);
+            uint256 balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Borrow), asset);
 
             if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
                 // Interest should never be negative
@@ -202,7 +202,7 @@ contract Borrower is Graceful, Owned, Ledger {
                 return false;
             }
 
-            uint interest = balanceWithInterest - balanceLessInterest;
+            uint256 interest = balanceWithInterest - balanceLessInterest;
 
             if (interest != 0) {
                 credit(LedgerReason.Interest, LedgerAccount.InterestIncome, customer, asset, interest);
@@ -219,7 +219,7 @@ contract Borrower is Graceful, Owned, Ledger {
     /**
       * @notice `getMaxBorrowAvailable` gets the maximum borrow available
       * @param account the address of the account
-      * @return uint the maximum borrow amount available
+      * @return uint256 the maximum borrow amount available
       */
     function getMaxBorrowAvailable(address account) view public returns (uint) {
         return getValueEquivalent(account) * borrowStorage.minimumCollateralRatio();
@@ -231,7 +231,7 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param borrowAsset denomination of borrow
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatio(uint borrowAmount, address borrowAsset) view internal returns (bool) {
+    function validCollateralRatio(uint256 borrowAmount, address borrowAsset) view internal returns (bool) {
         return validCollateralRatioNotSender(msg.sender, borrowAmount, borrowAsset);
     }
 
@@ -242,7 +242,7 @@ contract Borrower is Graceful, Owned, Ledger {
       * @param borrowAsset denomination of borrow
       * @return boolean true if the requested amount is valid and false otherwise
       */
-    function validCollateralRatioNotSender(address borrower, uint borrowAmount, address borrowAsset) view internal returns (bool) {
+    function validCollateralRatioNotSender(address borrower, uint256 borrowAmount, address borrowAsset) view internal returns (bool) {
         return (getValueEquivalent(borrower) * borrowStorage.minimumCollateralRatio()) >= priceOracle.getAssetValue(borrowAsset, borrowAmount);
     }
 

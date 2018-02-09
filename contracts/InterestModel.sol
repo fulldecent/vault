@@ -11,11 +11,11 @@ contract InterestModel {
     uint16 public supplyRateSlopeBPS = 1000;
     uint16 public borrowRateSlopeBPS = 2000;
     uint16 public minimumBorrowRateBPS = 1000;
-    uint constant blocksPerYear = 2102400; // = (365 * 24 * 60 * 60) seconds per year / 15 seconds per block
+    uint64 constant blocksPerYear = 2102400; // = (365 * 24 * 60 * 60) seconds per year / 15 seconds per block
     // Given a real number decimal, to convert it to basis points you multiply by 10000.
     // For example, we know 100 basis points = 1% = .01.  We get the basis points from the decimal: .01 * 10000 = 100
     uint16 basisPointMultiplier = 10000;
-    uint constant interestRateScale = 10 ** 17;
+    uint64 constant interestRateScale = 10 ** 17;
 
     /**
       * @notice `getScaledSupplyRatePerBlock` returns the current borrow interest rate based on the balance sheet

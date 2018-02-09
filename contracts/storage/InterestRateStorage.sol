@@ -9,7 +9,7 @@ import "../base/Allowed.sol";
   * @notice Interest rate contract is a simple contract to keep track of interest rates.
   */
 contract InterestRateStorage is Owned, Allowed {
-	uint constant interestRateScale = 10 ** 17;
+	uint64 constant interestRateScale = 10 ** 17;
 
     // Block interest map is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> total interest
     // Total interest is the total interest accumlated since the beginning of time
@@ -21,14 +21,33 @@ contract InterestRateStorage is Owned, Allowed {
     // Block interest block is a map of LedgerAccount{Supply, Borrow} -> asset -> block number -> interest rate
     mapping(uint8 => mapping(address => mapping(uint256 => uint256))) public blockInterestRate;
 
+    /**
+      * @notice `getCurrentBalance` returns the given balance with interest of an account
+      * @param ledgerAccount the ledger account to check (i.e. supply or borrow)
+      * @param asset the asset to check the balance of
+      * @param startingBlock the block that the balance was added at
+      * @param principal the principal when the balance was added
+      * @dev this will fail if `saveBlockInterest` hasn't been called for `startingBlock` or for this block
+      * @return the principal (with interest) as of this block
+      */
     function getCurrentBalance(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 principal) public view returns (uint256) {
         return getBalanceAt(ledgerAccount, asset, startingBlock, block.number, principal);
     }
 
+    /**
+      * @notice `getCurrentBalance` returns the given balance with interest of an account
+      * @param ledgerAccount the ledger account to check (i.e. supply or borrow)
+      * @param asset the asset to check the balance of
+      * @param startingBlock the block that the balance was added at
+      * @param endingBlock the block the balance is to be checked at
+      * @param principal the principal when the balance was added
+      * @dev this will fail if `saveBlockInterest` hasn't been called for block `startingBlock` or `endingBlock`
+      * @return the principal (with interest) as of `endingBlock`
+      */
     function getBalanceAt(uint8 ledgerAccount, address asset, uint256 startingBlock, uint256 endingBlock, uint256 principal) public returns (uint256) {
         // Then, get the total interest rates which are stored.
-        uint startingTotalInterest = blockTotalInterest[ledgerAccount][asset][startingBlock];
-        uint endingTotalInterest = blockTotalInterest[ledgerAccount][asset][endingBlock];
+        uint256 startingTotalInterest = blockTotalInterest[ledgerAccount][asset][startingBlock];
+        uint256 endingTotalInterest = blockTotalInterest[ledgerAccount][asset][endingBlock];
 
         if (endingTotalInterest < startingTotalInterest) {
             // This data *must* have been added previously
@@ -38,6 +57,15 @@ contract InterestRateStorage is Owned, Allowed {
         return multiplyInterestRate(principal, endingTotalInterest - startingTotalInterest);
     }
 
+    /**
+      * @notice `saveBlockInterest` takes a snapshot of the current block interest
+      *         and total interest since the last snapshot
+      * @param ledgerAccount the ledger account to snapshot
+      * @param asset the asset to snapshot
+      * @param currentInterestRate the current interest rate
+      * @dev this function can be called idempotently within a block
+      * @return success or failure
+      */
     function saveBlockInterest(uint8 ledgerAccount, address asset, uint64 currentInterestRate) public returns (bool) {
         if (!checkAllowed()) {
             return false;

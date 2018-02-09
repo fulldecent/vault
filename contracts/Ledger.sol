@@ -217,7 +217,14 @@ contract Ledger is Graceful, Owned {
         );
     }
 
-    // saveBlockInterest
+    /**
+      * @notice `saveBlockInterest` takes a snapshot of the current block interest
+      *         and total interest since the last snapshot
+      * @param ledgerAccount the ledger account to snapshot
+      * @param asset the asset to snapshot
+      * @dev this function can be called idempotently within a block
+      * @return success or failure
+      */
     function saveBlockInterest(address asset, LedgerAccount ledgerAccount) internal returns (bool) {
         uint64 interestRate = getInterestRate(asset, ledgerAccount);
 

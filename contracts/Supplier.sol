@@ -151,13 +151,13 @@ contract Supplier is Graceful, Owned, Ledger {
       * @return success or failure
       */
     function accrueSupplyInterest(address customer, address asset) public returns (bool) {
-        uint blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
+        uint256 blockNumber = ledgerStorage.getBalanceBlockNumber(customer, uint8(LedgerAccount.Supply), asset);
 
         if (blockNumber != 0 && blockNumber != block.number) {
             // We need to true up balance
 
-            uint balanceWithInterest = getSupplyBalance(customer, asset);
-            uint balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset);
+            uint256 balanceWithInterest = getSupplyBalance(customer, asset);
+            uint256 balanceLessInterest = ledgerStorage.getBalance(customer, uint8(LedgerAccount.Supply), asset);
 
             if (balanceWithInterest - balanceLessInterest > balanceWithInterest) {
                 // Interest should never be negative
@@ -165,7 +165,7 @@ contract Supplier is Graceful, Owned, Ledger {
                 return false;
             }
 
-            uint interest = balanceWithInterest - balanceLessInterest;
+            uint256 interest = balanceWithInterest - balanceLessInterest;
 
             if (interest != 0) {
                 debit(LedgerReason.Interest, LedgerAccount.InterestExpense, customer, asset, interest);
