@@ -230,17 +230,19 @@ contract('Wallet', function(accounts) {
       await utils.setAssetValue(priceOracle, etherToken, 1, web3);
       await utils.setAssetValue(priceOracle, faucetToken, 1, web3);
 
-      // verify balance in ledger (with interest)
-      assert.equal((await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address)), 55000015696344400);
-      assert.equal((await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address)), 55000007848172200);
+      // verify balance in ledger
+      assert.equal((await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address)), 55000000000000000);
+      assert.equal((await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address)), 55000000000000000);
 
       assert.equal((await moneyMarket.getValueEquivalent.call(wallet.address)).toNumber(), web3.toWei(110, "finney"));
 
       await wallet.borrowAsset(faucetToken.address, web3.toWei(22, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
 
+      utils.mineBlocks(web3, 20);
+
       // verify balance in ledger (still has eth, pig token was withdrawn)
-      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000018312401800);
-      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address), web3.toWei(55, "finney"));
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000000000000000);
+      assert.isAbove(await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address), 55000000000000000);
 
       // verify balances in W-Eth
       assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), web3.toWei(55, "finney"));
@@ -265,15 +267,17 @@ contract('Wallet', function(accounts) {
       await utils.addBorrowableAsset(borrowStorage, faucetToken, web3);
 
       // verify balance in ledger
-      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000010464229600);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000000000000000);
 
       // TODO: This should fail at 27.5, not 110. Check we're calculating ratios correctly.
       await utils.assertGracefulFailure(moneyMarket, "Borrower::InvalidCollateralRatio", [null, web3.toWei(111, "finney"), web3.toWei(55, "finney")], async () => {
         await wallet.borrowAsset(faucetToken.address, web3.toWei(111, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
       });
 
+      utils.mineBlocks(web3, 20);
+
       // verify balance in ledger (still has eth, pig token was withdrawn)
-      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000013080287000);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000000000000000);
       assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address), 0);
 
       // verify balances in W-Eth

@@ -133,7 +133,7 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.InterestIncome,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('599314'),
+            amount: web3.toBigNumber('199771'),
             balance: web3.toBigNumber('0'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
@@ -147,8 +147,8 @@ contract('MoneyMarket', function(accounts) {
             ledgerAccount: LedgerAccount.Borrow,
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
-            amount: web3.toBigNumber('599314'),
-            balance: web3.toBigNumber('200000599314'),
+            amount: web3.toBigNumber('199771'),
+            balance: web3.toBigNumber('200000199771'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -162,7 +162,7 @@ contract('MoneyMarket', function(accounts) {
             customer: web3.eth.accounts[1],
             asset: etherToken.address,
             amount: web3.toBigNumber('180000000000'),
-            balance: web3.toBigNumber('20000599314'),
+            balance: web3.toBigNumber('20000199771'),
             interestRateBPS: web3.toBigNumber('0'),
             nextPaymentDate: web3.toBigNumber('0')
           }
@@ -279,7 +279,7 @@ contract('MoneyMarket', function(accounts) {
     it('should snapshot the current balance', async () => {
       await moneyMarket.setLedgerStorage(testLedgerStorage.address);
 
-      await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Cash, 50);
+      await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Supply, 50);
       await testLedgerStorage.setBalanceSheetBalance(faucetToken.address, LedgerAccount.Borrow, 150);
 
       // Approve wallet for 55 tokens and supply them

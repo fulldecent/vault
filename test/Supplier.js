@@ -193,35 +193,36 @@ contract('Supplier', function(accounts) {
               nextPaymentDate: web3.toBigNumber('0')
             }
           },
+          // There are no borrows, therefore, no interest
           // InterestExpense
-          {
-          event: "LedgerEntry",
-          args: {
-              ledgerReason: LedgerReason.Interest,
-              ledgerType: LedgerType.Debit,
-              ledgerAccount: LedgerAccount.InterestExpense,
-              customer: web3.eth.accounts[1],
-              asset: etherToken.address,
-              amount: web3.toBigNumber('29490101600'),
-              balance: web3.toBigNumber('0'),
-              interestRateBPS: web3.toBigNumber('0'),
-              nextPaymentDate: web3.toBigNumber('0')
-            }
-          },
-          {
-            event: "LedgerEntry",
-            args: {
-              ledgerReason: LedgerReason.Interest,
-              ledgerType: LedgerType.Credit,
-              ledgerAccount: LedgerAccount.Supply,
-              customer: web3.eth.accounts[1],
-              asset: etherToken.address,
-              amount: web3.toBigNumber('29490101600'),
-              balance: web3.toBigNumber('20000029490101600'),
-              interestRateBPS: web3.toBigNumber('0'),
-              nextPaymentDate: web3.toBigNumber('0')
-            }
-          },
+          // {
+          // event: "LedgerEntry",
+          // args: {
+          //     ledgerReason: LedgerReason.Interest,
+          //     ledgerType: LedgerType.Debit,
+          //     ledgerAccount: LedgerAccount.InterestExpense,
+          //     customer: web3.eth.accounts[1],
+          //     asset: etherToken.address,
+          //     amount: web3.toBigNumber('29490101600'),
+          //     balance: web3.toBigNumber('0'),
+          //     interestRateBPS: web3.toBigNumber('0'),
+          //     nextPaymentDate: web3.toBigNumber('0')
+          //   }
+          // },
+          // {
+          //   event: "LedgerEntry",
+          //   args: {
+          //     ledgerReason: LedgerReason.Interest,
+          //     ledgerType: LedgerType.Credit,
+          //     ledgerAccount: LedgerAccount.Supply,
+          //     customer: web3.eth.accounts[1],
+          //     asset: etherToken.address,
+          //     amount: web3.toBigNumber('29490101600'),
+          //     balance: web3.toBigNumber('20000029490101600'),
+          //     interestRateBPS: web3.toBigNumber('0'),
+          //     nextPaymentDate: web3.toBigNumber('0')
+          //   }
+          // },
           // Withdrawal
           {
           event: "LedgerEntry",
@@ -231,8 +232,8 @@ contract('Supplier', function(accounts) {
               ledgerAccount: LedgerAccount.Supply,
               customer: web3.eth.accounts[1],
               asset: etherToken.address,
-              amount: web3.toBigNumber(withdrawAmount),
-              balance: web3.toBigNumber('10000029490101600'),
+              amount: withdrawalAmountBigNumber,
+              balance: withdrawalAmountBigNumber,
               interestRateBPS: web3.toBigNumber('0'),
               nextPaymentDate: web3.toBigNumber('0')
             }

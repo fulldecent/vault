@@ -242,13 +242,13 @@ contract Ledger is Graceful, Owned {
       * @return the interest rate scaled or something
       */
     function getInterestRate(address asset, LedgerAccount ledgerAccount) public view returns (uint64) {
-        uint256 cash = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+        uint256 supply = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Supply));
         uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
 
         if (ledgerAccount == LedgerAccount.Borrow) {
-            return interestModel.getScaledBorrowRatePerBlock(cash, borrows);
+            return interestModel.getScaledBorrowRatePerBlock(supply, borrows);
         } else if (ledgerAccount == LedgerAccount.Supply) {
-            return interestModel.getScaledSupplyRatePerBlock(cash, borrows);
+            return interestModel.getScaledSupplyRatePerBlock(supply, borrows);
         } else {
             return 0;
         }

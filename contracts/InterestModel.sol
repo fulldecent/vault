@@ -19,12 +19,12 @@ contract InterestModel {
 
     /**
       * @notice `getScaledSupplyRatePerBlock` returns the current borrow interest rate based on the balance sheet
-      * @param cash total cash available of asset from balance sheet
+      * @param supply total supply available of asset from balance sheet
       * @param borrows total borrows of asset from balance sheet
       * @return the current supply interest rate (in scale points, aka divide by 10^16 to get real rate)
       */
-    function getScaledSupplyRatePerBlock(uint256 cash, uint256 borrows) public view returns (uint64) {
-        uint256 denominator = cash + borrows;
+    function getScaledSupplyRatePerBlock(uint256 supply, uint256 borrows) public view returns (uint64) {
+        uint256 denominator = supply + borrows;
 
         // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
         if (denominator == 0) {
@@ -34,17 +34,17 @@ contract InterestModel {
         // `supply r` == (1-`reserve ratio`) * 10%
         // note: this is done in one-line since intermediate results would be truncated
         // should scale 10**16 / basisPointMultiplier. Do the division by blocks per year in int rate storage
-        return uint64( (( basisPointMultiplier - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blocksPerYear * basisPointMultiplier)));
+        return uint64( (( basisPointMultiplier - ( ( basisPointMultiplier * supply ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blocksPerYear * basisPointMultiplier)));
     }
 
     /**
       * @notice `getScaledBorrowRatePerBlock` returns the current borrow interest rate based on the balance sheet
-      * @param cash total cash available of asset from balance sheet
+      * @param supply total supply available of asset from balance sheet
       * @param borrows total borrows of asset from balance sheet
       * @return the current borrow interest rate (in scale points, aka divide by 10^16 to get real rate)
       */
-    function getScaledBorrowRatePerBlock(uint256 cash, uint256 borrows) public view returns (uint64) {
-        uint256 denominator = cash + borrows;
+    function getScaledBorrowRatePerBlock(uint256 supply, uint256 borrows) public view returns (uint64) {
+        uint256 denominator = supply + borrows;
 
         // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
         if (denominator == 0) {
@@ -53,7 +53,7 @@ contract InterestModel {
 
         // `borrow r` == 10% + (1-`reserve ratio`) * 20%
         // note: this is done in one-line since intermediate results would be truncated
-        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * cash ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blocksPerYear * basisPointMultiplier)));
+        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * supply ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blocksPerYear * basisPointMultiplier)));
     }
 
 }
