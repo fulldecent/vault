@@ -9,6 +9,9 @@ const interestRateScale = 10 ** 17;
 const blocksPerYear = 2102400;
 const annualBPSToScaledPerBlockRate = (value) => Math.trunc((value * interestRateScale) / (10000 * blocksPerYear));
 const annualBPSToScaledPerBlockRateNonTrunc = (value) => (value * interestRateScale) / (10000 * blocksPerYear);
+// to scale 5%: scaleInterest(0.05)
+const scaleInterest = (interest) => Math.trunc(interest * Math.pow(10, 17));
+
 
 function validateRate(assert, annualBPS, actual, expected, msg) {
   validateRateWithMaxRatio(assert, annualBPS, actual, expected, 0.0000002, msg)
@@ -143,6 +146,7 @@ module.exports = {
   annualBPSToScaledPerBlockRate: annualBPSToScaledPerBlockRate,
   validateRate: validateRate,
   validateRateWithMaxRatio: validateRateWithMaxRatio,
+  scaleInterest: scaleInterest,
 
   // https://ethereum.stackexchange.com/a/21661
   //

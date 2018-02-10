@@ -21,7 +21,7 @@ contract InterestModel {
       * @notice `getScaledSupplyRatePerBlock` returns the current borrow interest rate based on the balance sheet
       * @param supply total supply available of asset from balance sheet
       * @param borrows total borrows of asset from balance sheet
-      * @return the current supply interest rate (in scale points, aka divide by 10^16 to get real rate)
+      * @return the current supply interest rate (in scale points, aka divide by 10^17 to get real rate)
       */
     function getScaledSupplyRatePerBlock(uint256 supply, uint256 borrows) public view returns (uint64) {
         uint256 denominator = supply + borrows;
