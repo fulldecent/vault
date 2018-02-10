@@ -33,29 +33,6 @@ contract('InterestRateStorage', function(accounts) {
     });
 });
 
-  // describe('#getCurrentBalance', async () => {
-  //   it('should return correct balance', async () => {
-  //
-  //     // Let's assume we did this in block 5.
-  //     const initialBlockRate = 5e-13;
-  //     await interestRateStorage.saveBlockInterest(cashLedger, asset, utils.scaleInterest(initialBlockRate));
-  //
-  //     const primaryBlockNumber = await interestRateStorage.blockInterestBlock(cashLedger, asset);
-  //     const primaryTotalInterest = (await interestRateStorage.blockTotalInterest(cashLedger, asset, primaryBlockNumber)).toNumber();
-  //
-  //     await utils.mineBlocks(web3, 20);
-  //     // Assuming we started in block 5, after mining 20 blocks,
-  //     // we are in block 26, so initialBlockRate was active for 26 - 5 = 21 blocks
-  //     const numBlocksWithInitialRate = 21;
-  //
-  //     await interestRateStorage.saveBlockInterest(cashLedger, asset, 1e14);
-  //
-  //     const currentBalance = await interestRateStorage.getCurrentBalance.call(cashLedger, otherAsset, primaryBlockNumber, twoEth);
-  //
-  //     assert.closeTo(currentBalance.toNumber(), twoEth * ( 1 + initialBlockRate * numBlocksWithInitialRate ), 10000);
-  //   });
-  // });
-
   describe('#getBalanceAt', async () => {
     it('reverts when no starting or ending total interest', async () => {
 
