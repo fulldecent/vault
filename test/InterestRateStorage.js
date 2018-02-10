@@ -19,7 +19,7 @@ contract('InterestRateStorage', function(accounts) {
     describe('#getCurrentBalance', async () => {
         it('should return correct balance', async () => {
         const blockRate1 = 5e-13;
-        await interestRateStorage.saveBlockInterest(0, 1, utils.scaleInterest(blockRate1));
+        await interestRateStorage.saveBlockInterest(cashLedger, asset, utils.scaleInterest(blockRate1));
 
         const primaryBlockNumber = await interestRateStorage.blockInterestBlock(cashLedger, asset);
         const primaryTotalInterest = (await interestRateStorage.blockTotalInterest(cashLedger, asset, primaryBlockNumber)).toNumber();
