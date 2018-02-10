@@ -18,17 +18,18 @@ contract('InterestRateStorage', function(accounts) {
 
     describe('#getCurrentBalance', async () => {
         it('should return correct balance', async () => {
-        await interestRateStorage.saveBlockInterest(0, 1, 50000);
+        const blockRate1 = 5e-13;
+        await interestRateStorage.saveBlockInterest(0, 1, utils.scaleInterest(blockRate1));
 
-        const primaryBlockNumber = await interestRateStorage.blockInterestBlock(0, 1);
-        const primaryTotalInterest = (await interestRateStorage.blockTotalInterest(0, 1, primaryBlockNumber)).toNumber();
+        const primaryBlockNumber = await interestRateStorage.blockInterestBlock(cashLedger, asset);
+        const primaryTotalInterest = (await interestRateStorage.blockTotalInterest(cashLedger, asset, primaryBlockNumber)).toNumber();
 
         await utils.mineBlocks(web3, 20);
-        await interestRateStorage.saveBlockInterest(0, 1, 100000000000000);
+        const numBlocksAtRate1 = 21;  // we mined 20 and are now in the 21st block after the rate was set
+        await interestRateStorage.saveBlockInterest(cashLedger, asset, utils.scaleInterest(1e-3));
 
-        const currentBalance = await interestRateStorage.getCurrentBalance.call(0, 1, primaryBlockNumber, 2000000000000000000);
-
-        assert.closeTo(currentBalance.toNumber(), 2000000000000000000 * ( 1 + 0.0000000000005 * 21 ), 10000);
+        const currentBalance = await interestRateStorage.getCurrentBalance.call(cashLedger, asset, primaryBlockNumber, twoEth);
+        assert.closeTo(currentBalance.toNumber(), twoEth * ( 1 + blockRate1 * numBlocksAtRate1 ), 10000);
     });
 });
 
