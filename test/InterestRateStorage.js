@@ -16,6 +16,22 @@ contract('InterestRateStorage', function(accounts) {
     await interestRateStorage.allow(web3.eth.accounts[0]);
   });
 
+    describe('#getCurrentBalance', async () => {
+        it('should return correct balance', async () => {
+        await interestRateStorage.saveBlockInterest(0, 1, 50000);
+
+        const primaryBlockNumber = await interestRateStorage.blockInterestBlock(0, 1);
+        const primaryTotalInterest = (await interestRateStorage.blockTotalInterest(0, 1, primaryBlockNumber)).toNumber();
+
+        await utils.mineBlocks(web3, 20);
+        await interestRateStorage.saveBlockInterest(0, 1, 100000000000000);
+
+        const currentBalance = await interestRateStorage.getCurrentBalance.call(0, 1, primaryBlockNumber, 2000000000000000000);
+
+        assert.closeTo(currentBalance.toNumber(), 2000000000000000000 * ( 1 + 0.0000000000005 * 21 ), 10000);
+    });
+});
+
   // describe('#getCurrentBalance', async () => {
   //   it('should return correct balance', async () => {
   //
