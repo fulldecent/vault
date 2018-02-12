@@ -17,7 +17,7 @@ function validateRate(assert, annualBPS, actual, expected, msg) {
   validateRateWithMaxRatio(assert, annualBPS, actual, expected, 0.0000002, msg)
 }
 
-function validateRateWithMaxRatio(assert, annualBPS, actual, expected, maxRatio, msg, debug=false) {
+function validateRateWithMaxRatio(assert, annualBPS, actual, expected, maxRatio, msg, debug=true) {
   const blockRateDerivedFromAnnualBPS = annualBPSToScaledPerBlockRateNonTrunc(annualBPS);
 
   const delta = expected - blockRateDerivedFromAnnualBPS;

@@ -24,17 +24,26 @@ contract InterestModel {
       * @return the current supply interest rate (in scale points, aka divide by 10^17 to get real rate)
       */
     function getScaledSupplyRatePerBlock(uint256 supply, uint256 borrows) public view returns (uint64) {
-        uint256 denominator = supply + borrows;
+        uint256 denominator = supply;
 
         // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
         if (denominator == 0) {
             denominator = 1;
         }
 
-        // `supply r` == (1-`reserve ratio`) * 10%
+        // `utilization a` = `borrows a` / `supply a`
+        // `supply interest rate a` = `utilization a` * 10%
+        // thus: `supply interest rate a` = 10% * `borrows a` / `supply a`
+
         // note: this is done in one-line since intermediate results would be truncated
-        // should scale 10**16 / basisPointMultiplier. Do the division by blocks per year in int rate storage
-        return uint64( (( basisPointMultiplier - ( ( basisPointMultiplier * supply ) / ( denominator ) ) ) * supplyRateSlopeBPS / basisPointMultiplier) * (interestRateScale / (blocksPerYear * basisPointMultiplier)));
+        // should scale 10**16 / basisPointMultiplier. Do the division by blocks per year in interest rate storage
+        return uint64(
+            (
+                supplyRateSlopeBPS * (
+                    ( interestRateScale * borrows ) / denominator
+                )
+            ) / ( blocksPerYear * basisPointMultiplier )
+        );
     }
 
     /**
@@ -44,16 +53,25 @@ contract InterestModel {
       * @return the current borrow interest rate (in scale points, aka divide by 10^16 to get real rate)
       */
     function getScaledBorrowRatePerBlock(uint256 supply, uint256 borrows) public view returns (uint64) {
-        uint256 denominator = supply + borrows;
+        uint256 denominator = supply;
 
         // avoid division by 0 without altering calculations in the happy path (at the cost of an extra comparison)
         if (denominator == 0) {
             denominator = 1;
         }
 
-        // `borrow r` == 10% + (1-`reserve ratio`) * 20%
+        // `utilization a` = `borrows a` / `supply a`
+        // `borrow interest rate a` = 10% + `utilization a` * 10%
+        // thus: `borrow interest rate a` = 10% + 10% * `borrows a` / `supply a`
+
         // note: this is done in one-line since intermediate results would be truncated
-        return uint64( (minimumBorrowRateBPS + ( basisPointMultiplier  - ( ( basisPointMultiplier * supply ) / ( denominator ) ) ) * borrowRateSlopeBPS / basisPointMultiplier )  * (interestRateScale / (blocksPerYear * basisPointMultiplier)));
+        return uint64(
+            (
+                borrowRateSlopeBPS * (
+                    ( interestRateScale * borrows ) / denominator
+                ) + ( uint256(minimumBorrowRateBPS) * interestRateScale )
+            ) / ( blocksPerYear * basisPointMultiplier )
+        );
     }
 
 }
