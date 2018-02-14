@@ -34,17 +34,17 @@ module.exports = async function(callback) {
   var tokenFactoryAddress;
 
   try {
-    const facuetTokenBAT = await FaucetTokenBAT.deployed();
-    tokens[facuetTokenBAT.address] = "bat";
+    const faucetTokenBAT = await FaucetTokenBAT.deployed();
+    tokens[faucetTokenBAT.address] = "bat";
 
-    const facuetTokenDRGN = await FaucetTokenDRGN.deployed();
-    tokens[facuetTokenDRGN.address] = "drgn";
+    const faucetTokenDRGN = await FaucetTokenDRGN.deployed();
+    tokens[faucetTokenDRGN.address] = "drgn";
 
-    const facuetTokenOMG = await FaucetTokenOMG.deployed();
-    tokens[facuetTokenOMG.address] = "omg";
+    const faucetTokenOMG = await FaucetTokenOMG.deployed();
+    tokens[faucetTokenOMG.address] = "omg";
 
-    const facuetTokenZRX = await FaucetTokenZRX.deployed();
-    tokens[facuetTokenZRX.address] = "zrx";
+    const faucetTokenZRX = await FaucetTokenZRX.deployed();
+    tokens[faucetTokenZRX.address] = "zrx";
   } catch (e) {
     console.log("Faucet tokens not deployed");
   }
