@@ -7,7 +7,7 @@ const utils = require('./utils');
 contract('ArrayHelper', function(accounts) {
   var arrayHelper;
 
-  beforeEach(async () => {
+  before(async () => {
     arrayHelper = await ArrayHelper.new();
   });
 

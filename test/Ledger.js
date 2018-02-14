@@ -29,7 +29,7 @@ contract('Ledger', function(accounts) {
   var testInterestModel;
   var testBalanceSheet;
 
-  beforeEach(async () => {
+  before(async () => {
     testLedgerStorage = await TestLedgerStorage.new();
     testInterestModel = await TestInterestModel.new();
     testBalanceSheet = await TestBalanceSheet.new();

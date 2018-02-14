@@ -10,5 +10,5 @@ import "../FaucetToken.sol";
 contract FaucetTokenBAT is FaucetToken {
     string constant public name = "BAT Faucet Token";
     string constant public symbol = "BAT";
-    uint8 constant public decimals = 10;
+    uint8 constant public decimals = 18;
 }

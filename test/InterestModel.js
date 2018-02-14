@@ -1,14 +1,13 @@
 "use strict";
 
-const BigNumber = require('bignumber.js');
 const InterestModel = artifacts.require("./InterestModel.sol");
 const utils = require('./utils');
 
 contract('InterestModel', function(accounts) {
   var interestModel;
 
-  beforeEach(async () => {
-    interestModel = await InterestModel.new();
+  before(async () => {
+    interestModel = await InterestModel.deployed();
   });
 
   describe('#getScaledSupplyRatePerBlock', async () => {

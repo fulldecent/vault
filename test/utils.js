@@ -141,6 +141,16 @@ async function mineBlocks(web3, blocksToMine) {
   return await Promise.all(promises);
 }
 
+async function toNumber(maybePromiseMaybeDecimal) {
+  const n = await Promise.resolve(maybePromiseMaybeDecimal);
+
+  if (typeof(n) === 'number') {
+    return n;
+  } else {
+    return n.toNumber();
+  }
+}
+
 module.exports = {
   mineBlocks: mineBlocks,
   annualBPSToScaledPerBlockRate: annualBPSToScaledPerBlockRate,
@@ -149,14 +159,10 @@ module.exports = {
   scaleInterest: scaleInterest,
 
   // Simple function to stop futzing over numbers and promises in our tests
-  toNumber: async function(maybePromiseMaybeDecimal) {
-    const n = await Promise.resolve(maybePromiseMaybeDecimal);
+  toNumber: toNumber,
 
-    if (typeof(n) === 'number') {
-      return n;
-    } else {
-      return n.toNumber();
-    }
+  random: function() {
+    return Math.floor(Math.random() * Math.floor((Math.pow(2, 64))));
   },
 
   // https://ethereum.stackexchange.com/a/21661
@@ -260,7 +266,7 @@ module.exports = {
   },
 
   tokenBalance: async function(token, account) {
-    return web3.toBigNumber((await token.balanceOf(account)).toNumber());
+    return await toNumber(token.balanceOf(account));
   },
 
   ethBalance: async function(account) {
