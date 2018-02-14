@@ -10,9 +10,9 @@ import "./../base/StandardToken.sol";
   */
 contract FaucetToken is StandardToken, Owned {
 
-    string constant public name = "Pig Token";
-    string constant public symbol = "PIG";
-    uint8 constant public decimals = 16;
+	string constant public name = "Pig Token";
+	string constant public symbol = "PIG";
+	uint8 constant public decimals = 16;
 
 	uint256 public perRequestTokenAmount;
 
@@ -30,10 +30,10 @@ contract FaucetToken is StandardToken, Owned {
 	}
 
 	/**
-  	  * @notice Arbitrarily adds tokens to account
-      * @dev This is for automated testing and for convenience on the alpha test net
-      * @param recipient Account to add tokens to.
-      * @param value Amount to add
+	  * @notice Arbitrarily adds tokens to account
+	  * @dev This is for automated testing and for convenience on the alpha test net
+	  * @param recipient Account to add tokens to.
+	  * @param value Amount to add
     */
 	function allocateTo(address recipient, uint256 value) public returns (bool){
 
@@ -51,11 +51,11 @@ contract FaucetToken is StandardToken, Owned {
 	}
 
 	/**
-      * @notice `setPerRequestTokenAmount` allows the contract owner to set/update the amount given for each request of the specified token
-      * @dev This is for convenience on alpha test net
-      * @param amount How much of the token should be given out? Set to 0 to disallow allocations
-      * @return Success of failure of operation
-      */
+	  * @notice `setPerRequestTokenAmount` allows the contract owner to set/update the amount given for each request of the specified token
+	  * @dev This is for convenience on alpha test net
+	  * @param amount How much of the token should be given out? Set to 0 to disallow allocations
+	  * @return Success of failure of operation
+	  */
 	function setPerRequestTokenAmount(uint256 amount) public returns (bool) {
 		if (!checkOwner()) {
 			return false;
@@ -64,5 +64,4 @@ contract FaucetToken is StandardToken, Owned {
 		perRequestTokenAmount = amount;
 		return true;
 	}
-
 }
