@@ -62,7 +62,7 @@ contract InterestRateStorage is Owned, Allowed {
       *         and total interest since the last snapshot
       * @param ledgerAccount the ledger account to snapshot
       * @param asset the asset to snapshot
-      * @param currentInterestRate the current interest rate
+      * @param currentInterestRate the current interest rate (in scale points, aka divide by 10^17 to get real rate)
       * @dev this function can be called idempotently within a block
       * @return success or failure
       */
