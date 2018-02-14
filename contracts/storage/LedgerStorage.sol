@@ -23,9 +23,6 @@ contract LedgerStorage is Graceful, Allowed {
     // A map of customer -> LedgerAccount{Supply, Borrow} -> asset -> balance
     mapping(address => mapping(uint8 => mapping(address => BalanceCheckpoint))) balanceCheckpoints;
 
-    // Balance Sheet is a map of LedgerAccount{Supply, Borrow} -> asset -> balance
-    mapping(uint8 => mapping(address => uint256)) balanceSheet;
-
     /**
       * @notice `increaseBalanceByAmount` increases a balances account by a given amount
       * @param customer The customer whose account to increase
@@ -40,19 +37,12 @@ contract LedgerStorage is Graceful, Allowed {
         }
 
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
-        uint balanceSheetBalance = balanceSheet[ledgerAccount][asset];
 
         if (checkpoint.balance + amount < checkpoint.balance) {
             failure("LedgerStorage::BalanceOverflow", uint256(customer), uint256(asset), checkpoint.balance, amount);
             return false;
         }
 
-        if (balanceSheetBalance + amount < balanceSheetBalance) {
-            failure("LedgerStorage::BalanceSheetOverflow", uint256(asset), balanceSheetBalance, amount);
-            return false;
-        }
-
-        balanceSheet[ledgerAccount][asset] = balanceSheetBalance + amount;
         checkpoint.balance += amount;
 
         BalanceIncrease(customer, ledgerAccount, asset, amount);
@@ -74,35 +64,17 @@ contract LedgerStorage is Graceful, Allowed {
         }
 
         BalanceCheckpoint storage checkpoint = balanceCheckpoints[customer][ledgerAccount][asset];
-        uint balanceSheetBalance = balanceSheet[ledgerAccount][asset];
 
         if (checkpoint.balance - amount > checkpoint.balance) {
             failure("LedgerStorage::InsufficientBalance", uint256(customer), uint256(asset), checkpoint.balance, amount);
             return false;
         }
 
-        if (balanceSheetBalance - amount > balanceSheetBalance) {
-            failure("LedgerStorage::BalanceSheetUnderflow", uint256(asset), balanceSheetBalance, amount);
-            return false;
-        }
-
-        balanceSheet[ledgerAccount][asset] = balanceSheetBalance - amount;
         checkpoint.balance -= amount;
 
         BalanceDecrease(customer, ledgerAccount, asset, amount);
 
         return true;
-    }
-
-    /**
-      * @notice `getBalanceSheetBalance` returns Compound's balance sheet balance of a ledger account
-      * @param asset The asset to query the balance of
-      * @param ledgerAccount An integer representing a ledger account to query
-      * @return balance sheet's balance of given asset
-      * TODO: Test
-      */
-    function getBalanceSheetBalance(address asset, uint8 ledgerAccount) public view returns (uint256) {
-        return balanceSheet[ledgerAccount][asset];
     }
 
     /**

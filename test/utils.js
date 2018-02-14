@@ -148,6 +148,17 @@ module.exports = {
   validateRateWithMaxRatio: validateRateWithMaxRatio,
   scaleInterest: scaleInterest,
 
+  // Simple function to stop futzing over numbers and promises in our tests
+  toNumber: async function(maybePromiseMaybeDecimal) {
+    const n = await Promise.resolve(maybePromiseMaybeDecimal);
+
+    if (typeof(n) === 'number') {
+      return n;
+    } else {
+      return n.toNumber();
+    }
+  },
+
   // https://ethereum.stackexchange.com/a/21661
   //
   assertEvents: function(contract, expectedEvents, args) {

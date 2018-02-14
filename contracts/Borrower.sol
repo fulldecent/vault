@@ -72,6 +72,14 @@ contract Borrower is Graceful, Owned, Ledger {
             return false;
         }
 
+        // Check that we have a sufficient amount of cash to give to the customer
+        uint256 assetCash = balanceSheet.getBalanceSheetBalance(asset, uint8(LedgerAccount.Cash));
+
+        if (assetCash < amount) {
+            failure("Borrower::InsufficientAssetCash", uint256(asset), assetCash);
+            return false;
+        }
+
         // TODO: If customer already has a borrow of asset, we need to make sure we can handle the change.
         // Before adding the new amount we will need to either calculate interest on existing borrow amount or snapshot
         // the current borrow balance.
