@@ -1,8 +1,9 @@
 "use strict";
 
 const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
+
 const utils = require('./utils');
-const moment = require('moment');
+
 const tokenAddrs = utils.tokenAddrs;
 const toAssetValue = (value) => (value * 10 ** 9);
 

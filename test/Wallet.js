@@ -1,20 +1,14 @@
 "use strict";
 
-const BigNumber = require('bignumber.js');
-const MoneyMarket = artifacts.require("./MoneyMarket.sol");
-const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
-const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
-const InterestModel = artifacts.require("./InterestModel.sol");
-const TokenStore = artifacts.require("./storage/TokenStore.sol");
-const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
-const FaucetToken = artifacts.require("./token/FaucetToken.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
+const FaucetToken = artifacts.require("./token/FaucetToken.sol");
+const MoneyMarket = artifacts.require("./MoneyMarket.sol");
+const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const Wallet = artifacts.require("./Wallet.sol");
-const utils = require('./utils');
-const moment = require('moment');
 
-const randomAddress = '0xa4715d7950e39e2ac90ca3300855bc358253685e';
+const utils = require('./utils');
 
 async function supplyEth(wallet, amount, account) {
   await wallet.sendTransaction({value: amount, from: account});
@@ -53,28 +47,21 @@ contract('Wallet', function(accounts) {
   var priceOracle;
   var tokenStore;
 
+  before(async () => {
+    borrowStorage = await BorrowStorage.deployed();
+    priceOracle = await PriceOracle.deployed();
+    tokenStore = await TokenStore.deployed();
+    moneyMarket = await MoneyMarket.deployed();
+    etherToken = await EtherToken.deployed();
+  });
+
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-    const interestRateStorage = await InterestRateStorage.new();
-    const interestModel = await InterestModel.new();
-    const ledgerStorage = await LedgerStorage.new();
-    borrowStorage = await BorrowStorage.new();
-    priceOracle = await PriceOracle.new();
 
-    [moneyMarket, etherToken, faucetToken] = await Promise.all([MoneyMarket.new(), EtherToken.new(), FaucetToken.new()]);
+    [etherToken, faucetToken] = await Promise.all([EtherToken.new(), FaucetToken.new()]);
 
-    await ledgerStorage.allow(moneyMarket.address);
-    await borrowStorage.allow(moneyMarket.address);
-    await borrowStorage.setMinimumCollateralRatio(2);
-    await interestRateStorage.allow(moneyMarket.address);
-    await priceOracle.allow(moneyMarket.address);
     await tokenStore.allow(moneyMarket.address);
 
-    await moneyMarket.setLedgerStorage(ledgerStorage.address);
-    await moneyMarket.setBorrowStorage(borrowStorage.address);
-    await moneyMarket.setInterestRateStorage(interestRateStorage.address);
-    await moneyMarket.setInterestModel(interestModel.address);
-    await moneyMarket.setPriceOracle(priceOracle.address);
     await moneyMarket.setTokenStore(tokenStore.address);
 
     wallet = await Wallet.new(web3.eth.accounts[1], moneyMarket.address, etherToken.address);
@@ -161,6 +148,8 @@ contract('Wallet', function(accounts) {
 
   describe('#withdrawEth', () => {
     it('should withdraw assets from moneyMarket', async () => {
+      const randomAddress = '0xa4715d7950e39e2ac90ca3300855bc358253685e';
+
       // fill initial balance
       await wallet.sendTransaction({value: 55});
 
@@ -169,12 +158,10 @@ contract('Wallet', function(accounts) {
 
       await utils.assertDifference(assert, 22, async () => {
         // get eth balance
-        const balance = await utils.ethBalance(randomAddress);
-        return balance;
+        return await utils.ethBalance(randomAddress);
       }, async () => {
         // withdraw eth
-        const result = await wallet.withdrawEth(22, randomAddress, {from: web3.eth.accounts[1]})
-        return result;
+        return await wallet.withdrawEth(22, randomAddress, {from: web3.eth.accounts[1]});
       });
 
       // verify balance in ledger
@@ -231,10 +218,10 @@ contract('Wallet', function(accounts) {
       await utils.setAssetValue(priceOracle, faucetToken, 1, web3);
 
       // verify balance in ledger
-      assert.equal((await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address)), 55000000000000000);
-      assert.equal((await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address)), 55000000000000000);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000000000000000);
+      assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, faucetToken.address), 55000000000000000);
 
-      assert.equal((await moneyMarket.getValueEquivalent.call(wallet.address)).toNumber(), web3.toWei(110, "finney"));
+      assert.equal(await utils.toNumber(moneyMarket.getValueEquivalent.call(wallet.address)), web3.toWei(110, "finney"));
 
       await wallet.borrowAsset(faucetToken.address, web3.toWei(22, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
 
@@ -324,15 +311,15 @@ contract('Wallet', function(accounts) {
     it('should have correct balance', async () => {
       await supplyEth(wallet, 22, web3.eth.accounts[1]);
 
-      assert.equal((await wallet.balanceEth.call()).toNumber(), 22);
+      assert.equal(await utils.toNumber(wallet.balanceEth.call()), 22);
 
       await supplyEth(wallet, 11, web3.eth.accounts[1]);
 
-      assert.equal((await wallet.balanceEth.call()).toNumber(), 33);
+      assert.equal(await utils.toNumber(wallet.balanceEth.call()), 33);
 
       await withdrawEth(wallet, 3, web3.eth.accounts[1], web3.eth.accounts[2]);
 
-      assert.equal((await wallet.balanceEth.call()).toNumber(), 30);
+      assert.equal(await utils.toNumber(wallet.balanceEth.call()), 30);
     });
 
     it('should allow third party calls');
@@ -345,17 +332,17 @@ contract('Wallet', function(accounts) {
 
       await supplyAsset(wallet, faucetToken, 22, web3.eth.accounts[1]);
 
-      assert.equal((await wallet.balance.call(faucetToken.address)).toNumber(), 22);
+      assert.equal(await utils.toNumber(wallet.balance.call(faucetToken.address)), 22);
 
       await supplyAsset(wallet, faucetToken, 11, web3.eth.accounts[1]);
 
       await utils.mineBlocks(web3, 20);
 
-      assert.equal((await wallet.balance.call(faucetToken.address)).toNumber(), 33);
+      assert.equal(await utils.toNumber(wallet.balance.call(faucetToken.address)), 33);
 
       await withdrawAsset(wallet, faucetToken, 3, web3.eth.accounts[1], web3.eth.accounts[2]);
 
-      assert.equal((await wallet.balance.call(faucetToken.address)).toNumber(), 30);
+      assert.equal(await utils.toNumber(wallet.balance.call(faucetToken.address)), 30);
     });
 
     it('should allow third party calls');

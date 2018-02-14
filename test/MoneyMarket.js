@@ -90,39 +90,39 @@ contract('MoneyMarket', function(accounts) {
   });
 
   describe('#customerBorrow', () => {
-    it.only("pays out the amount requested", async () => {
+    it("pays out the amount requested", async () => {
       await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[1]);
-      // await moneyMarket.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
-      // await utils.assertEvents(moneyMarket, [
-      //   {
-      //     event: "LedgerEntry",
-      //     args: {
-      //       ledgerReason: LedgerReason.CustomerBorrow,
-      //       ledgerType: LedgerType.Debit,
-      //       ledgerAccount: LedgerAccount.Borrow,
-      //       customer: web3.eth.accounts[1],
-      //       asset: etherToken.address,
-      //       amount: web3.toBigNumber('20'),
-      //       balance: web3.toBigNumber('20'),
-      //       interestRateBPS: web3.toBigNumber('0'),
-      //       nextPaymentDate: web3.toBigNumber('0')
-      //     }
-      //   },
-      //   {
-      //     event: "LedgerEntry",
-      //     args: {
-      //       ledgerReason: LedgerReason.CustomerBorrow,
-      //       ledgerType: LedgerType.Credit,
-      //       ledgerAccount: LedgerAccount.Supply,
-      //       customer: web3.eth.accounts[1],
-      //       asset: etherToken.address,
-      //       amount: web3.toBigNumber('20'),
-      //       balance: web3.toBigNumber('120'),
-      //       interestRateBPS: web3.toBigNumber('0'),
-      //       nextPaymentDate: web3.toBigNumber('0')
-      //     }
-      //   }
-      // ]);
+      await moneyMarket.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
+      await utils.assertEvents(moneyMarket, [
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.CustomerBorrow,
+            ledgerType: LedgerType.Debit,
+            ledgerAccount: LedgerAccount.Borrow,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('20'),
+            balance: web3.toBigNumber('20'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        },
+        {
+          event: "LedgerEntry",
+          args: {
+            ledgerReason: LedgerReason.CustomerBorrow,
+            ledgerType: LedgerType.Credit,
+            ledgerAccount: LedgerAccount.Supply,
+            customer: web3.eth.accounts[1],
+            asset: etherToken.address,
+            amount: web3.toBigNumber('20'),
+            balance: web3.toBigNumber('120'),
+            interestRateBPS: web3.toBigNumber('0'),
+            nextPaymentDate: web3.toBigNumber('0')
+          }
+        }
+      ]);
     });
   });
 

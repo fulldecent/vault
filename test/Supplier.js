@@ -1,20 +1,19 @@
 "use strict";
 
 const BigNumber = require('bignumber.js');
-const Supplier = artifacts.require("./Supplier.sol");
-const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+
 const BalanceSheet = artifacts.require("./storage/BalanceSheet.sol");
-const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
-const TestBalanceSheet = artifacts.require("./test/TestBalanceSheet.sol");
-const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
-const InterestModel = artifacts.require("./InterestModel.sol");
-const TokenStore = artifacts.require("./storage/TokenStore.sol");
 const EtherToken = artifacts.require("./tokens/EtherToken.sol");
+const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const InterestModel = artifacts.require("./InterestModel.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const Supplier = artifacts.require("./Supplier.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
+
 const utils = require('./utils');
-const moment = require('moment');
+
 const interestRateScale = (10 ** 16); // InterestRateStorage.sol interestRateScale
 const blockUnitsPerYear = 210240; // Tied to test set up in which InterestRateStorage.sol blockScale is 10. 2102400 blocks per year / 10 blocks per unit = 210240 units per year
-
 
 const LedgerType = {
   Debit: web3.toBigNumber(0),
@@ -41,26 +40,16 @@ contract('Supplier', function(accounts) {
   var tokenStore;
   var interestRateStorage;
   var interestModel;
-  var testLedgerStorage;
 
-  beforeEach(async () => {
-    const ledgerStorage = await LedgerStorage.new();
-    const balanceSheet = await BalanceSheet.new();
-    tokenStore = await TokenStore.new();
-    interestRateStorage = await InterestRateStorage.new();
-    interestModel = await InterestModel.new();
-    testLedgerStorage = await TestLedgerStorage.new();
+  before(async () => {
+    etherToken = await EtherToken.deployed();
+    tokenStore = await TokenStore.deployed();
+    interestRateStorage = await InterestRateStorage.deployed();
+    interestModel = await InterestModel.deployed();
 
-    [supplier, etherToken] = await Promise.all([Supplier.new(), EtherToken.new()]);
-    await ledgerStorage.allow(supplier.address);
-    await tokenStore.allow(supplier.address);
-    await interestRateStorage.allow(supplier.address);
-    await balanceSheet.allow(supplier.address);
-    await supplier.setLedgerStorage(ledgerStorage.address);
-    await supplier.setInterestRateStorage(interestRateStorage.address);
-    await supplier.setInterestModel(interestModel.address);
-    await supplier.setTokenStore(tokenStore.address);
-    await supplier.setBalanceSheet(balanceSheet.address);
+    supplier = await Supplier.new();
+
+    utils.allowAll([supplier]);
   });
 
   describe('#customerSupply', () => {

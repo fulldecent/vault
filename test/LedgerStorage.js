@@ -3,16 +3,21 @@
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const utils = require('./utils');
 
-const customer = 1;
-const ledgerAccount = 2;
-const asset = 3;
-
 contract('LedgerStorage', function(accounts) {
   var ledgerStorage;
+  var customer;
+  var ledgerAccount = 10;
+  var asset;
 
-  beforeEach(async () => {
+  before(async () => {
     [ledgerStorage] = await Promise.all([LedgerStorage.new()]);
     await ledgerStorage.allow(web3.eth.accounts[0]);
+  });
+
+  beforeEach(async () => {
+    customer = utils.random();
+    ledgerAccount = ledgerAccount + 1;
+    asset = utils.random();
   });
 
   describe('#increaseBalanceByAmount', () => {
@@ -30,7 +35,7 @@ contract('LedgerStorage', function(accounts) {
       const whammo = web3.toBigNumber('2').pow('255').plus(1);
       await ledgerStorage.increaseBalanceByAmount(customer, ledgerAccount, asset, whammo);
 
-      await utils.assertGracefulFailure(ledgerStorage, "LedgerStorage::BalanceOverflow", [1, 3, null, null], async () => {
+      await utils.assertGracefulFailure(ledgerStorage, "LedgerStorage::BalanceOverflow", [customer, asset, null, null], async () => {
         await ledgerStorage.increaseBalanceByAmount(customer, ledgerAccount, asset, whammo);
       });
     });
@@ -42,7 +47,7 @@ contract('LedgerStorage', function(accounts) {
       {
         event: "BalanceIncrease",
         args: {
-          ledgerAccount: web3.toBigNumber('2'),
+          ledgerAccount: web3.toBigNumber(ledgerAccount),
           amount: web3.toBigNumber('4')
         }
       }]);
@@ -65,7 +70,7 @@ contract('LedgerStorage', function(accounts) {
     });
 
     it("shoud handle insufficient balance", async () => {
-      await utils.assertGracefulFailure(ledgerStorage, "LedgerStorage::InsufficientBalance", [1, 3, 0, 2], async () => {
+      await utils.assertGracefulFailure(ledgerStorage, "LedgerStorage::InsufficientBalance", [customer, asset, 0, 2], async () => {
         await ledgerStorage.decreaseBalanceByAmount(customer, ledgerAccount, asset, 2);
       });
     });
@@ -78,7 +83,7 @@ contract('LedgerStorage', function(accounts) {
       {
         event: "BalanceDecrease",
         args: {
-          ledgerAccount: web3.toBigNumber('2'),
+          ledgerAccount: web3.toBigNumber(ledgerAccount),
           amount: web3.toBigNumber('4')
         }
       }]);

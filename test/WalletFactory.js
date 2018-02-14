@@ -1,16 +1,12 @@
 "use strict";
 
-const BigNumber = require('bignumber.js');
-const WalletFactory = artifacts.require("./WalletFactory.sol");
-const Wallet = artifacts.require("./Wallet.sol");
+const EtherToken = artifacts.require("./tokens/EtherToken.sol");
 const MoneyMarket = artifacts.require("./MoneyMarket.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
-const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
-const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
-const InterestModel = artifacts.require("./InterestModel.sol");
-const EtherToken = artifacts.require("./tokens/EtherToken.sol");
+const Wallet = artifacts.require("./Wallet.sol");
+const WalletFactory = artifacts.require("./WalletFactory.sol");
+
 const utils = require('./utils');
-const moment = require('moment');
 
 contract('WalletFactory', function(accounts) {
   var walletFactory;
@@ -18,23 +14,10 @@ contract('WalletFactory', function(accounts) {
   var etherToken;
   var tokenStore;
 
-  beforeEach(async () => {
-    tokenStore = await TokenStore.new();
-    const ledgerStorage = await LedgerStorage.new();
-    const interestRateStorage = await InterestRateStorage.new();
-    const interestModel = await InterestModel.new();
-    [moneyMarket, etherToken] = await Promise.all([MoneyMarket.new(), EtherToken.new()]);
-
-    await tokenStore.allow(moneyMarket.address);
-    await moneyMarket.setTokenStore(tokenStore.address);
-
-    await ledgerStorage.allow(moneyMarket.address);
-    await moneyMarket.setLedgerStorage(ledgerStorage.address);
-
-    await interestRateStorage.allow(moneyMarket.address);
-    await moneyMarket.setInterestRateStorage(interestRateStorage.address);
-
-    await moneyMarket.setInterestModel(interestModel.address);
+  before(async () => {
+    moneyMarket = await MoneyMarket.deployed();
+    etherToken = await EtherToken.deployed();
+    tokenStore = await TokenStore.deployed();
 
     walletFactory = await WalletFactory.new(moneyMarket.address, etherToken.address);
   });
@@ -42,10 +25,10 @@ contract('WalletFactory', function(accounts) {
   describe("#newWallet", () => {
     it("should create a new wallet", async () => {
       // Find out where wallet will be created
-      const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
+      const walletAddress = await walletFactory.newWallet.call(web3.eth.accounts[1]);
 
       // Actually create the wallet
-      await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[0]});
+      await walletFactory.newWallet(web3.eth.accounts[1]);
 
       // Make a Wallet variable pointed at the address from above
       const wallet = Wallet.at(walletAddress);
@@ -54,13 +37,13 @@ contract('WalletFactory', function(accounts) {
       await wallet.supplyEth({from: web3.eth.accounts[1], value: 55});
 
       // Verify balance
-      assert.equal((await wallet.balanceEth.call()).valueOf(), 55);
+      assert.equal(await utils.toNumber(wallet.balanceEth.call()), 55);
 
       // Withdraw eth
       await wallet.withdrawEth(22, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
       // Verify balance
-      assert.equal((await wallet.balanceEth.call()).valueOf(), 33);
+      assert.equal(await utils.toNumber(wallet.balanceEth.call()), 33);
     });
 
     it.skip("should only work if by wallet factory owner", async () => {
@@ -69,7 +52,7 @@ contract('WalletFactory', function(accounts) {
 
     it("should be owned by set owner", async () => {
       // Find out where wallet will be created
-      const walletAddress = (await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]})).valueOf();
+      const walletAddress = await walletFactory.newWallet.call(web3.eth.accounts[1], {from: web3.eth.accounts[0]});
 
       // Actually create the wallet
       await walletFactory.newWallet(web3.eth.accounts[1], {from: web3.eth.accounts[0]});
