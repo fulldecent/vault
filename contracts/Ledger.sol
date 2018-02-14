@@ -5,6 +5,7 @@ import "./base/Graceful.sol";
 import "./storage/LedgerStorage.sol";
 import "./InterestModel.sol";
 import "./storage/InterestRateStorage.sol";
+import "./storage/BalanceSheet.sol";
 
 /**
   * @title The Compound Ledger
@@ -16,6 +17,7 @@ contract Ledger is Graceful, Owned {
     LedgerStorage public ledgerStorage;
     InterestModel public interestModel;
     InterestRateStorage public interestRateStorage;
+    BalanceSheet public balanceSheet;
 
     enum LedgerReason {
         CustomerSupply,
@@ -53,7 +55,7 @@ contract Ledger is Graceful, Owned {
 
     /**
       * @notice `setLedgerStorage` sets the ledger storage location for this contract
-      * @dev This is for long-term data storage (TODO: Test)
+      * @dev This is for long-term data storage
       * @param ledgerStorageAddress The contract which acts as the long-term data store
       * @return Success of failure of operation
       */
@@ -63,6 +65,22 @@ contract Ledger is Graceful, Owned {
         }
 
         ledgerStorage = LedgerStorage(ledgerStorageAddress);
+
+        return true;
+    }
+
+    /**
+      * @notice `setBalanceSheet` sets the balance sheet for this contract
+      * @dev This is for long-term data storage
+      * @param balanceSheetAddress The contract which acts as the long-term data store
+      * @return Success of failure of operation
+      */
+    function setBalanceSheet(address balanceSheetAddress) public returns (bool) {
+        if (!checkOwner()) {
+            return false;
+        }
+
+        balanceSheet = BalanceSheet(balanceSheetAddress);
 
         return true;
     }
@@ -111,12 +129,24 @@ contract Ledger is Graceful, Owned {
             revert();
         }
 
-        if(isAsset(ledgerAccount)) {
-            if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+        if (isAsset(ledgerAccount)) {
+            if (isCustomerAccount(ledgerAccount)) {
+                if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                    revert();
+                }
+            }
+
+            if (!balanceSheet.increaseAccountBalance(asset, uint8(ledgerAccount), amount)) {
                 revert();
             }
         } else if(isLiability(ledgerAccount)) {
-            if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+            if (isCustomerAccount(ledgerAccount)) {
+                if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                    revert();
+                }
+            }
+
+            if (!balanceSheet.decreaseAccountBalance(asset, uint8(ledgerAccount), amount)) {
                 revert();
             }
         } else {
@@ -156,11 +186,23 @@ contract Ledger is Graceful, Owned {
         }
 
         if(isAsset(ledgerAccount)) {
-            if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+            if (isCustomerAccount(ledgerAccount)) {
+                if (!ledgerStorage.decreaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                    revert();
+                }
+            }
+
+            if (!balanceSheet.decreaseAccountBalance(asset, uint8(ledgerAccount), amount)) {
                 revert();
             }
         } else if(isLiability(ledgerAccount)) {
-            if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+            if (isCustomerAccount(ledgerAccount)) {
+                if (!ledgerStorage.increaseBalanceByAmount(customer, uint8(ledgerAccount), asset, amount)) {
+                    revert();
+                }
+            }
+
+            if (!balanceSheet.increaseAccountBalance(asset, uint8(ledgerAccount), amount)) {
                 revert();
             }
         } else {
@@ -189,31 +231,56 @@ contract Ledger is Graceful, Owned {
       * @notice `getBalance` gets a customer's balance
       * @param customer the customer
       * @param ledgerAccount the ledger account
+      * @param asset the asset to query
       * @return true if the account is an asset false otherwise
       */
-    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal view returns (uint) {
+    function getBalance(address customer, LedgerAccount ledgerAccount, address asset) internal returns (uint) {
         return ledgerStorage.getBalance(customer, uint8(ledgerAccount), asset);
+    }
+
+    /**
+      * @notice `getCustomerBalance` gets a customer's balance
+      * @param customer the customer
+      * @param ledgerAccount the ledger account
+      * @param asset the asset to query
+      * @return true if the account is an asset false otherwise
+      */
+    function getCustomerBalance(address customer, uint8 ledgerAccount, address asset) public view returns (uint) {
+        return getBalance(customer, LedgerAccount(ledgerAccount), asset);
     }
 
     /**
       * @notice `isAsset` indicates if this account is the type that has an associated balance
       * @param ledgerAccount the account type (e.g. Supply or Borrow)
-      * @return true if the account is an asset false otherwise
+      * @return true if the account is an asset, false otherwise
       */
     function isAsset(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
-            ledgerAccount == LedgerAccount.Borrow
+            ledgerAccount == LedgerAccount.Borrow ||
+            ledgerAccount == LedgerAccount.Cash
         );
     }
 
     /**
       * @notice `isLiability` indicates if this account is the type that has an associated balance
       * @param ledgerAccount the account type (e.g. Supply or Borrow)
-      * @return true if the account is an asset false otherwise
+      * @return true if the account is an asset, false otherwise
       */
     function isLiability(LedgerAccount ledgerAccount) private pure returns (bool) {
         return (
             ledgerAccount == LedgerAccount.Supply
+        );
+    }
+
+    /**
+      * @notice `isCustomerAccount` indicates if this account is the balance of a customer
+      * @param ledgerAccount the account type (e.g. Supply or Borrow)
+      * @return true if the account is a customer account, false otherwise
+      */
+    function isCustomerAccount(LedgerAccount ledgerAccount) private pure returns (bool) {
+        return (
+            ledgerAccount == LedgerAccount.Supply ||
+            ledgerAccount == LedgerAccount.Borrow
         );
     }
 
@@ -242,8 +309,8 @@ contract Ledger is Graceful, Owned {
       * @return the interest rate scaled or something
       */
     function getInterestRate(address asset, LedgerAccount ledgerAccount) public view returns (uint64) {
-        uint256 supply = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Supply));
-        uint256 borrows = ledgerStorage.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
+        uint256 supply = balanceSheet.getBalanceSheetBalance(asset, uint8(LedgerAccount.Supply));
+        uint256 borrows = balanceSheet.getBalanceSheetBalance(asset, uint8(LedgerAccount.Borrow));
 
         if (ledgerAccount == LedgerAccount.Borrow) {
             return interestModel.getScaledBorrowRatePerBlock(supply, borrows);

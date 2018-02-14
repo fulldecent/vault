@@ -3,7 +3,9 @@
 const BigNumber = require('bignumber.js');
 const Supplier = artifacts.require("./Supplier.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const BalanceSheet = artifacts.require("./storage/BalanceSheet.sol");
 const TestLedgerStorage = artifacts.require("./test/TestLedgerStorage.sol");
+const TestBalanceSheet = artifacts.require("./test/TestBalanceSheet.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const InterestModel = artifacts.require("./InterestModel.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
@@ -43,6 +45,7 @@ contract('Supplier', function(accounts) {
 
   beforeEach(async () => {
     const ledgerStorage = await LedgerStorage.new();
+    const balanceSheet = await BalanceSheet.new();
     tokenStore = await TokenStore.new();
     interestRateStorage = await InterestRateStorage.new();
     interestModel = await InterestModel.new();
@@ -52,10 +55,12 @@ contract('Supplier', function(accounts) {
     await ledgerStorage.allow(supplier.address);
     await tokenStore.allow(supplier.address);
     await interestRateStorage.allow(supplier.address);
+    await balanceSheet.allow(supplier.address);
     await supplier.setLedgerStorage(ledgerStorage.address);
     await supplier.setInterestRateStorage(interestRateStorage.address);
     await supplier.setInterestModel(interestModel.address);
     await supplier.setTokenStore(tokenStore.address);
+    await supplier.setBalanceSheet(balanceSheet.address);
   });
 
   describe('#customerSupply', () => {
@@ -318,27 +323,6 @@ contract('Supplier', function(accounts) {
         });
       });
     });
-
-    // TODO: Add tests for `saveBlockInterest`
-    // TODO: Check effects of `saveBlockInterest`
-
-    // describe('#snapshotSupplierInterestRate', async () => {
-    //   it('should snapshot the current balance', async () => {
-    //     await supplier.setLedgerStorage(testLedgerStorage.address);
-
-    //     await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Cash, 50);
-    //     await testLedgerStorage.setBalanceSheetBalance(etherToken.address, LedgerAccount.Borrow, 150);
-
-    //     const blockNumber = web3.eth.blockNumber;
-    //     await supplier.snapshotSupplierInterestRate(etherToken.address);
-
-    //     utils.validateRate(assert, 750, (await interestRateStorage.getSnapshotBlockUnitInterestRate(etherToken.address, blockNumber)).toNumber(),
-    //         3567351000, "7.5%");
-    //     //  3567351598 is the exact value
-    //   });
-
-    //   it('should be called once per block unit');
-    // });
   });
 
 });
