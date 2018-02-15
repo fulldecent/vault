@@ -1,72 +1,76 @@
-var MoneyMarket = artifacts.require("./MoneyMarket.sol");
-var EtherToken = artifacts.require("./tokens/EtherToken.sol");
-var FaucetTokenBAT = artifacts.require("FaucetTokenBAT.sol");
-var FaucetTokenDRGN = artifacts.require("FaucetTokenDRGN.sol");
-var FaucetTokenOMG = artifacts.require("FaucetTokenOMG.sol");
-var FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
-var WalletFactory = artifacts.require("./WalletFactory.sol");
-var TokenFactory = artifacts.require("./TokenFactory.sol");
+const MoneyMarket = artifacts.require("./MoneyMarket.sol");
+const EtherToken = artifacts.require("./tokens/EtherToken.sol");
+const WalletFactory = artifacts.require("./WalletFactory.sol");
 
-var InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
-var InterestModel = artifacts.require("./InterestModel.sol");
-var LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
-var BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
-var PriceOracle = artifacts.require("./storage/PriceOracle.sol");
-var TokenStore = artifacts.require("./storage/TokenStore.sol");
+const TokenFactory = artifacts.require("./TokenFactory.sol");
+const FaucetTokenBAT = artifacts.require("FaucetTokenBAT.sol");
+const FaucetTokenDRGN = artifacts.require("FaucetTokenDRGN.sol");
+const FaucetTokenOMG = artifacts.require("FaucetTokenOMG.sol");
+const FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
+
+const BalanceSheet = artifacts.require("./storage/BalanceSheet.sol");
+const BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
 
 module.exports = async function(callback) {
-	const moneyMarket = await MoneyMarket.deployed();
-	const etherToken = await EtherToken.deployed();
-	const walletFactory = await WalletFactory.deployed();
-	const interestRateStorage = await InterestRateStorage.deployed();
-	const interestModel = await InterestModel.deployed();
-	const ledgerStorage = await LedgerStorage.deployed();
-	const borrowStorage = await BorrowStorage.deployed();
-	const priceOracle = await PriceOracle.deployed();
-	const tokenStore = await TokenStore.deployed();
+  const balanceSheet = await BalanceSheet.deployed()
+  const borrowStorage = await BorrowStorage.deployed()
+  const etherToken = await EtherToken.deployed();
+  const interestModel = await InterestModel.deployed();
+  const interestRateStorage = await InterestRateStorage.deployed();
+  const ledgerStorage = await LedgerStorage.deployed();
+  const moneyMarket = await MoneyMarket.deployed();
+  const priceOracle = await PriceOracle.deployed();
+  const tokenStore = await TokenStore.deployed();
+  const walletFactory = await WalletFactory.deployed();
 
-	const tokens = {
-		[etherToken.address]: "eth"
-	};
-	var tokenFactoryAddress;
+  const tokens = {
+    [etherToken.address]: "eth"
+  };
 
-	try {
-		const facuetTokenBAT = await FaucetTokenBAT.deployed();
-		tokens[facuetTokenBAT.address] = "bat";
+  var tokenFactoryAddress;
 
-		const facuetTokenDRGN = await FaucetTokenDRGN.deployed();
-		tokens[facuetTokenDRGN.address] = "drgn";
+  try {
+    const facuetTokenBAT = await FaucetTokenBAT.deployed();
+    tokens[facuetTokenBAT.address] = "bat";
 
-		const facuetTokenOMG = await FaucetTokenOMG.deployed();
-		tokens[facuetTokenOMG.address] = "omg";
+    const facuetTokenDRGN = await FaucetTokenDRGN.deployed();
+    tokens[facuetTokenDRGN.address] = "drgn";
 
-		const facuetTokenZRX = await FaucetTokenZRX.deployed();
-		tokens[facuetTokenZRX.address] = "zrx";
-	} catch (e) {
-		// Faucet tokens not deployed
-	}
+    const facuetTokenOMG = await FaucetTokenOMG.deployed();
+    tokens[facuetTokenOMG.address] = "omg";
 
-	try {
-		tokenFactoryAddress = (await TokenFactory.deployed()).address;
-	} catch (e) {
-		// TokenFactory not deployed
-	}
+    const facuetTokenZRX = await FaucetTokenZRX.deployed();
+    tokens[facuetTokenZRX.address] = "zrx";
+  } catch (e) {
+    console.log("Faucet tokens not deployed");
+  }
 
-	process.stderr.write(JSON.stringify(
-		{
-			"money_market": moneyMarket.address,
-			"wallet_factory": walletFactory.address,
-			"ether_token": etherToken.address,
-			"tokens": tokens,
-			"token_factory": tokenFactoryAddress,
-			"interest_rate_storage": interestRateStorage.address,
-			"interest_model": interestModel.address,
-			"ledger_storage": ledgerStorage.address,
-			"borrow_storage": borrowStorage.address,
-			"price_oracle": priceOracle.address,
-			"token_store": tokenStore.address,
-		}
-	));
+  try {
+    tokenFactoryAddress = (await TokenFactory.deployed()).address;
+  } catch (e) {
+    console.log("TokenFactory not deployed");
+  }
 
-	callback();
+  process.stderr.write(JSON.stringify(
+    {
+      "balance_sheet": balanceSheet.address,
+      "borrow_storage": borrowStorage.address,
+      "ether_token": etherToken.address,
+      "interest_model": interestModel.address,
+      "interest_rate_storage": interestRateStorage.address,
+      "ledger_storage": ledgerStorage.address,
+      "money_market": moneyMarket.address,
+      "price_oracle": priceOracle.address,
+      "token_factory": tokenFactoryAddress,
+      "token_store": tokenStore.address,
+      "tokens": tokens,
+      "wallet_factory": walletFactory.address,
+    }
+  ));
+
+  callback();
 }
