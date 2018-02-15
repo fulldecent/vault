@@ -14,6 +14,7 @@ import "../base/ArrayHelper.sol";
 contract PriceOracle is Owned, Allowed, ArrayHelper {
     int public assetMultiplier = 10 ** 9;
     mapping(address => uint) public values;
+    mapping(address => uint) public lastUpdatedAtBlock;
     address[] public assets;
 
     event NewAsset(address indexed asset);
@@ -102,6 +103,7 @@ contract PriceOracle is Owned, Allowed, ArrayHelper {
 
         // Update asset type value
         values[asset] = valueInWei;
+        lastUpdatedAtBlock[asset] = block.number;
 
         return true;
     }
