@@ -19,14 +19,17 @@ var TokenStore = artifacts.require("TokenStore.sol");
 const MINIMUM_COLLATERAL_RATIO = 2;
 
 async function deployAll(deployer, network) {
+  // First, deploy MoneyMarket, EtherToken and InterstModel
   await deployer.deploy(MoneyMarket);
   await deployer.deploy(EtherToken);
   await deployer.deploy(InterestModel);
 
+  // Grab those now-deployed addresses
   const moneyMarket = await MoneyMarket.deployed();
   const etherToken = await EtherToken.deployed();
   const interestModel = await InterestModel.deployed();
 
+  // Next, grab the storage contracts which were deployed in a previous migration
   const balanceSheet = await BalanceSheet.deployed();
   const borrowStorage = await BorrowStorage.deployed();
   const interestRateStorage = await InterestRateStorage.deployed();
@@ -34,20 +37,21 @@ async function deployAll(deployer, network) {
   const priceOracle = await PriceOracle.deployed();
   const tokenStore = await TokenStore.deployed();
 
+  // Deploy the WalletFactory, which needed the MoneyMarket and EtherToken address
   const walletFactory = await deployer.deploy(WalletFactory, moneyMarket.address, etherToken.address);
 
-  const contracts = [];
-
+  // If we're on a test-net, let's deploy all of our faucet tokens
   if (network == "development" || network == "mission" || network == "rinkeby") {
-    contracts.push(FaucetTokenBAT);
-    contracts.push(FaucetTokenDRGN);
-    contracts.push(FaucetTokenOMG);
-    contracts.push(FaucetTokenZRX);
-    contracts.push(TokenFactory);
+    await deployer.deploy(FaucetTokenBAT);
+    await deployer.deploy(FaucetTokenDRGN);
+    await deployer.deploy(FaucetTokenOMG);
+    await deployer.deploy(FaucetTokenZRX);
+    await deployer.deploy(TokenFactory);
   }
 
-  await deployer.deploy(contracts);
-
+  // Finally, we need to set-up our allowences and storage
+  // Note: if this is after the initial deploy, we should use `allow.js` for
+  //       allowences instead of setting them here.
   await Promise.all([
     borrowStorage.setMinimumCollateralRatio(MINIMUM_COLLATERAL_RATIO),
 
