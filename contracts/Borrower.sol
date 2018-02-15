@@ -63,7 +63,7 @@ contract Borrower is Graceful, Owned, Ledger {
         }
 
         if (!validCollateralRatio(amount, asset)) {
-            failure("Borrower::InvalidCollateralRatio", uint256(asset), uint256(amount), getValueEquivalent(msg.sender));
+            failure("Borrower::InvalidCollateralRatio", uint256(asset), uint256(amount), priceOracle.getAssetValue(asset, amount), getValueEquivalent(msg.sender));
             return false;
         }
 

@@ -38,9 +38,7 @@ contract Wallet is Owned {
         // This should only fail if out-of-gas
         etherToken.deposit.value(msg.value)();
 
-        return true;
-
-        // return supplyDirect(address(etherToken), msg.value);
+        return supplyDirect(address(etherToken), msg.value);
     }
 
     /**

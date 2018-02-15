@@ -38,18 +38,33 @@ contract('Supplier', function(accounts) {
   var supplier;
   var etherToken;
   var tokenStore;
-  var interestRateStorage;
-  var interestModel;
+  var restores;
 
   before(async () => {
-    etherToken = await EtherToken.deployed();
-    tokenStore = await TokenStore.deployed();
-    interestRateStorage = await InterestRateStorage.deployed();
-    interestModel = await InterestModel.deployed();
+    const balanceSheet = await BalanceSheet.deployed();
+    const interestRateStorage = await InterestRateStorage.deployed();
+    const interestModel = await InterestModel.deployed();
+    const ledgerStorage = await LedgerStorage.deployed();
 
     supplier = await Supplier.new();
+    await supplier.setBalanceSheet(balanceSheet.address);
+    await supplier.setInterestRateStorage(interestRateStorage.address);
+    await supplier.setInterestModel(interestModel.address);
+    await supplier.setLedgerStorage(ledgerStorage.address);
 
-    utils.allowAll([supplier]);
+    restores = await utils.allowAll([balanceSheet, interestRateStorage, ledgerStorage], supplier);
+  });
+
+  beforeEach(async () => {
+    etherToken = await EtherToken.new();
+    tokenStore = await TokenStore.new();
+
+    await supplier.setTokenStore(tokenStore.address);
+    await tokenStore.allow(supplier.address);
+  });
+
+  after(async() => {
+    await utils.restoreAll(restores);
   });
 
   describe('#customerSupply', () => {
@@ -140,8 +155,8 @@ contract('Supplier', function(accounts) {
         assert.equal(await utils.ledgerAccountBalance(supplier, web3.eth.accounts[1], etherToken.address), 60);
 
         // verify balances in W-Eth
-        assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 60);
         assert.equal(await utils.tokenBalance(etherToken, web3.eth.accounts[1]), 40);
+        assert.equal(await utils.tokenBalance(etherToken, tokenStore.address), 60);
       });
 
       it("should update the user's balance with interest since the last checkpoint", async () => {

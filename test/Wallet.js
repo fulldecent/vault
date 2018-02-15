@@ -46,6 +46,7 @@ contract('Wallet', function(accounts) {
   var borrowStorage;
   var priceOracle;
   var tokenStore;
+  var snapshot;
 
   before(async () => {
     borrowStorage = await BorrowStorage.deployed();
@@ -53,16 +54,20 @@ contract('Wallet', function(accounts) {
     tokenStore = await TokenStore.deployed();
     moneyMarket = await MoneyMarket.deployed();
     etherToken = await EtherToken.deployed();
+
+    snapshot = await utils.takeSnapshot(moneyMarket);
+  });
+
+  after(async () => {
+    await utils.restoreSnapshot(moneyMarket, snapshot);
   });
 
   beforeEach(async () => {
     tokenStore = await TokenStore.new();
-
     [etherToken, faucetToken] = await Promise.all([EtherToken.new(), FaucetToken.new()]);
 
-    await tokenStore.allow(moneyMarket.address);
-
     await moneyMarket.setTokenStore(tokenStore.address);
+    await tokenStore.allow(moneyMarket.address);
 
     wallet = await Wallet.new(web3.eth.accounts[1], moneyMarket.address, etherToken.address);
   });
@@ -257,7 +262,7 @@ contract('Wallet', function(accounts) {
       assert.equal(await utils.ledgerAccountBalance(moneyMarket, wallet.address, etherToken.address), 55000000000000000);
 
       // TODO: This should fail at 27.5, not 110. Check we're calculating ratios correctly.
-      await utils.assertGracefulFailure(moneyMarket, "Borrower::InvalidCollateralRatio", [null, web3.toWei(111, "finney"), web3.toWei(55, "finney")], async () => {
+      await utils.assertGracefulFailure(moneyMarket, "Borrower::InvalidCollateralRatio", [null, web3.toWei(111, "finney"), web3.toWei(222, "finney"), web3.toWei(55, "finney")], async () => {
         await wallet.borrowAsset(faucetToken.address, web3.toWei(111, "finney"), web3.eth.accounts[2], {from: web3.eth.accounts[1]});
       });
 
