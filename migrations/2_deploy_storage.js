@@ -6,6 +6,9 @@ var PriceOracle = artifacts.require("PriceOracle.sol");
 var TokenStore = artifacts.require("TokenStore.sol");
 
 async function deployAll(deployer, network) {
+  // Here, we deploy all of our storage contracts
+
+  // The hope is that these never need to be upgraded.
   const balanceSheet = await deployer.deploy(BalanceSheet);
   const borrowStorage = await deployer.deploy(BorrowStorage);
   const interestRateStorage = await deployer.deploy(InterestRateStorage);
