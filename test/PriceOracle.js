@@ -38,12 +38,12 @@ contract('PriceOracle', function(accounts) {
       ]);
 
       await priceOracle.setAssetValue(tokenAddrs.OMG, toAssetValue(0.01) , {from: web3.eth.accounts[0]});
-      const balance_2 = await priceOracle.getAssetValue.call(tokenAddrs.OMG, 1000);
-      assert.equal(balance_2.valueOf(), 10);
+      assert.equal(await utils.toNumber(priceOracle.getAssetValue.call(tokenAddrs.OMG, 1000)), 10);
+      assert.equal(await utils.toNumber(priceOracle.lastUpdatedAtBlock.call(tokenAddrs.OMG)), web3.eth.blockNumber);
 
-      const assets_2 = await priceOracle.getSupportedAssets.call();
-      assert.equal(assets_2.valueOf().length, 1);
-      assert.equal(assets_2.valueOf()[0], tokenAddrs.OMG);
+      const supportedAssetsArray = await priceOracle.getSupportedAssets.call();
+      assert.equal(supportedAssetsArray.length, 1);
+      assert.equal(supportedAssetsArray[0], tokenAddrs.OMG);
     });
 
     it("should only allow owner to set asset value", async () => {
