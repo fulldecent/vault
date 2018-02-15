@@ -268,7 +268,7 @@ contract('MoneyMarket', function(accounts) {
     it('should get value of assets', async () => {
       // supply Ether tokens for acct 1
       await borrowStorage.addBorrowableAsset(faucetToken.address);
-      await faucetToken.allocate(web3.eth.accounts[0], 100);
+      await faucetToken.allocateTo(web3.eth.accounts[0], 100);
 
       // // Approve wallet for 55 tokens
       await faucetToken.approve(moneyMarket.address, 100, {from: web3.eth.accounts[0]});

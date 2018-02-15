@@ -99,7 +99,7 @@ contract('Wallet', function(accounts) {
   describe('#supplyAsset', () => {
     it('should supply assets in moneyMarket', async () => {
       // Allocate 100 pig tokens to account 1
-      await faucetToken.allocate(web3.eth.accounts[1], 100);
+      await faucetToken.allocateTo(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
       await faucetToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
@@ -126,7 +126,7 @@ contract('Wallet', function(accounts) {
   describe('#supplyDirect', () => {
     it('should supply assets owned by wallet into moneyMarket', async () => {
       // Allocate 100 pig tokens to account 1
-      await faucetToken.allocate(web3.eth.accounts[1], 100);
+      await faucetToken.allocateTo(web3.eth.accounts[1], 100);
 
       // Transfer wallet for 55 tokens
       await faucetToken.transfer(wallet.address, 55, {from: web3.eth.accounts[1]});
@@ -184,7 +184,7 @@ contract('Wallet', function(accounts) {
   describe('#withdrawAsset', () => {
     it('should withdraw assets from moneyMarket', async () => {
       // Allocate 100 pig tokens to account 1
-      await faucetToken.allocate(web3.eth.accounts[1], 100);
+      await faucetToken.allocateTo(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
       await faucetToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
@@ -211,7 +211,7 @@ contract('Wallet', function(accounts) {
       await wallet.sendTransaction({value: web3.toWei(55, "finney")});
       // give the moneyMarket tokens to lend
       // Approve wallet for 55 tokens
-      await faucetToken.allocate(web3.eth.accounts[1], web3.toWei(55, "finney"));
+      await faucetToken.allocateTo(web3.eth.accounts[1], web3.toWei(55, "finney"));
 
       // Approve wallet for 55 tokens
       await faucetToken.approve(wallet.address, web3.toWei(55, "finney"), {from: web3.eth.accounts[1]});
@@ -251,7 +251,7 @@ contract('Wallet', function(accounts) {
 
       // give the moneyMarket tokens to lend
       // TODO: Test for `Supplier::TokenTransferToFail` if moneyMarket lacks funding
-      await faucetToken.allocate(tokenStore.address, web3.toWei(100, "finney"));
+      await faucetToken.allocateTo(tokenStore.address, web3.toWei(100, "finney"));
 
       // set priceOracle value of pig token to 2 wei, which means we can borrow 55
       await utils.setAssetValue(priceOracle, etherToken, 1, web3);
@@ -292,7 +292,7 @@ contract('Wallet', function(accounts) {
       await utils.setAssetValue(priceOracle, faucetToken, 1, web3);
       // Allocate 100 pig tokens to account 1
       await supplyEth(wallet, 33, web3.eth.accounts[1]);
-      await faucetToken.allocate(web3.eth.accounts[1], 100);
+      await faucetToken.allocateTo(web3.eth.accounts[1], 100);
 
       // Approve wallet for 55 tokens
       await faucetToken.approve(wallet.address, 55, {from: web3.eth.accounts[1]});
@@ -333,7 +333,7 @@ contract('Wallet', function(accounts) {
   describe('#balance', () => {
     it('should have correct asset balance', async () => {
       // Allocate 100 pig tokens to account 1
-      await faucetToken.allocate(web3.eth.accounts[1], 100);
+      await faucetToken.allocateTo(web3.eth.accounts[1], 100);
 
       await supplyAsset(wallet, faucetToken, 22, web3.eth.accounts[1]);
 
