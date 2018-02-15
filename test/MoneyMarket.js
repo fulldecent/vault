@@ -47,45 +47,43 @@ contract('MoneyMarket', function(accounts) {
   var etherToken;
   var faucetToken;
   var interestRateStorage;
-  var interestModel;
   var borrowStorage;
   var priceOracle;
-  var ledgerStorage;
-  var balanceSheet;
   var tokenStore;
-  var testLedgerStorage;
-  var testBalanceSheet;
 
   beforeEach(async () => {
-    tokenStore = await TokenStore.new();
-    interestRateStorage = await InterestRateStorage.new();
-    interestModel = await InterestModel.new();
-    ledgerStorage = await LedgerStorage.new();
-    balanceSheet = await BalanceSheet.new();
-    borrowStorage = await BorrowStorage.new();
+    moneyMarket = await MoneyMarket.new();
+    faucetToken = await FaucetToken.new();
+    etherToken = await EtherToken.new();
+
     priceOracle = await PriceOracle.new();
-    testLedgerStorage = await TestLedgerStorage.new();
-    testBalanceSheet = await TestBalanceSheet.new();
+    moneyMarket.setPriceOracle(priceOracle.address);
 
-    [moneyMarket, etherToken, faucetToken] = await Promise.all([MoneyMarket.new(), EtherToken.new(), FaucetToken.new()]);
+    borrowStorage = await BorrowStorage.new();
+    borrowStorage.allow(moneyMarket.address);
+    moneyMarket.setBorrowStorage(borrowStorage.address);
 
-    await ledgerStorage.allow(moneyMarket.address);
-    await balanceSheet.allow(moneyMarket.address);
-    await borrowStorage.allow(moneyMarket.address);
-    await borrowStorage.setMinimumCollateralRatio(2);
-    await interestRateStorage.allow(moneyMarket.address);
-    await priceOracle.allow(moneyMarket.address);
-    await tokenStore.allow(moneyMarket.address);
+    tokenStore = await TokenStore.new();
+    tokenStore.allow(moneyMarket.address);
+    moneyMarket.setTokenStore(tokenStore.address);
 
-    await moneyMarket.setLedgerStorage(ledgerStorage.address);
-    await moneyMarket.setBorrowStorage(borrowStorage.address);
-    await moneyMarket.setInterestRateStorage(interestRateStorage.address);
-    await moneyMarket.setInterestModel(interestModel.address);
-    await moneyMarket.setPriceOracle(priceOracle.address);
-    await moneyMarket.setTokenStore(tokenStore.address);
-    await moneyMarket.setBalanceSheet(balanceSheet.address);
+    const ledgerStorage = await LedgerStorage.new();
+    ledgerStorage.allow(moneyMarket.address);
+    moneyMarket.setLedgerStorage(ledgerStorage.address);
+
+    const interestModel = await InterestModel.new();
+    moneyMarket.setInterestModel(interestModel.address);
+
+    interestRateStorage = await InterestRateStorage.new();
+    interestRateStorage.allow(moneyMarket.address);
+    moneyMarket.setInterestRateStorage(interestRateStorage.address);
+
+    const balanceSheet = await BalanceSheet.new();
+    balanceSheet.allow(moneyMarket.address);
+    moneyMarket.setBalanceSheet(balanceSheet.address);
 
     await utils.setAssetValue(priceOracle, etherToken, 1, web3);
+    await borrowStorage.setMinimumCollateralRatio(2);
     await borrowStorage.addBorrowableAsset(etherToken.address);
   });
 
@@ -222,7 +220,7 @@ contract('MoneyMarket', function(accounts) {
       it("fails", async () => {
         await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[0]);
 
-        await utils.assertGracefulFailure(moneyMarket, "Borrower::InvalidCollateralRatio", [null, 201, 100], async () => {
+        await utils.assertGracefulFailure(moneyMarket, "Borrower::InvalidCollateralRatio", [null, 201, 201, 100], async () => {
           await moneyMarket.customerBorrow(etherToken.address, 201, {from: web3.eth.accounts[0]});
         });
       });
@@ -230,10 +228,27 @@ contract('MoneyMarket', function(accounts) {
   });
 
   describe("when the user tries to take a borrow out of an unsupported asset", () => {
-    it("fails", async () => {
+    it("fails when insufficient cash", async () => {
       await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[0]);
 
-      await utils.assertGracefulFailure(moneyMarket, "Borrower::AssetNotBorrowable", [null], async () => {
+      const testBalanceSheet = await TestBalanceSheet.new();
+      await testBalanceSheet.setBalanceSheetBalance(utils.tokenAddrs.OMG, LedgerAccount.Cash, 10);
+      await moneyMarket.setBalanceSheet(testBalanceSheet.address);
+      await borrowStorage.addBorrowableAsset(utils.tokenAddrs.OMG);
+
+      await utils.assertGracefulFailure(moneyMarket, "Borrower::InsufficientAssetCash", [], async () => {
+        await moneyMarket.customerBorrow(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
+      });
+    });
+
+    it("fails when not borrowable", async () => {
+      await utils.supplyEth(moneyMarket, etherToken, 100, web3.eth.accounts[0]);
+
+      const testBalanceSheet = await TestBalanceSheet.new();
+      await testBalanceSheet.setBalanceSheetBalance(utils.tokenAddrs.OMG, LedgerAccount.Cash, 100);
+      await moneyMarket.setBalanceSheet(testBalanceSheet.address);
+
+      await utils.assertGracefulFailure(moneyMarket, "Borrower::AssetNotBorrowable", [], async () => {
         await moneyMarket.customerBorrow(utils.tokenAddrs.OMG, 50, {from: web3.eth.accounts[0]});
       });
     });
@@ -245,9 +260,7 @@ contract('MoneyMarket', function(accounts) {
       await moneyMarket.customerBorrow(etherToken.address, 20, {from: web3.eth.accounts[1]});
       await moneyMarket.customerWithdraw(etherToken.address, 20, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
-      const eqValue = await moneyMarket.getMaxBorrowAvailable(web3.eth.accounts[1]);
-
-      assert.equal(eqValue.valueOf(), 160);
+      assert.equal(await utils.toNumber(moneyMarket.getMaxBorrowAvailable(web3.eth.accounts[1])), 160);
     });
   });
 
@@ -269,10 +282,10 @@ contract('MoneyMarket', function(accounts) {
       await moneyMarket.customerWithdraw(faucetToken.address, 1, web3.eth.accounts[1], {from: web3.eth.accounts[1]});
 
       // get value of acct 1
-      const eqValue = await moneyMarket.getValueEquivalent.call(web3.eth.accounts[1]);
+      const eqValue = moneyMarket.getValueEquivalent.call(web3.eth.accounts[1]);
       await moneyMarket.getValueEquivalent(web3.eth.accounts[1]);
 
-      assert.equal(eqValue.valueOf(), 198);
+      assert.equal(await utils.toNumber(eqValue), 198);
     });
   });
 
@@ -285,6 +298,9 @@ contract('MoneyMarket', function(accounts) {
   
   describe('#saveBlockInterest', async () => {
     it('should snapshot the current balance', async () => {
+      const testLedgerStorage = await TestLedgerStorage.new();
+      const testBalanceSheet = await TestBalanceSheet.new();
+
       await moneyMarket.setLedgerStorage(testLedgerStorage.address);
       await moneyMarket.setBalanceSheet(testBalanceSheet.address);
 
@@ -297,8 +313,8 @@ contract('MoneyMarket', function(accounts) {
 
       const blockNumber = await interestRateStorage.blockInterestBlock(LedgerAccount.Supply, faucetToken.address);
 
-      assert.equal((await interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 0);
-      assert.equal((await interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber)).toNumber(), 14269406392);
+      assert.equal(await utils.toNumber(interestRateStorage.blockTotalInterest(LedgerAccount.Supply, faucetToken.address, blockNumber)), 0);
+      assert.equal(await utils.toNumber(interestRateStorage.blockInterestRate(LedgerAccount.Supply, faucetToken.address, blockNumber)), 14269406392);
     });
 
     it('should be called once per block unit');

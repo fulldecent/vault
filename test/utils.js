@@ -1,5 +1,13 @@
 "use strict";
 
+const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
+const BalanceSheet = artifacts.require("./storage/BalanceSheet.sol");
+const BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
+const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
+const InterestModel = artifacts.require("./InterestModel.sol");
+const TokenStore = artifacts.require("./storage/TokenStore.sol");
+const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
+
 var _ = require("lodash");
 var Promise = require("bluebird");
 var BigNumber = require('bignumber.js');
@@ -12,6 +20,15 @@ const annualBPSToScaledPerBlockRateNonTrunc = (value) => (value * interestRateSc
 // to scale 5%: scaleInterest(0.05)
 const scaleInterest = (interest) => Math.trunc(interest * Math.pow(10, 17));
 
+const storageTypes = [
+  ['priceOracle', 'setPriceOracle', PriceOracle],
+  ['borrowStorage', 'setBorrowStorage', BorrowStorage],
+  ['tokenStore', 'setTokenStore', TokenStore],
+  ['ledgerStorage', 'setLedgerStorage', LedgerStorage],
+  ['interestModel', 'setInterestModel', InterestModel],
+  ['interestRateStorage', 'setInterestRateStorage', InterestRateStorage],
+  ['balanceSheet', 'setBalanceSheet', BalanceSheet]
+];
 
 function validateRate(assert, annualBPS, actual, expected, msg) {
   validateRateWithMaxRatio(assert, annualBPS, actual, expected, 0.0000002, msg)
@@ -151,6 +168,18 @@ async function toNumber(maybePromiseMaybeDecimal) {
   }
 }
 
+async function takeSnapshot(moneyMarket) {
+  const snapshot = {};
+
+  await Promise.all(storageTypes.map(async ([contract, _, constructor]) => {
+    if (moneyMarket[contract] !== undefined) {
+      snapshot[contract] = constructor.at(await moneyMarket[contract].call());
+    }
+  }));
+
+  return snapshot;
+}
+
 module.exports = {
   mineBlocks: mineBlocks,
   annualBPSToScaledPerBlockRate: annualBPSToScaledPerBlockRate,
@@ -160,6 +189,43 @@ module.exports = {
 
   // Simple function to stop futzing over numbers and promises in our tests
   toNumber: toNumber,
+
+  takeSnapshot: takeSnapshot,
+
+  restoreSnapshot: async function(moneyMarket, snapshot) {
+    const newSnapshot = takeSnapshot(moneyMarket);
+    const promises = [];
+
+    await storageTypes.forEach(async ([contract, fun]) => {
+      if (newSnapshot[contract] !== snapshot[contract].address) {
+        promises.push(moneyMarket[fun](snapshot[contract].address));
+      }
+
+      if (snapshot[contract].allowed && await snapshot[contract].allowed.call() != moneyMarket.address) {
+        promises.push(snapshot[contract].allow(moneyMarket.address));
+      }
+    });
+
+    await Promise.all(promises);
+  },
+
+  allowAll: async function(contracts, allowed) {
+    const restores = await Promise.all(contracts.map(async (contract) => {
+      return [contract, await contract.allowed.call()];
+    }));
+
+    await Promise.all(contracts.map((contract) => {
+      return contract.allow(allowed.address);
+    }));
+
+    return restores;
+  },
+
+  restoreAll: async function(restores) {
+    await Promise.all(restores.map(([contract, allowedAddress]) => {
+      return contract.allow(allowedAddress);
+    }));
+  },
 
   random: function() {
     return Math.floor(Math.random() * Math.floor((Math.pow(2, 64))));
