@@ -1,20 +1,15 @@
-var EtherToken = artifacts.require("EtherToken.sol");
-var MoneyMarket = artifacts.require("MoneyMarket.sol");
-var InterestModel = artifacts.require("InterestModel.sol");
-var TokenFactory = artifacts.require("TokenFactory.sol");
-var WalletFactory = artifacts.require("WalletFactory.sol");
+const EtherToken = artifacts.require("EtherToken.sol");
+const MoneyMarket = artifacts.require("MoneyMarket.sol");
+const InterestModel = artifacts.require("InterestModel.sol");
+const TokenFactory = artifacts.require("TokenFactory.sol");
+const WalletFactory = artifacts.require("WalletFactory.sol");
 
-var FaucetTokenBAT = artifacts.require("FaucetTokenBAT.sol");
-var FaucetTokenDRGN = artifacts.require("FaucetTokenDRGN.sol");
-var FaucetTokenOMG = artifacts.require("FaucetTokenOMG.sol");
-var FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
-
-var BalanceSheet = artifacts.require("BalanceSheet.sol");
-var BorrowStorage = artifacts.require("BorrowStorage.sol");
-var InterestRateStorage = artifacts.require("InterestRateStorage.sol");
-var LedgerStorage = artifacts.require("LedgerStorage.sol");
-var PriceOracle = artifacts.require("PriceOracle.sol");
-var TokenStore = artifacts.require("TokenStore.sol");
+const BalanceSheet = artifacts.require("BalanceSheet.sol");
+const BorrowStorage = artifacts.require("BorrowStorage.sol");
+const InterestRateStorage = artifacts.require("InterestRateStorage.sol");
+const LedgerStorage = artifacts.require("LedgerStorage.sol");
+const PriceOracle = artifacts.require("PriceOracle.sol");
+const TokenStore = artifacts.require("TokenStore.sol");
 
 const MINIMUM_COLLATERAL_RATIO = 2;
 
@@ -39,15 +34,6 @@ async function deployAll(deployer, network) {
 
   // Deploy the WalletFactory, which needed the MoneyMarket and EtherToken address
   const walletFactory = await deployer.deploy(WalletFactory, moneyMarket.address, etherToken.address);
-
-  // If we're on a test-net, let's deploy all of our faucet tokens
-  if (network == "development" || network == "mission" || network == "rinkeby") {
-    await deployer.deploy(FaucetTokenBAT);
-    await deployer.deploy(FaucetTokenDRGN);
-    await deployer.deploy(FaucetTokenOMG);
-    await deployer.deploy(FaucetTokenZRX);
-    await deployer.deploy(TokenFactory);
-  }
 
   // Finally, we need to set-up our allowences and storage
   // Note: if this is after the initial deploy, we should use `allow.js` for

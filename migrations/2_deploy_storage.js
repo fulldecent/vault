@@ -1,9 +1,9 @@
-var BalanceSheet = artifacts.require("BalanceSheet.sol");
-var BorrowStorage = artifacts.require("BorrowStorage.sol");
-var InterestRateStorage = artifacts.require("InterestRateStorage.sol");
-var LedgerStorage = artifacts.require("LedgerStorage.sol");
-var PriceOracle = artifacts.require("PriceOracle.sol");
-var TokenStore = artifacts.require("TokenStore.sol");
+const BalanceSheet = artifacts.require("BalanceSheet.sol");
+const BorrowStorage = artifacts.require("BorrowStorage.sol");
+const InterestRateStorage = artifacts.require("InterestRateStorage.sol");
+const LedgerStorage = artifacts.require("LedgerStorage.sol");
+const PriceOracle = artifacts.require("PriceOracle.sol");
+const TokenStore = artifacts.require("TokenStore.sol");
 
 async function deployAll(deployer, network) {
   // Here, we deploy all of our storage contracts

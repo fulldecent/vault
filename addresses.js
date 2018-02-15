@@ -10,10 +10,18 @@ const FaucetTokenZRX = artifacts.require("FaucetTokenZRX.sol");
 
 const BalanceSheet = artifacts.require("./storage/BalanceSheet.sol");
 const BorrowStorage = artifacts.require("./storage/BorrowStorage.sol");
+const InterestModel = artifacts.require("./InterestModel.sol");
 const InterestRateStorage = artifacts.require("./storage/InterestRateStorage.sol");
 const LedgerStorage = artifacts.require("./storage/LedgerStorage.sol");
 const PriceOracle = artifacts.require("./storage/PriceOracle.sol");
 const TokenStore = artifacts.require("./storage/TokenStore.sol");
+
+const knownTokens = [
+  [ "bat", FaucetTokenBAT ],
+  [ "drgn", FaucetTokenDRGN ],
+  [ "omg", FaucetTokenOMG ],
+  [ "zrx", FaucetTokenZRX ],
+];
 
 module.exports = async function(callback) {
   const balanceSheet = await BalanceSheet.deployed()
@@ -33,21 +41,14 @@ module.exports = async function(callback) {
 
   var tokenFactoryAddress;
 
-  try {
-    const faucetTokenBAT = await FaucetTokenBAT.deployed();
-    tokens[faucetTokenBAT.address] = "bat";
-
-    const faucetTokenDRGN = await FaucetTokenDRGN.deployed();
-    tokens[faucetTokenDRGN.address] = "drgn";
-
-    const faucetTokenOMG = await FaucetTokenOMG.deployed();
-    tokens[faucetTokenOMG.address] = "omg";
-
-    const faucetTokenZRX = await FaucetTokenZRX.deployed();
-    tokens[faucetTokenZRX.address] = "zrx";
-  } catch (e) {
-    console.log("Faucet tokens not deployed");
-  }
+  await Promise.all(knownTokens.map(async ([symbol, contract]) => {
+    try {
+      const deployedContract = await contract.deployed();
+      tokens[deployedContract.address] = symbol;
+    } catch (e) {
+      console.log(`Faucet token ${symbol} not deployed`);
+    }
+  }));
 
   try {
     tokenFactoryAddress = (await TokenFactory.deployed()).address;
