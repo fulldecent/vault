@@ -1,7 +1,7 @@
 FROM mhart/alpine-node:9.2.0
 
 RUN apk update && apk add --no-cache --virtual build-dependencies git python g++ make
-RUN yarn global add truffle
+RUN yarn global add truffle@4.0.6
 
 RUN mkdir -p /deploy/vault
 WORKDIR /deploy/vault
