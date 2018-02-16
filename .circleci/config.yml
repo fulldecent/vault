@@ -44,8 +44,8 @@ jobs:
           key: deploy-to-canary
       - run: "[ -d ~/repo/canary-build ] && mv ~/repo/canary-build ~/repo/build || echo 'No existing build dir'"
       - run: "rm -rf ~/repo/build"
-      - run: "[ -f ~/repo/build/contracts/MoneyMarket.json ] && rm ~/repo/build/contracts/MoneyMarket.json"
-      - run: "[ -f ~/repo/build/contracts/InterestRateStorage.json ] && rm ~/repo/build/contracts/InterestRateStorage.json"
+      - run: "[ -f ~/repo/build/contracts/MoneyMarket.json ] && rm ~/repo/build/contracts/MoneyMarket.json || echo 'not found'"
+      - run: "[ -f ~/repo/build/contracts/InterestRateStorage.json ] && rm ~/repo/build/contracts/InterestRateStorage.json || echo 'not found'"
       - run: RINKEBY_PRIVATE_KEY="$CANARY_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
       - run: RINKEBY_PRIVATE_KEY="$CANARY_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> canary-addresses.json
       - run: mv ~/repo/build ~/repo/canary-build
@@ -77,8 +77,8 @@ jobs:
           key: deploy-to-alpha
       - run: "[ -d ~/repo/alpha-build ] && mv ~/repo/alpha-build ~/repo/build || echo 'No existing build dir'"
       - run: "rm -rf ~/repo/build"
-      - run: "[ -f ~/repo/build/contracts/MoneyMarket.json ] && rm ~/repo/build/contracts/MoneyMarket.json"
-      - run: "[ -f ~/repo/build/contracts/InterestRateStorage.json ] && rm ~/repo/build/contracts/InterestRateStorage.json"
+      - run: "[ -f ~/repo/build/contracts/MoneyMarket.json ] && rm ~/repo/build/contracts/MoneyMarket.json || echo 'not found'"
+      - run: "[ -f ~/repo/build/contracts/InterestRateStorage.json ] && rm ~/repo/build/contracts/InterestRateStorage.json || echo 'not found'"
       - run: RINKEBY_PRIVATE_KEY="$ALPHA_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js deploy --network rinkeby
       - run: RINKEBY_PRIVATE_KEY="$ALPHA_PRIVATE_KEY" ./node_modules/truffle/build/cli.bundled.js exec --network rinkeby ./addresses.js 1> /dev/null 2> alpha-addresses.json
       - run: mv ~/repo/build ~/repo/alpha-build
